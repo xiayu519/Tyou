@@ -1,7 +1,7 @@
 [
   {
     "__type__": "cc.Prefab",
-    "_name": "TestUI1",
+    "_name": "TestUI2",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_native": "",
@@ -13,7 +13,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "TestUI1",
+    "_name": "TestUI2",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": null,
@@ -220,7 +220,7 @@
       "b": 0,
       "a": 255
     },
-    "_string": "test1",
+    "_string": "test2",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 40,

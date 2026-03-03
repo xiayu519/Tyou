@@ -56,24 +56,52 @@ tyou.game     // GameWorld（服务器时间同步等）
 
 UI 模块是框架的核心功能之一，提供了 **栈式窗口管理**、**层级系统**、**模糊背景**、**自动节点绑定** 等能力。
 
-### 防循环依赖机制
+### 防循环依赖 & 防 Tree Shaking 机制
 
-UI 模块采用 **UIName 枚举 + UIRegistry 自注册** 模式，彻底避免 UI 类之间的循环依赖：
+UI 模块采用 **UIName 枚举 + UIImportAll 集中注册 + 回调注入** 模式，同时解决两个问题：
+1. **循环依赖** — UI 类之间通过枚举名互相引用，无需 import 目标 UI 类
+2. **Tree Shaking** — 所有 UI 类在 `UIImportAll.ts` 中集中 import 并注册，被 `Main.ts` 显式引用，确保微信小游戏等平台构建时不会被裁剪
 
-- `UIName.ts` — 纯字符串枚举，无任何 import，不参与循环依赖
-- `UIRegistry.ts` — 纯 Map 注册表，无任何框架 import，是"叶子模块"
-- 每个 UI 类在文件底部 **自注册**，打开 UI 时通过枚举名调用，无需 import 目标 UI 类
+关键文件：
+
+| 文件 | 职责 | import 规则 |
+|-----|------|------------|
+| `UIName.ts` | 纯字符串枚举 | 无任何 import（叶子） |
+| `UIRegistry.ts` | name → constructor 映射表 | 无框架 import（叶子） |
+| `UIImportAll.ts` | 集中 import 所有UI类 + 注册 | **自动生成**，业务层文件 |
+| `UIModule.ts` | UI 管理器 | 通过 UIRegistry 查找构造函数，不 import 任何UI类 |
 
 ```
-依赖方向（单向，无环）：
+依赖方向（单向，无环，无框架→业务反向依赖）：
 
 UIName.ts ← 无 import（叶子）
 UIRegistry.ts ← 无 import（叶子）
     ↑ 被 import
-    ├── UIModule.ts（通过 UIRegistry 查找构造函数）
-    ├── TestUI.ts（自注册 + 引用 UIName 枚举）
-    └── MessageBoxUI.ts（自注册 + 引用 UIName 枚举）
+    ├── UIModule.ts（通过 UIRegistry.get() 查找构造函数）
+    └── UIImportAll.ts（集中 import 所有UI类 + 调 UIRegistry.register）
+            ↑ 被 import
+            └── Main.ts（业务入口，通过 setUIRegistrar 注入给 UIModule）
 ```
+
+#### 注册流程
+
+```typescript
+// Main.ts — 业务入口
+import {registerAllUI} from "./logic/ui/UIImportAll";
+
+onLoad() {
+    tyou.onLoad();
+    tyou.ui.setUIRegistrar(registerAllUI);  // 注入注册函数
+}
+
+async start() {
+    await tyou.onCreate();  // UIModule.onCreate() 内部调用注册函数
+}
+```
+
+> **为什么不在模块顶层直接注册？**
+> 微信小游戏构建可能导致 bundle 分块加载、模块执行顺序不可控。包装成函数由 `UIModule.onCreate()` 显式调用，保证时序可控。
+> 框架层 (`ty-framework`) 不直接 import 业务代码，保持框架的可复用性。
 
 ### 一键生成 UI 代码（编辑器扩展）
 
@@ -105,14 +133,13 @@ UIRegistry.ts ← 无 import（叶子）
 2. 在 **层级管理器** 中右键点击预制体根节点
 3. 选择生成 UI 脚本
 4. 自动生成带有属性绑定、事件注册的 TypeScript 文件到 `scripts/logic/ui` 目录
-5. **自动在 `UIName.ts` 枚举中追加新条目**
-6. **自动包含 `UIRegistry.register()` 自注册代码**
+5. **自动更新 `UIName.ts` 枚举**（追加新条目）
+6. **自动更新 `UIImportAll.ts`**（追加 import + register）
 
 生成的代码结构：
 
 ```typescript
 import {Label, Layout, Node, Sprite} from "cc";
-import {UIRegistry} from "../../../ty-framework/module/ui/UIRegistry";
 import {UIWindow} from "../../../ty-framework/module/ui/UIWindow";
 import {IWindowAttribute, UILayer} from "../../../ty-framework/module/ui/WindowAttribute";
 import {UIName} from "./UIName";
@@ -146,9 +173,7 @@ export class TestUI extends UIWindow {
     override onRefresh() { }
     override onClosed() { }
 }
-
-// 文件底部自注册，无需在其他地方 import 此类
-UIRegistry.register(UIName.TestUI, TestUI);
+// 注册由 UIImportAll.ts 统一管理，无需在此文件中手动注册
 ```
 
 > 命名规范和输出路径可在 `assets/editor/ui-component-config.json` 中自定义配置，模板可在 `assets/editor/ui-template.txt` 中修改。
@@ -165,6 +190,26 @@ export enum UIName {
     // ... 右键生成时自动追加
 }
 ```
+
+### UIImportAll — 集中注册（自动生成）
+
+`scripts/logic/ui/UIImportAll.ts` 由编辑器扩展自动生成，集中 import 所有 UI 类并注册：
+
+```typescript
+import {UIRegistry} from "../../../ty-framework/module/ui/UIRegistry";
+import {UIName} from "./UIName";
+import {TestUI} from "./TestUI";
+import {MessageBoxUI} from "./MessageBoxUI";
+import {TestUI1} from "./TestUI1";
+
+export function registerAllUI(): void {
+    UIRegistry.register(UIName.TestUI, TestUI);
+    UIRegistry.register(UIName.MessageBoxUI, MessageBoxUI);
+    UIRegistry.register(UIName.TestUI1, TestUI1);
+}
+```
+
+> 每次右键生成新 UI 脚本时，此文件会自动重新生成，无需手动维护。
 
 ### customAttributeOverride — 窗口属性配置
 
@@ -659,6 +704,12 @@ Client/
 │   │   └── asset-index-config.json    # 资源索引扫描配置
 │   ├── asset-raw/                  # 原始资源（按 Bundle 组织）
 │   ├── scripts/                    # 业务逻辑代码
+│   │   ├── Main.ts                    # 入口组件
+│   │   └── logic/ui/
+│   │       ├── UIName.ts              # UI名称枚举（自动生成）
+│   │       ├── UIImportAll.ts         # UI集中注册（自动生成）
+│   │       ├── TestUI.ts              # 具体UI类
+│   │       └── ...
 │   └── resources/                  # resources 目录（asset-index.json）
 ├── extensions/
 │   ├── uitscreate/                # UI 代码生成插件

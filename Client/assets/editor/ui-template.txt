@@ -35,5 +35,3 @@ export class [CLASS_NAME] extends UIWindow {
         
     }
 }
-
-UIRegistry.register(UIName.[CLASS_NAME], [CLASS_NAME]);

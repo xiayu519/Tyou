@@ -29,6 +29,9 @@ export class UIModule extends Module {
     private static readonly LAYER_DEEP: number = 2000;
     private static readonly WINDOW_DEEP: number = 100;
 
+    /** UI注册回调，由业务层通过 setUIRegistrar 注入 */
+    private _onRegisterUI: (() => void) | null = null;
+
     /** 默认窗口配置 */
     private readonly _defaultWindowConfig: Omit<IWindowAttribute, 'name' | 'prefabPath'> = {
         layer: UILayer.UI,
@@ -37,8 +40,20 @@ export class UIModule extends Module {
         hideTimeToClose: 0
     };
 
+    /**
+     * 设置UI注册函数（业务层在 onCreate 之前调用）
+     * 传入的函数应集中调用 UIRegistry.register() 注册所有UI类，
+     * 防止微信小游戏等平台构建时 Tree Shaking 移除UI类。
+     */
+    public setUIRegistrar(fn: () => void): void {
+        this._onRegisterUI = fn;
+    }
+
     /** 初始化 */
     public async onCreate() {
+        // 执行业务层注入的UI注册（集中注册，防止 Tree Shaking 移除）
+        this._onRegisterUI?.();
+
         // 初始化层级节点（如果需要在启动时创建）
         this._uiRoot = find("UICanvas");
         this._uiCamera = find("UICamera", this._uiRoot).getComponent(Camera);

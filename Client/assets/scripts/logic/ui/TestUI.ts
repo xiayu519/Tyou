@@ -1,6 +1,5 @@
 import {Label, Layout, Node, Sprite} from "cc";
 import {SceneEnum} from "../../../ty-framework/module/scene/Scene";
-import {UIRegistry} from "../../../ty-framework/module/ui/UIRegistry";
 import {UIWindow} from "../../../ty-framework/module/ui/UIWindow";
 import {IWindowAttribute, UILayer} from "../../../ty-framework/module/ui/WindowAttribute";
 import {UIName} from "./UIName";
@@ -49,5 +48,3 @@ export class TestUI extends UIWindow {
 
     }
 }
-
-UIRegistry.register(UIName.TestUI, TestUI);

@@ -3,12 +3,12 @@ import {UIWindow} from "../../../ty-framework/module/ui/UIWindow";
 import {IWindowAttribute} from "../../../ty-framework/module/ui/WindowAttribute";
 import {UIName} from "./UIName";
 
-export class TestUI1 extends UIWindow {
+export class TestUI2 extends UIWindow {
     //#region UI组件引用
     private _btnEnter: Node;
 
     static get WINDOW_NAME(): string {
-        return UIName.TestUI1;
+        return UIName.TestUI2;
     }		
 
     override bindMemberProperty() {

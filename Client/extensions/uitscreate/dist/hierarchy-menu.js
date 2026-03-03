@@ -51,8 +51,7 @@ export class [CLASS_NAME] extends UIWindow {
         super.onDestroy();
     }
 }
-
-UIRegistry.register(UIName.[CLASS_NAME], [CLASS_NAME]);`;
+`;
 
 // 加载组件配置
 function loadComponentConfig() {
@@ -117,6 +116,55 @@ function loadTemplate() {
 
     console.log('[UI脚本生成器] 使用默认模板');
     return DEFAULT_TEMPLATE;
+}
+
+// 重新生成 UIImportAll.ts（防止 Tree Shaking 移除UI类）
+async function regenerateUIImportAll() {
+    try {
+        const targetDir = loadPathConfig();
+        const projectPath = Editor.Project.path;
+        const uiNameFilePath = path.join(projectPath, 'assets', targetDir, 'UIName.ts');
+
+        if (!fs.existsSync(uiNameFilePath)) {
+            console.log('[UI脚本生成器] UIName.ts 不存在，跳过 UIImportAll 生成');
+            return;
+        }
+
+        const content = fs.readFileSync(uiNameFilePath, 'utf8');
+
+        // 从 UIName.ts 枚举中提取所有UI名称
+        const enumPattern = /(\w+)\s*=\s*["']\w+["']/g;
+        const uiNames = [];
+        let match;
+        while ((match = enumPattern.exec(content)) !== null) {
+            uiNames.push(match[1]);
+        }
+
+        if (uiNames.length === 0) {
+            console.log('[UI脚本生成器] UIName 枚举为空，跳过 UIImportAll 生成');
+            return;
+        }
+
+        // 生成 UIImportAll.ts 内容
+        const importLines = uiNames.map(name => `import {${name}} from "./${name}";`).join('\n');
+        const registerLines = uiNames.map(name => `    UIRegistry.register(UIName.${name}, ${name});`).join('\n');
+
+        const importAllContent = `/**\n * UI统一注册文件（自动生成，请勿手动修改）\n *\n * 将所有UI类的导入和注册集中于此文件，防止微信小游戏等平台\n * 构建时 Tree Shaking 移除UI类。\n * 右键生成UI脚本时会自动更新此文件。\n */\nimport {UIRegistry} from "../../../ty-framework/module/ui/UIRegistry";\nimport {UIName} from "./UIName";\n${importLines}\n\nexport function registerAllUI(): void {\n${registerLines}\n}\n`;
+
+        const importAllFilePath = path.join(projectPath, 'assets', targetDir, 'UIImportAll.ts');
+        fs.writeFileSync(importAllFilePath, importAllContent, 'utf8');
+        console.log(`[UI脚本生成器] UIImportAll.ts 已更新，包含 ${uiNames.length} 个UI类`);
+
+        // 通知 Cocos 刷新资源
+        const dbPath = `db://assets/${targetDir}/UIImportAll.ts`;
+        try {
+            await Editor.Message.request('asset-db', 'refresh-asset', dbPath);
+        } catch (e) {
+            console.log('[UI脚本生成器] 刷新 UIImportAll.ts 资源通知（可忽略）:', e.message);
+        }
+    } catch (error) {
+        console.error('[UI脚本生成器] 更新 UIImportAll.ts 失败:', error);
+    }
 }
 
 // 向 UIName.ts 枚举中追加新条目
@@ -353,9 +401,12 @@ async function generateUIScript() {
             // 自动向 UIName.ts 枚举中追加新条目
             await addUINameEntry(scriptName);
 
+            // 自动重新生成 UIImportAll.ts（防止 Tree Shaking）
+            await regenerateUIImportAll(scriptName);
+
             const detailMessage = nodeProperties.length > 0
-                ? `UI脚本已成功生成！\n包含 ${nodeProperties.length} 个节点属性。\nUIName 枚举已自动更新。`
-                : `UI脚本已成功生成！\n未找到匹配的节点，生成了基础模板。\nUIName 枚举已自动更新。`;
+                ? `UI脚本已成功生成！\n包含 ${nodeProperties.length} 个节点属性。\nUIName 枚举与 UIImportAll 已自动更新。`
+                : `UI脚本已成功生成！\n未找到匹配的节点，生成了基础模板。\nUIName 枚举与 UIImportAll 已自动更新。`;
 
             await showSuccess('脚本生成成功', detailMessage);
         }
@@ -486,7 +537,6 @@ function generateScriptContent(className, nodeProperties, template) {
     }
 
     // 添加基础导入
-    importStatements.push('import {UIRegistry} from \"../../../ty-framework/module/ui/UIRegistry\";');
     importStatements.push('import {UIWindow} from "../../../ty-framework/module/ui/UIWindow";');
     importStatements.push('import {IWindowAttribute} from "../../../ty-framework/module/ui/WindowAttribute";');
     importStatements.push('import {UIName} from "./UIName";');
@@ -523,7 +573,7 @@ function generateScriptContent(className, nodeProperties, template) {
     // 替换导入语句
     scriptContent = scriptContent.replace(/\[IMPORT_STATEMENTS\]/g, importSection);
 
-    // 替换类名（包括 UIName.[CLASS_NAME]、UIRegistry.register(UIName.[CLASS_NAME], [CLASS_NAME]) 等）
+    // 替换类名
     scriptContent = scriptContent.replace(/\[CLASS_NAME\]/g, formattedClassName);
 
     // 替换属性定义（如果没有属性，留空）
