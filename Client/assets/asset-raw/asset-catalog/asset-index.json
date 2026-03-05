@@ -1,0 +1,109 @@
+{
+  "bundles": [
+    "actor",
+    "anim",
+    "atlas",
+    "audio",
+    "config",
+    "effect",
+    "font",
+    "raw",
+    "scene",
+    "spine",
+    "ui"
+  ],
+  "assets": [
+    {
+      "name": "BGM_Main",
+      "path": "p-bgm/BGM_Main",
+      "type": "AudioClip",
+      "bundle": "audio"
+    },
+    {
+      "name": "btn_click",
+      "path": "ui/btn_click",
+      "type": "AudioClip",
+      "bundle": "audio"
+    },
+    {
+      "name": "game",
+      "path": "game",
+      "type": "Scene",
+      "bundle": "scene"
+    },
+    {
+      "name": "login",
+      "path": "login",
+      "type": "Scene",
+      "bundle": "scene"
+    },
+    {
+      "name": "MessageBoxUI",
+      "path": "MessageBoxUI",
+      "type": "Prefab",
+      "bundle": "ui"
+    },
+    {
+      "name": "TestUI",
+      "path": "TestUI",
+      "type": "Prefab",
+      "bundle": "ui"
+    },
+    {
+      "name": "TestUI1",
+      "path": "TestUI1",
+      "type": "Prefab",
+      "bundle": "ui"
+    },
+    {
+      "name": "TestUI2",
+      "path": "TestUI2",
+      "type": "Prefab",
+      "bundle": "ui"
+    },
+    {
+      "name": "TipUI",
+      "path": "TipUI",
+      "type": "Prefab",
+      "bundle": "ui"
+    },
+    {
+      "name": "map_bg",
+      "path": "test-map/map_bg",
+      "type": "SpriteAtlas",
+      "bundle": "atlas"
+    },
+    {
+      "name": "l_bg_jm_di_1",
+      "path": "map/l_bg_jm_di_1",
+      "type": "SpriteFrame",
+      "bundle": "raw"
+    },
+    {
+      "name": "l_grid1",
+      "path": "map/l_grid1",
+      "type": "SpriteFrame",
+      "bundle": "raw"
+    },
+    {
+      "name": "l_grid2",
+      "path": "map/l_grid2",
+      "type": "SpriteFrame",
+      "bundle": "raw"
+    },
+    {
+      "name": "l_grid3",
+      "path": "map/l_grid3",
+      "type": "SpriteFrame",
+      "bundle": "raw"
+    }
+  ],
+  "directories": {
+    "config": [
+      "game"
+    ]
+  },
+  "marks": {
+    "preload": []
+  }
+}

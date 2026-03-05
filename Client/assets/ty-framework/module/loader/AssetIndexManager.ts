@@ -1,18 +1,17 @@
-import { resources} from "cc";
-import {AssetIndexData, AssetInfo, AssetSearchResult, AssetTable, BundlePriority} from "./AssetIndexInfo";
+import {assetManager, JsonAsset} from "cc";
+import {AssetIndexData, AssetInfo, AssetSearchResult, AssetTable} from "./AssetIndexInfo";
 
 /**
  * 资产索引管理器
  */
 export class AssetIndexManager {
-    private _assets: Map<string, AssetInfo> = new Map(); // 使用 Map 提高查找性能
-    private _bundleToAssets: Map<string, Set<string>> = new Map(); // bundle -> assetNames 索引
-    private _typeToAssets: Map<string, Set<string>> = new Map(); // type -> assetNames 索引
-    private _pathToAsset: Map<string, string> = new Map(); // path -> assetName 索引
-    private _marks: Map<string, Set<string>> = new Map(); // 标记 -> assetNames 索引
-    private _assetToMarks: Map<string, Set<string>> = new Map(); // assetName -> marks 索引
-    private _directories: Map<string, string[]> = new Map(); // bundle -> 目录数组 索引
-    private _bundlePriority: BundlePriority | null = null; // Bundle优先级配置
+    private _assets: Map<string, AssetInfo> = new Map();
+    private _bundleToAssets: Map<string, Set<string>> = new Map();
+    private _typeToAssets: Map<string, Set<string>> = new Map();
+    private _pathToAsset: Map<string, string> = new Map();
+    private _marks: Map<string, Set<string>> = new Map();
+    private _assetToMarks: Map<string, Set<string>> = new Map();
+    private _directories: Map<string, string[]> = new Map();
 
     // 私有构造函数，强制使用单例
     private constructor() {
@@ -38,35 +37,7 @@ export class AssetIndexManager {
      * 获取所有 bundle 列表
      */
     public get bundles(): string[] {
-        return [...this._bundles]; // 返回副本
-    }
-
-    /**
-     * 获取核心 Bundle 列表（登录必需）
-     * 如果没有配置 bundlePriority，返回所有 bundle
-     */
-    public get coreBundles(): string[] {
-        if (this._bundlePriority && this._bundlePriority.core) {
-            return [...this._bundlePriority.core];
-        }
         return [...this._bundles];
-    }
-
-    /**
-     * 获取游戏 Bundle 列表（进入游戏后加载）
-     */
-    public get gameBundles(): string[] {
-        if (this._bundlePriority && this._bundlePriority.game) {
-            return [...this._bundlePriority.game];
-        }
-        return [];
-    }
-
-    /**
-     * 是否配置了 Bundle 分级
-     */
-    public get hasBundlePriority(): boolean {
-        return this._bundlePriority !== null;
     }
 
     /**
@@ -102,9 +73,6 @@ export class AssetIndexManager {
         // 设置 bundles
         this._bundles = indexData.bundles || [];
 
-        // 设置 Bundle 优先级配置
-        this._bundlePriority = indexData.bundlePriority || null;
-
         // 构建所有索引
         if (indexData.assets) {
             this.buildIndexes(indexData.assets);
@@ -120,22 +88,36 @@ export class AssetIndexManager {
             this.buildMarksIndex(indexData.marks);
         }
 
-        if (this._bundlePriority) {
-            console.log(`AssetIndexManager: Loaded ${this._assets.size} assets, core bundles: [${this._bundlePriority.core}], game bundles: [${this._bundlePriority.game}]`);
-        } else {
-            console.log(`AssetIndexManager: Loaded ${this._assets.size} assets, ${this._bundles.length} bundles`);
-        }
+        console.log(`AssetIndexManager: Loaded ${this._assets.size} assets, ${this._bundles.length} bundles`);
     }
 
 
     /**
-     * 从 URL 异步加载索引（支持 JSON 和二进制）
-     * @param url 索引文件 URL（自动检测格式）
-     * @param preferBinary 是否优先使用二进制格式
+     * 从 asset-catalog bundle 异步加载索引
+     * @param bundleName 索引所在的 bundle 名称
+     * @param fileName 索引文件名（不含扩展名）
      */
-    public async initFromURL(url: string): Promise<void> {
-        // 加载 JSON 版本
-        await this.loadForApp(url);
+    public async initFromBundle(bundleName: string, fileName: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            // 先加载 bundle
+            assetManager.loadBundle(bundleName, (err: Error | null, bundle: any) => {
+                if (err) {
+                    console.error(`AssetIndexManager: Failed to load bundle "${bundleName}"`, err);
+                    reject(err);
+                    return;
+                }
+                // 从 bundle 中加载 JSON
+                bundle.load(fileName, JsonAsset, (error: Error | null, asset: JsonAsset) => {
+                    if (error) {
+                        console.error(`AssetIndexManager: Failed to load "${fileName}" from bundle "${bundleName}"`, error);
+                        reject(error);
+                    } else {
+                        this.init(asset.json as unknown as AssetIndexData);
+                        resolve();
+                    }
+                });
+            });
+        });
     }
 
     /**
@@ -286,7 +268,6 @@ export class AssetIndexManager {
      */
     public clear(): void {
         this._bundles = [];
-        this._bundlePriority = null;
         this._assets.clear();
         this._bundleToAssets.clear();
         this._typeToAssets.clear();
@@ -295,39 +276,6 @@ export class AssetIndexManager {
         this._assetToMarks.clear();
         this._directories.clear();
     }
-
-    /**
-     * 检查是否为小游戏环境
-     */
-    private isMiniGameEnv(): boolean {
-        /*        // 微信小游戏
-                if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
-                    return true;
-                }
-                // 字节跳动小游戏
-                if (typeof tt !== 'undefined' && tt.getSystemInfoSync) {
-                    return true;
-                }*/
-        // 其他小游戏平台
-        return false;
-    }
-
-    /**
-     * 为 APP 环境加载 JSON
-     */
-    private async loadForApp(url: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            resources.load(url, (error: any, asset: any) => {
-                if (error) {
-                    reject(error);
-                } else {
-                      this.init(asset.json as AssetIndexData);
-                    resolve();
-                }
-            });
-        });
-    }
-
 
     /**
      * 构建所有索引

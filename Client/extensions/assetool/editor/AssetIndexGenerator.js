@@ -3,13 +3,24 @@
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * 自动扫描项目中所有 isBundle=true 的文件夹，
+ * 生成资源索引文件到指定的 bundle 中。
+ *
+ * 规则：
+ *  - 扫描 assets/ 目录下所有 .meta 文件，查找 userData.isBundle === true 的文件夹
+ *  - bundle名称：优先使用 meta 中的 userData.bundleName，否则使用文件夹名
+ *  - 图片资源（png/jpg/jpeg/webp/bmp/tga）必须以配置的前缀开头才会被收录（默认 "l_"）
+ *  - directoryBundles 中的 bundle 只扫描一级子目录名称（不扫描文件）
+ *  - excludeBundles 中的 bundle 不参与扫描（如 resources、asset-catalog）
+ *  - 特殊标记（specialMarks）：文件/文件夹名匹配前缀时自动标记
+ */
 const runGenerator = async function () {
-    console.log('[AssetIndexGenerator] Start generating asset index...');
+    console.log('[AssetIndexGenerator] Start generating asset index (auto-scan mode)...');
 
     const projectPath = Editor.Project.path;
     const configPath = path.join(projectPath, 'assets', 'editor', 'asset-index-config.json');
 
-    // Load config
     if (!fs.existsSync(configPath)) {
         Editor.error(`Config file not found: ${configPath}`);
         return;
@@ -17,256 +28,239 @@ const runGenerator = async function () {
 
     try {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        const assetsArray = []; // 改为数组存储资产
-        const bundleSet = new Set(); // 收集所有 bundle 名称
-        const directoryMap = {}; // 目录映射表 {bundleName: [dir1, dir2, ...]}
-
-        // 存储所有特殊标记的资源
-        const specialMarksMap = {};
+        const resourceTypeMap = config.resourceTypeMap || {};
         const specialMarksConfig = config.specialMarks || {};
+        const imagePrefixFilter = config.imagePrefixFilter || ['l_'];
+        const directoryBundles = new Set(config.directoryBundles || []);
+        const excludeBundles = new Set(config.excludeBundles || []);
+        const outputBundleName = config.outputBundleName || 'asset-catalog';
+        const outputFileName = config.outputFileName || 'asset-index';
+
+        // 图片格式列表
+        const imageExtensions = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tga', 'tif', 'tiff'];
+
+        // 所有可扫描的文件扩展名（来自 resourceTypeMap）
+        const allowedExtensions = new Set(Object.keys(resourceTypeMap));
+
+        const assetsArray = [];
+        const bundleSet = new Set();
+        const directoryMap = {};
+        const logicalNameSet = new Set();
+
+        // 初始化特殊标记存储
+        const specialMarksMap = {};
         for (const markName in specialMarksConfig) {
             specialMarksMap[markName] = new Set();
         }
 
-        // 定义图片格式
-        const imageExtensions = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tga', 'tif', 'tiff'];
+        // ---- 第一步：自动发现所有 bundle ----
+        const discoveredBundles = discoverBundles(projectPath, excludeBundles);
+        console.log(`[AssetIndexGenerator] Discovered ${discoveredBundles.length} bundles:`);
+        for (const b of discoveredBundles) {
+            console.log(`  - ${b.bundleName} (${b.relativePath})`);
+        }
 
-        // 用于检查重复的逻辑名称
-        const logicalNameSet = new Set();
+        // ---- 第二步：逐个扫描 bundle ----
+        for (const bundleInfo of discoveredBundles) {
+            const { bundleName, relativePath, fullPath } = bundleInfo;
 
-        // Process each scan config
-        for (const scanConfig of (config.scanConfigs || [])) {
-            // 根据文件夹名自动生成bundle名称
-            const dirParts = scanConfig.dir.split('/');
-            const bundleName = dirParts[dirParts.length - 1];
-
-            // 判断是否需要遍历文件
-            const hasExtensions = scanConfig.extensions && scanConfig.extensions.length > 0;
-
-            console.log(`[AssetIndexGenerator] Scanning: ${scanConfig.dir} (Bundle: ${bundleName})`);
-
-            if (hasExtensions) {
-                console.log(`  File types: ${scanConfig.extensions.join(', ')}`);
-
-                await scanDirectory(
-                    projectPath,
-                    scanConfig.dir,
-                    bundleName,
-                    scanConfig.extensions,
-                    config.resourceTypeMap || {},
-                    assetsArray,
-                    bundleSet,
-                    specialMarksMap,
-                    specialMarksConfig,
-                    logicalNameSet,
-                    imageExtensions
-                );
-            } else {
-                // 没有extensions时：扫描第一层子文件夹，把所有子文件夹名都存进去
-                console.log(`  No extensions specified, scanning all first-level subdirectories`);
-                await scanDirectories(
-                    projectPath,
-                    scanConfig.dir,
-                    bundleName,
-                    directoryMap
-                );
+            if (directoryBundles.has(bundleName)) {
+                // 目录模式：仅扫描一级子文件夹名
+                console.log(`[AssetIndexGenerator] Scanning directories: ${relativePath} (Bundle: ${bundleName})`);
+                scanFirstLevelDirs(fullPath, bundleName, directoryMap);
                 bundleSet.add(bundleName);
+            } else {
+                // 文件模式：递归扫描所有匹配文件
+                console.log(`[AssetIndexGenerator] Scanning files: ${relativePath} (Bundle: ${bundleName})`);
+                bundleSet.add(bundleName);
+                walkDirectory(
+                    fullPath, '', bundleName,
+                    allowedExtensions, resourceTypeMap, assetsArray,
+                    specialMarksMap, specialMarksConfig, logicalNameSet,
+                    imageExtensions, imagePrefixFilter, new Set()
+                );
             }
         }
 
-        // 创建最终输出的数据结构
+        // ---- 第三步：构建输出 ----
         const outputData = {
-            bundles: Array.from(bundleSet).sort(), // 按字母顺序排序
-            assets: assetsArray // 现在是数组形式
+            bundles: Array.from(bundleSet).sort(),
+            assets: assetsArray,
         };
 
-        // 如果有目录映射数据，添加到输出中
         if (Object.keys(directoryMap).length > 0) {
             outputData.directories = directoryMap;
         }
 
-        // 总是添加特殊标记的数据，即使为空
         const marksData = {};
         for (const markName in specialMarksMap) {
             marksData[markName] = Array.from(specialMarksMap[markName]).sort();
         }
-        outputData.marks = marksData; // 总是包含marks字段
+        outputData.marks = marksData;
 
-        // Save index file
-        const outputPath = path.join(projectPath, 'assets/', config.outputPath || 'asset-index.json');
-        const outputDir = path.dirname(outputPath);
-
+        // ---- 第四步：写入到 asset-catalog bundle ----
+        const outputDir = path.join(projectPath, 'assets', 'asset-raw', outputBundleName);
         if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, {recursive: true});
+            fs.mkdirSync(outputDir, { recursive: true });
         }
+        const outputFilePath = path.join(outputDir, `${outputFileName}.json`);
+        fs.writeFileSync(outputFilePath, JSON.stringify(outputData, null, 2));
+        console.log(`[AssetIndexGenerator] Output: ${outputFilePath}`);
 
-        fs.writeFileSync(outputPath, JSON.stringify(outputData, null, 2));
+        // 确保 bundle meta 存在
+        ensureBundleMeta(projectPath, outputBundleName);
 
-/*        // 保存二进制文件
-        await saveBinaryFile(outputData, outputPath);
-
+        // 统计信息
         const processedCount = assetsArray.length;
-        console.log(`[AssetIndexGenerator] Completed: ${processedCount} assets processed, ${bundleSet.size} bundles found`);
-        console.log(`[AssetIndexGenerator] Output: ${outputPath}`);*/
+        console.log(`[AssetIndexGenerator] Completed: ${processedCount} assets, ${bundleSet.size} bundles`);
 
-        // 输出特殊标记的统计信息
         for (const markName in specialMarksMap) {
             const count = specialMarksMap[markName].size;
             console.log(`[AssetIndexGenerator] ${markName}: ${count} assets`);
         }
 
-        // Show success dialog
-        let message = `Asset index generated successfully!`;
+        let message = `Asset index generated successfully!\n${processedCount} assets, ${bundleSet.size} bundles`;
         for (const markName in specialMarksMap) {
             const count = specialMarksMap[markName].size;
             message += `\n${markName}: ${count}`;
         }
-        Editor.Dialog.info(message, {
-            title: 'Success'
-        });
+        Editor.Dialog.info(message, { title: 'Success' });
 
     } catch (error) {
         Editor.error('[AssetIndexGenerator] Error:', error);
-        Editor.Dialog.error(`Error generating asset index:\n${error.message}`, {
-            title: 'Error'
-        });
+        Editor.Dialog.error(`Error generating asset index:\n${error.message}`, { title: 'Error' });
     }
 };
 
-// 扫描目录结构（只一层，把所有第一层子文件夹都存进去）- 仅在没有extensions时调用
-async function scanDirectories(projectPath, relativeDir, bundleName, directoryMap) {
-    const fullDirPath = path.join(projectPath, 'assets', relativeDir);
+/**
+ * 自动发现项目中所有 isBundle=true 的文件夹
+ * 递归扫描 assets/ 目录，读取每个文件夹对应的 .meta 文件
+ */
+function discoverBundles(projectPath, excludeBundles) {
+    const assetsDir = path.join(projectPath, 'assets');
+    const bundles = [];
 
-    if (!fs.existsSync(fullDirPath)) {
-        console.warn(`Directory not found: ${relativeDir}`);
-        return;
+    function scanDir(dir, relativeBase) {
+        let items;
+        try {
+            items = fs.readdirSync(dir, { withFileTypes: true });
+        } catch (e) {
+            return;
+        }
+
+        for (const item of items) {
+            if (!item.isDirectory()) continue;
+
+            const folderName = item.name;
+            const folderPath = path.join(dir, folderName);
+            const metaPath = path.join(dir, `${folderName}.meta`);
+            const relativePath = relativeBase ? `${relativeBase}/${folderName}` : folderName;
+
+            if (fs.existsSync(metaPath)) {
+                try {
+                    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+                    if (meta.userData && meta.userData.isBundle === true) {
+                        const bundleName = (meta.userData.bundleName && meta.userData.bundleName.trim())
+                            ? meta.userData.bundleName.trim()
+                            : folderName;
+
+                        if (!excludeBundles.has(bundleName)) {
+                            bundles.push({
+                                bundleName,
+                                relativePath,
+                                fullPath: folderPath,
+                            });
+                        } else {
+                            console.log(`[AssetIndexGenerator] Skipping excluded bundle: ${bundleName}`);
+                        }
+                        // bundle 内部不再递归查找子 bundle
+                        continue;
+                    }
+                } catch (e) {
+                    // meta 解析失败，继续
+                }
+            }
+
+            // 非 bundle 文件夹，继续递归
+            scanDir(folderPath, relativePath);
+        }
     }
 
+    scanDir(assetsDir, '');
+    return bundles;
+}
+
+/**
+ * 扫描一级子目录名称（目录模式 bundle）
+ */
+function scanFirstLevelDirs(fullDirPath, bundleName, directoryMap) {
     try {
-        const items = fs.readdirSync(fullDirPath, {withFileTypes: true});
+        const items = fs.readdirSync(fullDirPath, { withFileTypes: true });
         const dirs = items
             .filter(item => item.isDirectory())
             .map(item => item.name)
-            .sort(); // 按字母顺序排序
+            .sort();
 
         if (dirs.length > 0) {
             directoryMap[bundleName] = dirs;
-            console.log(`  Found ${dirs.length} subdirectories in ${relativeDir}: ${dirs.join(', ')}`);
-        } else {
-            console.log(`  No directories found in ${relativeDir}`);
+            console.log(`  Found ${dirs.length} subdirectories: ${dirs.join(', ')}`);
         }
     } catch (error) {
         console.error(`Error scanning directories in ${fullDirPath}:`, error);
     }
 }
 
-// 检查是否符合特殊标记
+/**
+ * 检查特殊标记
+ */
 function checkSpecialMarks(itemName, specialMarksConfig) {
     const marks = [];
-
     for (const markName in specialMarksConfig) {
         const prefixes = specialMarksConfig[markName];
         if (Array.isArray(prefixes)) {
             for (const prefix of prefixes) {
-                // 直接匹配前缀，不进行额外的处理
-                if (itemName.startsWith(prefix)) {
-                    marks.push(markName);
-                    break; // 匹配一个前缀即可
-                }
-                // 如果前缀本身包含大小写，我们可以尝试大小写不敏感的匹配
-                else if (itemName.toLowerCase().startsWith(prefix.toLowerCase())) {
+                if (itemName.startsWith(prefix) || itemName.toLowerCase().startsWith(prefix.toLowerCase())) {
                     marks.push(markName);
                     break;
                 }
             }
         }
     }
-
     return marks;
 }
 
-async function scanDirectory(projectPath, relativeDir, bundleName, extensions, typeMap, assetsArray, bundleSet, specialMarksMap, specialMarksConfig, logicalNameSet, imageExtensions) {
-    const fullDirPath = path.join(projectPath, 'assets', relativeDir);
-
-    if (!fs.existsSync(fullDirPath)) {
-        console.warn(`Directory not found: ${relativeDir}`);
-        return;
-    }
-
-    // 将 bundle 名称添加到集合中
-    bundleSet.add(bundleName);
-
-    // 开始遍历文件
-    walkDirectory(
-        fullDirPath,
-        '',
-        bundleName,
-        extensions,
-        typeMap,
-        assetsArray,
-        specialMarksMap,
-        specialMarksConfig,
-        logicalNameSet,
-        imageExtensions,
-        relativeDir.split('/')
-    );
-}
-
-// 递归遍历目录的高性能实现
-function walkDirectory(currentDir, relativePath, bundleName, extensions, typeMap, assetsArray, specialMarksMap, specialMarksConfig, logicalNameSet, imageExtensions, basePathParts, parentMarks = new Set()) {
+/**
+ * 递归遍历目录，扫描匹配的资源文件
+ */
+function walkDirectory(currentDir, relativePath, bundleName, allowedExtensions, typeMap, assetsArray, specialMarksMap, specialMarksConfig, logicalNameSet, imageExtensions, imagePrefixFilter, parentMarks) {
     try {
-        const items = fs.readdirSync(currentDir, {withFileTypes: true});
+        const items = fs.readdirSync(currentDir, { withFileTypes: true });
 
-        // 收集当前目录的特殊标记
         const currentDirMarks = new Set(parentMarks);
         const dirName = path.basename(currentDir);
-
-        // 检查当前目录名是否符合特殊标记
         const dirMarks = checkSpecialMarks(dirName, specialMarksConfig);
         for (const mark of dirMarks) {
             currentDirMarks.add(mark);
         }
 
-        // 先处理文件
-        for (const item of items) {
-            if (!item.isDirectory()) {
-                processFile(
-                    path.join(currentDir, item.name),
-                    path.join(relativePath, item.name),
-                    bundleName,
-                    extensions,
-                    typeMap,
-                    assetsArray,
-                    specialMarksMap,
-                    specialMarksConfig,
-                    logicalNameSet,
-                    imageExtensions,
-                    currentDirMarks,
-                    basePathParts.concat(relativePath.split('/').filter(Boolean))
-                );
-            }
-        }
-
-        // 然后处理子目录
         for (const item of items) {
             if (item.isDirectory()) {
-                const newRelativePath = path.join(relativePath, item.name);
+                const subRelPath = relativePath ? `${relativePath}/${item.name}` : item.name;
                 const itemMarks = checkSpecialMarks(item.name, specialMarksConfig);
-                const newParentMarks = new Set([...currentDirMarks, ...itemMarks]);
-
+                const childMarks = new Set([...currentDirMarks, ...itemMarks]);
                 walkDirectory(
+                    path.join(currentDir, item.name), subRelPath, bundleName,
+                    allowedExtensions, typeMap, assetsArray,
+                    specialMarksMap, specialMarksConfig, logicalNameSet,
+                    imageExtensions, imagePrefixFilter, childMarks
+                );
+            } else {
+                processFile(
                     path.join(currentDir, item.name),
-                    newRelativePath,
-                    bundleName,
-                    extensions,
-                    typeMap,
-                    assetsArray,
-                    specialMarksMap,
-                    specialMarksConfig,
-                    logicalNameSet,
-                    imageExtensions,
-                    basePathParts,
-                    newParentMarks
+                    relativePath ? `${relativePath}/${item.name}` : item.name,
+                    bundleName, allowedExtensions, typeMap, assetsArray,
+                    specialMarksMap, specialMarksConfig, logicalNameSet,
+                    imageExtensions, imagePrefixFilter, currentDirMarks
                 );
             }
         }
@@ -275,69 +269,96 @@ function walkDirectory(currentDir, relativePath, bundleName, extensions, typeMap
     }
 }
 
-function processFile(filePath, relativePath, bundleName, extensions, typeMap, assetsArray, specialMarksMap, specialMarksConfig, logicalNameSet, imageExtensions, parentMarks, pathParts) {
+/**
+ * 处理单个文件
+ */
+function processFile(filePath, relativePath, bundleName, allowedExtensions, typeMap, assetsArray, specialMarksMap, specialMarksConfig, logicalNameSet, imageExtensions, imagePrefixFilter, parentMarks) {
     const ext = path.extname(filePath).toLowerCase().slice(1);
     if (!ext) return;
 
-    // 检查是否有对应的类型映射
-    if (!typeMap[ext]) {
-        return; // 跳过没有类型映射的文件
-    }
+    // 跳过 .meta 文件
+    if (ext === 'meta') return;
 
-    // 检查文件扩展名是否在允许的列表中
-    if (!extensions.includes(ext)) {
-        return; // 跳过不在允许列表中的文件
-    }
+    // 必须在 resourceTypeMap 中有映射
+    if (!typeMap[ext]) return;
+
+    // 必须在允许的扩展名中
+    if (!allowedExtensions.has(ext)) return;
 
     const fileName = path.basename(filePath, `.${ext}`);
     const assetPath = relativePath.slice(0, -path.extname(relativePath).length).replace(/\\/g, '/');
 
-    // 新增逻辑：对于图片格式，只有文件名以"l_"开头的才存储
+    // 图片前缀过滤：图片格式必须以指定前缀开头
     if (imageExtensions.includes(ext)) {
-        if (!/^l_/i.test(fileName)) {
-            //console.log(`  Skipping image file (doesn't start with "l_"): ${fileName}.${ext}`);
-            return; // 跳过不以"l_"开头的图片文件
-        }
+        const matchesPrefix = imagePrefixFilter.some(
+            prefix => fileName.startsWith(prefix) || fileName.toLowerCase().startsWith(prefix.toLowerCase())
+        );
+        if (!matchesPrefix) return;
     }
 
-    // 创建唯一的逻辑名称
+    // 创建唯一逻辑名称
     let logicalName = fileName;
     let counter = 1;
     while (logicalNameSet.has(logicalName)) {
-        console.log("[重复名字]",logicalName,fileName)
+        console.log("[重复名字]", logicalName, fileName);
         logicalName = `${fileName}_${counter}`;
         counter++;
     }
-
     logicalNameSet.add(logicalName);
 
-    // 收集文件本身可能带有的特殊标记
+    // 收集特殊标记
     const fileMarks = checkSpecialMarks(fileName, specialMarksConfig);
-
-    // 合并所有特殊标记：父目录标记 + 文件本身标记
     const allMarks = new Set([...parentMarks, ...fileMarks]);
 
-    // 添加到资产数组
     const assetInfo = {
-        name: logicalName, // 添加name字段
+        name: logicalName,
         path: assetPath,
         type: typeMap[ext],
-        bundle: bundleName
+        bundle: bundleName,
     };
 
-    // 如果该资产有特殊标记，也在资产信息中记录
     if (allMarks.size > 0) {
         assetInfo.marks = Array.from(allMarks).sort();
     }
 
     assetsArray.push(assetInfo);
 
-    // 将资源添加到对应的特殊标记集合中
     for (const mark of allMarks) {
         if (specialMarksMap[mark]) {
             specialMarksMap[mark].add(logicalName);
         }
     }
+}
+
+/**
+ * 确保 asset-catalog bundle 的 meta 文件存在
+ */
+function ensureBundleMeta(projectPath, bundleName) {
+    const metaPath = path.join(projectPath, 'assets', 'asset-raw', `${bundleName}.meta`);
+    if (!fs.existsSync(metaPath)) {
+        const uuid = generateSimpleUUID();
+        const meta = {
+            ver: "1.2.0",
+            importer: "directory",
+            imported: true,
+            uuid: uuid,
+            files: [],
+            subMetas: {},
+            userData: {
+                isBundle: true
+            }
+        };
+        fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+        console.log(`[AssetIndexGenerator] Created bundle meta: ${metaPath}`);
+    }
+}
+
+function generateSimpleUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
 }
 
 module.exports = {

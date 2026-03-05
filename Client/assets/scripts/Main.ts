@@ -2,7 +2,8 @@ import {_decorator, Component, director, Node} from 'cc';
 import {LoadingUI} from "../asset-art/ui/LoadingUI";
 import {SceneEnum} from "../ty-framework/module/scene/Scene";
 import {UIName} from "./logic/ui/UIName";
-import {registerAllUI} from "./logic/ui/UIImportAll";
+// Side-effect import: 触发所有 UI 类的 @UIDecorator 自注册，防止 Tree Shaking
+import "./logic/ui/UIImportAll";
 
 
 const {ccclass, property} = _decorator;
@@ -14,7 +15,6 @@ export class Main extends Component {
 
     override onLoad() {
         tyou.onLoad();
-        tyou.ui.setUIRegistrar(registerAllUI);
     }
 
     async start() {

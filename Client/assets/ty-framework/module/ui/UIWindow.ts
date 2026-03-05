@@ -20,26 +20,13 @@ export class UIWindow extends UIBase {
 
     private _prepareCallback: ((window: UIWindow) => void) | null = null;
     private _isCreate: boolean = false;
-
-    static get WINDOW_NAME(): string {
-        return "DefaultWindow";
-    }
-
-    protected _defaultAttribute: IWindowAttribute = {
-        path: UIWindow.WINDOW_NAME,
-        layer: UILayer.UI,
-        fullScreen: true,
-        bgClose: false,
-        hideTimeToClose: 3
-    };
     private _depth: number = 0;
 
-    protected get customAttributeOverride(): Partial<IWindowAttribute> {
-        return {};
-    }
-
+    /**
+     * 获取最终窗口属性（由 @UIDecorator 装饰器配置）
+     */
     public get customAttribute(): IWindowAttribute {
-        return {...this._defaultAttribute, ...this.customAttributeOverride};
+        return (this.constructor as any).__uiAttributes || {};
     }
 
     public get depth(): number {

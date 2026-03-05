@@ -21,7 +21,7 @@ export const UIRegistry = {
 
     /**
      * 注册一个UI类
-     * @param name   唯一标识，通常与 WINDOW_NAME 一致
+     * @param name   唯一标识，通常使用 UIName 枚举值
      * @param ctor   UI类的构造函数
      */
     register(name: string, ctor: new () => any): void {

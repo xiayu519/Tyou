@@ -18,16 +18,9 @@ const DEFAULT_TS_PATH = "GameScripts/GameLogic/UI";
 // 默认模板内容
 const DEFAULT_TEMPLATE = ` [IMPORT_STATEMENTS]
 
+@UIDecorator({ name: UIName.[CLASS_NAME] })
 export class [CLASS_NAME] extends UIWindow {
 [PROPERTY_DEFINITIONS]
-
-    static get WINDOW_NAME(): string {
-        return UIName.[CLASS_NAME];
-    }
-
-    protected get customAttributeOverride(): Partial<IWindowAttribute> {
-        return {};
-    }
 
     override bindMemberProperty() {
 [BIND_STATEMENTS]
@@ -47,8 +40,8 @@ export class [CLASS_NAME] extends UIWindow {
 
     }
 
-    override onDestroy() {
-        super.onDestroy();
+    override onClosed() {
+
     }
 }
 `;
@@ -145,11 +138,10 @@ async function regenerateUIImportAll() {
             return;
         }
 
-        // 生成 UIImportAll.ts 内容
-        const importLines = uiNames.map(name => `import {${name}} from "./${name}";`).join('\n');
-        const registerLines = uiNames.map(name => `    UIRegistry.register(UIName.${name}, ${name});`).join('\n');
+        // 生成 UIImportAll.ts 内容（装饰器模式：仅需 side-effect import）
+        const importLines = uiNames.map(name => `import "./${name}";`).join('\n');
 
-        const importAllContent = `/**\n * UI统一注册文件（自动生成，请勿手动修改）\n *\n * 将所有UI类的导入和注册集中于此文件，防止微信小游戏等平台\n * 构建时 Tree Shaking 移除UI类。\n * 右键生成UI脚本时会自动更新此文件。\n */\nimport {UIRegistry} from "../../../ty-framework/module/ui/UIRegistry";\nimport {UIName} from "./UIName";\n${importLines}\n\nexport function registerAllUI(): void {\n${registerLines}\n}\n`;
+        const importAllContent = `/**\n * UI统一导入文件（自动生成，请勿手动修改）\n *\n * 导入所有UI类以触发 @UIDecorator 装饰器的自注册，\n * 防止微信小游戏等平台构建时 Tree Shaking 移除UI类。\n * 右键生成UI脚本时会自动更新此文件。\n */\n${importLines}\n`;
 
         const importAllFilePath = path.join(projectPath, 'assets', targetDir, 'UIImportAll.ts');
         fs.writeFileSync(importAllFilePath, importAllContent, 'utf8');
@@ -273,11 +265,7 @@ function generateClipboardContent(className, nodeProperties) {
         clipboardContent += propertyDefinitions + '\n\n';
     }
 
-    clipboardContent += `    static get WINDOW_NAME(): string {
-        return "${formattedClassName}";
-    }
-
-    override bindMemberProperty() {
+    clipboardContent += `    override bindMemberProperty() {
 ${bindStatements}
     }
 
@@ -329,25 +317,38 @@ function copyToClipboard(text) {
 }
 
 // 生成UI脚本的核心逻辑
-async function generateUIScript() {
+async function generateUIScript(nodeUuid) {
     try {
-        // 1. 获取选中的节点
-        const type = Editor.Selection.getLastSelectedType();
-        const uuids = Editor.Selection.getSelected(type);
-
-        if (!uuids || uuids.length === 0) {
-            console.warn('请选中一个节点');
-            await showWarning('请先选中一个节点');
-            return;
+        // 1. 确定节点 uuid（优先使用传入的 uuid，兜底从 Selection 获取）
+        let uuid = nodeUuid;
+        if (!uuid) {
+            const uuids = Editor.Selection.getSelected('node');
+            if (!uuids || uuids.length === 0) {
+                console.warn('请选中一个节点');
+                await showWarning('请先选中一个节点');
+                return;
+            }
+            uuid = uuids[0];
         }
 
-        const uuid = uuids[0];
-        console.log("选择节点",type,uuid);
-        // 2. 查询节点信息
-        const node = await Editor.Message.request('scene', 'query-node', uuid);
+        console.log("选择节点 uuid:", uuid);
+
+        // 2. 查询节点信息（带重试，防止场景面板尚未就绪）
+        let node = null;
+        for (let retry = 0; retry < 3; retry++) {
+            try {
+                node = await Editor.Message.request('scene', 'query-node', uuid);
+            } catch (e) {
+                console.warn(`[UI脚本生成器] query-node 第${retry + 1}次失败:`, e.message);
+            }
+            if (node) break;
+            // 等待 300ms 后重试
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
         if (!node) {
-            console.error('无法获取节点信息');
-            await showWarning('无法获取节点信息');
+            console.error('无法获取节点信息, uuid:', uuid);
+            await showWarning('无法获取节点信息，请确保场景已打开并重试');
             return;
         }
 
@@ -537,8 +538,9 @@ function generateScriptContent(className, nodeProperties, template) {
     }
 
     // 添加基础导入
+    importStatements.push('import {UIDecorator} from "../../../ty-framework/module/ui/UIDecorator";');
     importStatements.push('import {UIWindow} from "../../../ty-framework/module/ui/UIWindow";');
-    importStatements.push('import {IWindowAttribute} from "../../../ty-framework/module/ui/WindowAttribute";');
+    importStatements.push('import {UILayer} from "../../../ty-framework/module/ui/WindowAttribute";');
     importStatements.push('import {UIName} from "./UIName";');
     const importSection = importStatements.join('\n');
 
@@ -684,7 +686,8 @@ module.exports = {
         return [{
             label: '🎯 生成UI脚本',
             async click() {
-                await generateUIScript();
+                // assetInfo 即为右键点击的节点 uuid，直接传入避免依赖 Selection API
+                await generateUIScript(assetInfo);
             }
         }];
     }

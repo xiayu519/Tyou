@@ -1,12 +1,9 @@
 [IMPORT_STATEMENTS]
 
+@UIDecorator({ name: UIName.[CLASS_NAME] })
 export class [CLASS_NAME] extends UIWindow {
     //#region UI组件引用
 [PROPERTY_DEFINITIONS]
-
-    static get WINDOW_NAME(): string {
-        return UIName.[CLASS_NAME];
-    }		
 
     override bindMemberProperty() {
 [BIND_STATEMENTS]
@@ -18,10 +15,6 @@ export class [CLASS_NAME] extends UIWindow {
     //#endregion
 
 [CLICK_METHODS]
-
-    protected get customAttributeOverride(): Partial<IWindowAttribute> {
-        return { };
-    }
 
     override onCreate() {
 

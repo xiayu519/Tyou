@@ -1,6 +1,7 @@
 import {Label, Layout, Node, Sprite} from "cc";
+import {UIDecorator} from "../../../ty-framework/module/ui/UIDecorator";
 import {UIWindow} from "../../../ty-framework/module/ui/UIWindow";
-import {IWindowAttribute, UILayer} from "../../../ty-framework/module/ui/WindowAttribute";
+import {UILayer} from "../../../ty-framework/module/ui/WindowAttribute";
 import {UIName} from "./UIName";
 
 export enum MessageBoxType {
@@ -8,6 +9,13 @@ export enum MessageBoxType {
     Two
 }
 
+@UIDecorator({
+    name: UIName.MessageBoxUI,
+    layer: UILayer.Tips,
+    fullScreen: false,
+    bgClose: false,
+    hideTimeToClose: 60,
+})
 export class MessageBoxUI extends UIWindow {
     //#region UI组件引用
     private _btnExit: Node;
@@ -21,10 +29,6 @@ export class MessageBoxUI extends UIWindow {
     private _textContent: Label;
 
     private _textTitle: Label;
-
-    static get WINDOW_NAME(): string {
-        return UIName.MessageBoxUI;
-    }
 
     override bindMemberProperty() {
         this._btnExit = this.get("m_btnExit");
@@ -50,14 +54,6 @@ export class MessageBoxUI extends UIWindow {
     private onBtnSureClick(btn: Node, param: any) {
         this.hide();
         this._params.cb2?.();
-    }
-
-    protected get customAttributeOverride(): Partial<IWindowAttribute> {
-        return {
-            fullScreen: false,
-            layer: UILayer.Tips,
-            hideTimeToClose: 60
-        };
     }
 
     private _type: MessageBoxType;

@@ -64,7 +64,7 @@ export class ResourceModule extends Module {
 
         const _t = Date.now();
         console.log("加载配置事件");
-        await AssetIndexManager.instance.initFromURL("asset-index");
+        await AssetIndexManager.instance.initFromBundle("asset-catalog", "asset-index");
         console.log("加载配置事件耗时", Date.now() - _t);
     }
 
@@ -72,26 +72,7 @@ export class ResourceModule extends Module {
         return AssetIndexManager.instance.bundles;
     }
 
-    /**
-     * 获取核心 Bundle 列表（登录必需，优先加载）
-     */
-    getCoreBundles() {
-        return AssetIndexManager.instance.coreBundles;
-    }
 
-    /**
-     * 获取游戏 Bundle 列表（进入游戏后加载）
-     */
-    getGameBundles() {
-        return AssetIndexManager.instance.gameBundles;
-    }
-
-    /**
-     * 是否配置了 Bundle 分级
-     */
-    hasBundlePriority() {
-        return AssetIndexManager.instance.hasBundlePriority;
-    }
 
     getPreloadListFromAssetIndex() {
         return AssetIndexManager.instance.getAssetsByMark("preload");
