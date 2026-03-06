@@ -99,7 +99,13 @@ const runGenerator = async function () {
         outputData.marks = marksData;
 
         // ---- 第四步：写入到 asset-catalog bundle ----
-        const outputDir = path.join(projectPath, 'assets', 'asset-raw', outputBundleName);
+        // 确保 asset-raw 根目录存在
+        const assetRawDir = path.join(projectPath, 'assets', 'asset-raw');
+        if (!fs.existsSync(assetRawDir)) {
+            fs.mkdirSync(assetRawDir, { recursive: true });
+            console.log(`[AssetIndexGenerator] Created asset-raw directory: ${assetRawDir}`);
+        }
+        const outputDir = path.join(assetRawDir, outputBundleName);
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }

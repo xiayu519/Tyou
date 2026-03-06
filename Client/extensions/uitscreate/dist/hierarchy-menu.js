@@ -111,6 +111,34 @@ function loadTemplate() {
     return DEFAULT_TEMPLATE;
 }
 
+// 确保目录存在（递归创建）
+function ensureDirectoryExists(dirPath) {
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+        console.log(`[UI脚本生成器] 已创建目录: ${dirPath}`);
+    }
+}
+
+// 确保 UIName.ts 存在，不存在则创建
+function ensureUINameFile(filePath) {
+    ensureDirectoryExists(path.dirname(filePath));
+    if (!fs.existsSync(filePath)) {
+        const content = `/**\n * UI名称枚举（自动生成，请勿手动修改）\n *\n * 右键生成UI脚本时会自动在此枚举中追加新条目。\n * 纯数据文件，无任何import，不参与任何循环依赖。\n */\nexport enum UIName {\n}\n`;
+        fs.writeFileSync(filePath, content, 'utf8');
+        console.log(`[UI脚本生成器] 已创建 UIName.ts: ${filePath}`);
+    }
+}
+
+// 确保 UIImportAll.ts 存在，不存在则创建
+function ensureUIImportAllFile(filePath) {
+    ensureDirectoryExists(path.dirname(filePath));
+    if (!fs.existsSync(filePath)) {
+        const content = `/**\n * UI统一导入文件（自动生成，请勿手动修改）\n *\n * 导入所有UI类以触发 @UIDecorator 装饰器的自注册，\n * 防止微信小游戏等平台构建时 Tree Shaking 移除UI类。\n * 右键生成UI脚本时会自动更新此文件。\n */\n`;
+        fs.writeFileSync(filePath, content, 'utf8');
+        console.log(`[UI脚本生成器] 已创建 UIImportAll.ts: ${filePath}`);
+    }
+}
+
 // 重新生成 UIImportAll.ts（防止 Tree Shaking 移除UI类）
 async function regenerateUIImportAll() {
     try {
@@ -118,10 +146,8 @@ async function regenerateUIImportAll() {
         const projectPath = Editor.Project.path;
         const uiNameFilePath = path.join(projectPath, 'assets', targetDir, 'UIName.ts');
 
-        if (!fs.existsSync(uiNameFilePath)) {
-            console.log('[UI脚本生成器] UIName.ts 不存在，跳过 UIImportAll 生成');
-            return;
-        }
+        // 确保目录和文件存在
+        ensureUINameFile(uiNameFilePath);
 
         const content = fs.readFileSync(uiNameFilePath, 'utf8');
 
@@ -144,6 +170,7 @@ async function regenerateUIImportAll() {
         const importAllContent = `/**\n * UI统一导入文件（自动生成，请勿手动修改）\n *\n * 导入所有UI类以触发 @UIDecorator 装饰器的自注册，\n * 防止微信小游戏等平台构建时 Tree Shaking 移除UI类。\n * 右键生成UI脚本时会自动更新此文件。\n */\n${importLines}\n`;
 
         const importAllFilePath = path.join(projectPath, 'assets', targetDir, 'UIImportAll.ts');
+        ensureDirectoryExists(path.dirname(importAllFilePath));
         fs.writeFileSync(importAllFilePath, importAllContent, 'utf8');
         console.log(`[UI脚本生成器] UIImportAll.ts 已更新，包含 ${uiNames.length} 个UI类`);
 
@@ -166,13 +193,10 @@ async function addUINameEntry(className) {
         const projectPath = Editor.Project.path;
         const uiNameFilePath = path.join(projectPath, 'assets', targetDir, 'UIName.ts');
 
-        let content;
-        if (fs.existsSync(uiNameFilePath)) {
-            content = fs.readFileSync(uiNameFilePath, 'utf8');
-        } else {
-            // UIName.ts 不存在，创建初始内容
-            content = `/**\n * UI名称枚举（自动生成，请勿手动修改）\n *\n * 右键生成UI脚本时会自动在此枚举中追加新条目。\n * 纯数据文件，无任何import，不参与任何循环依赖。\n */\nexport enum UIName {\n}\n`;
-        }
+        // 确保目录和文件存在
+        ensureUINameFile(uiNameFilePath);
+
+        let content = fs.readFileSync(uiNameFilePath, 'utf8');
 
         // 检查是否已存在该条目
         const entryPattern = new RegExp(`\\b${className}\\s*=`);
