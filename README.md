@@ -1,10 +1,10 @@
 # Tyou
 
-CocosCreator 3.8.7 基础框架，比较适合 Unity 初转型 CCC 的使用者。参考了 **TEngine** 等开源框架。
-（如果对你有帮助，给个star就好了。）
-（有问题反馈 qq 499793702  TEngine技术群 862987645）
+> CocosCreator 3.8.7 基础框架，比较适合 Unity 初转型 CCC 的使用者。参考了 **TEngine** 等开源框架。
 
-> 📺 [【Cocos Creator PSD转UI教程｜PSD2UI工作流全开源】](https://www.bilibili.com/video/BV1nhDeBoEcq/) — B站介绍视频
+如果对你有帮助，欢迎点个 ⭐ Star！
+
+📺 [框架 PSD→UI 工作流介绍](https://www.bilibili.com/video/BV1nhDeBoEcq/) &nbsp;|&nbsp; 问题反馈 QQ：`499793702` &nbsp;|&nbsp; TEngine 技术群：`862987645`
 
 ## 特性概览
 
