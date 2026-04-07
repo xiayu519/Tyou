@@ -126,7 +126,7 @@ Client/tools/psd/Psd2CCC-Digest.jsx
 2. 运行脚本：`文件 → 脚本 → Psd2CCC-Digest`（或浏览选择 `.jsx`）
 3. 脚本自动执行以下操作：
    - **栈格化**智能对象/形状/填充层（自动恢复，不修改 PSD）
-   - **导出 PNG** → `Client/assets/asset-raw/ui-raw/atlas/{psdName}/`
+   - **导出 PNG** → `Client/assets/asset-art/atlas/{psdName}/`
    - **生成结构 JSON** → `Client/assets/asset-art/psd/tool/{psdName}/{psdName}-structure.json`
    - 文字层自动识别为 `text` 节点（保留字体/字号/颜色）
    - 重复图层自动去重（相同像素只导出一次，多个节点共用引用）
@@ -137,7 +137,7 @@ Client/tools/psd/Psd2CCC-Digest.jsx
 
 | 输出内容 | 路径 | 说明 |
 |---------|------|------|
-| 切图 PNG | `assets/asset-raw/ui-raw/atlas/{psdName}/` | 按 PSD 名称分目录，Cocos 可直接使用 |
+| 切图 PNG | `assets/asset-art/atlas/{psdName}/` | 按 PSD 名称分目录，Cocos 可直接使用 |
 | 结构 JSON | `assets/asset-art/psd/tool/{psdName}/{psdName}-structure.json` | 记录节点树结构、位置、尺寸、类型 |
 
 #### PSD 图层规范

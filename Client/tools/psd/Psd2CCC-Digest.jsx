@@ -6,7 +6,7 @@
  *       运行此脚本。
  *
  * 输出：
- *   PNG → {Client}/assets/asset-raw/ui-raw/atlas/{psdName}/
+ *   PNG → {Client}/assets/asset-art/atlas/{psdName}/
  *   JSON → {psdFolder}/tool/{psdName}/{psdName}-structure.json
  *
  * 文字层 → text 节点；其余可见图层/组 → png 导出。
@@ -394,7 +394,7 @@ function main() {
     var clientRoot = new Folder(psdFolder).parent.parent.parent.fsName;
 
     // PNG 输出目录
-    var assetsDir = clientRoot + "/assets/asset-raw/ui-raw/atlas/" + psdPrefix;
+    var assetsDir = clientRoot + "/assets/asset-art/atlas/" + psdPrefix;
     // JSON 输出目录
     var jsonDir   = psdFolder + "/tool/" + psdPrefix;
     var jsonPath  = jsonDir + "/" + psdPrefix + "-structure.json";
@@ -420,7 +420,7 @@ function main() {
                     height: Math.round(parseFloat(doc.height)) },
             psdName: rawPsdName,
             psdPrefix: psdPrefix,
-            atlasPath: "asset-raw/ui-raw/atlas/" + psdPrefix,
+            atlasPath: "asset-art/atlas/" + psdPrefix,
             children: ch
         };
 
