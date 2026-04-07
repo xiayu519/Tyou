@@ -101,7 +101,7 @@ PSD 设计稿
 Photoshop 脚本位于项目中：
 
 ```
-Client/assets/asset-art/psd/tool/Psd2CCC-Digest.jsx
+Client/tools/psd/Psd2CCC-Digest.jsx
 ```
 
 使用前需将此文件 **复制到 Photoshop 的 Scripts 目录**，便于通过菜单快速调用：
@@ -1472,7 +1472,6 @@ Client/
 │   │   └── psd/                       # PSD 设计稿目录
 │   │       ├── *.psd                  # PSD 源文件
 │   │       └── tool/
-│   │           ├── Psd2CCC-Digest.jsx # PS 切图脚本（复制到 PS Scripts 目录使用）
 │   │           └── {psdName}/         # 每个 PSD 生成的 JSON 目录
 │   ├── asset-raw/
 │   │   └── ui-raw/atlas/{psdName}/    # PSD 导出的切图 PNG
@@ -1488,6 +1487,9 @@ Client/
 │   │       ├── TestUI.ts              # 具体UI类（@UIDecorator）
 │   │       └── ...
 │   └── resources/                  # resources 目录
+├── tools/
+│   └── psd/
+│       └── Psd2CCC-Digest.jsx    # PS 切图脚本（复制到 PS Scripts 目录使用）
 ├── extensions/
 │   ├── psd2ccc/                   # PSD → Cocos 节点树生成插件
 │   ├── uitscreate/                # UI 代码生成 + 前缀检查插件
