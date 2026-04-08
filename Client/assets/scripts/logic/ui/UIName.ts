@@ -8,4 +8,5 @@ export enum UIName {
     TestUI = "TestUI",
     MessageBoxUI = "MessageBoxUI",
     TestUI1 = "TestUI1",
+    TestPsdUI = "TestPsdUI",
 }
