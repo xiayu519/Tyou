@@ -1,5 +1,9 @@
 'use strict';
-Object.defineProperty(exports, '__esModule', { value: true });
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.methods = void 0;
+exports.load = load;
+exports.unload = unload;
 exports.methods = {};
-exports.load = function () { console.log('[PSD2CCC] 扩展已加载'); };
-exports.unload = function () { console.log('[PSD2CCC] 扩展已卸载'); };
+function load() { console.log('[PSD2CCC] extension loaded'); }
+function unload() { console.log('[PSD2CCC] extension unloaded'); }
+//# sourceMappingURL=main.js.map
