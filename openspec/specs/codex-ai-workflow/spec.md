@@ -3,6 +3,17 @@
 ## Purpose
 Define the mandatory Codex AI workflow for the Tyou Cocos Creator project, including OpenSpec supervision, Tyou-specific rule precedence, local correction loops, and token-efficient task routing.
 ## Requirements
+### Requirement: Codex replies in Chinese
+The Codex workflow MUST require project-facing proposals and answers to be written in Chinese, while preserving literal code identifiers, commands, file paths, API names, and logs in their original language.
+
+#### Scenario: Project-facing response is produced
+- **WHEN** Codex writes a proposal, clarification, progress update, explanation, summary, or final answer for this project
+- **THEN** the human-facing prose is written in Chinese
+
+#### Scenario: Literal technical text is included
+- **WHEN** Codex includes code identifiers, commands, file paths, API names, or log output in a response
+- **THEN** those literal technical values remain unchanged unless the user explicitly asks for translation or rewriting
+
 ### Requirement: OpenSpec gates implementation tasks
 The Codex workflow MUST require OpenSpec supervision before any L2 or higher implementation task modifies code, resources, prefabs, configuration, workflow documents, or framework behavior.
 

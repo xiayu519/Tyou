@@ -1,6 +1,7 @@
 # AGENTS.md
 
-请使用中文提案、说明和总结。
+请使用中文写提案和回答。
+这里的“回答”包括澄清问题、进度更新、说明、总结和最终回复；代码标识、命令、路径、API 名称和日志原文保持原样。
 
 本项目是 Cocos Creator 3.8.7 + TypeScript 的 Tyou 客户端框架。本仓库已配置 Codex 原生 skills（位于 [.agents/skills/](.agents/skills)），相关任务 Codex 会根据描述自动激活对应 skill；如未自动激活，可显式调用：`$tyou-dev`、`$openspec-propose`、`$openspec-apply-change`、`$openspec-archive-change`、`$openspec-explore`。
 
