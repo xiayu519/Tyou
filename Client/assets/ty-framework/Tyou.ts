@@ -1,6 +1,5 @@
 import {find} from "cc";
 import {ECSRootSystem} from "./core/ecs/ECSSystem";
-import {DebugModule} from "./core/debug/DebugModule";
 import {AudioModule} from "./module/audio/AudioModule";
 import {EventModule} from "./module/event/EventModule";
 import {FSMModule} from "./module/fsm/FSMModule";
@@ -29,7 +28,6 @@ class Tyou {
     ecs: ECSRootSystem = new ecs.RootSystem();
     //除非用到component里面的特性 只需要一个update话 没必要继承它
     update: UpdateModule = new UpdateModule();
-    debug: DebugModule = new DebugModule();
     pool: PoolModule;
     audio: AudioModule;
     scene: SceneModule;
@@ -55,7 +53,6 @@ class Tyou {
         this.scene.onCreate();
         this.storage.onCreate();
         await this.ui.onCreate();
-        this.debug.enable();
     }
 
     public onUpdate(dt: number): void {
@@ -67,11 +64,9 @@ class Tyou {
         this.update.onUpdate(dt);
         this.audio.onUpdate(dt);
         this.res.onUpdate(dt);
-        this.debug.onUpdate(dt);
     }
 
     public onDestroy(): void {
-        this.debug.onDestroy();
         this.res.onDestroy();
         this.event.onDestroy();
         this.timer.onDestroy();

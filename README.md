@@ -20,7 +20,6 @@
 - **ECS** — 经典 Entity-Component-System，bitmask 匹配 + 对象池回收
 - **网络模块** — 多通道 WebSocket，心跳、断线重连、Protobuf/JSON/Pako 协议
 - **音频模块** — 对象池 + 优先级抢占
-- **调试工具** — 运行时性能面板（FPS/内存/池/DrawCall），统一开关，默认关闭零开销
 - **配置表** — Luban 二进制格式，工具一键生成
 
 ## 快速开始
@@ -63,6 +62,46 @@ tyou.game     // GameWorld（服务器时间同步等）
 Log           // 全局日志（globalThis.Log）
 Unitask       // 全局异步工具（globalThis.Unitask）
 ```
+
+---
+
+## GPT/Codex AI 开发工作流
+
+本仓库已经接入一套**面向 GPT/Codex 的本地 AI 开发工作流**。
+
+> 说明：这里写的是 GPT/Codex 工作流。Claude Code 的 skill、slash command、memory、MCP 调用方式与 Codex 有差异，不能直接按本节说明等价使用；如果要给 Claude 单独接入，需要另行适配。
+
+### 当前实际组成
+
+- `AGENTS.md`：Codex 进入仓库后的项目级入口，定义中文回复、L1-L4 任务分级、OpenSpec 监督、框架/UI/资源红线。
+- `.agents/skills/tyou-dev/`：Codex 原生 skill，保存 Tyou/Cocos Creator 相关的精简 reference，按 UI、资源、事件、Prefab、Luban、OpenSpec 等主题按需读取。
+- `.agents/skills/openspec-*`：OpenSpec 四阶段 skill，覆盖 `$openspec-explore`、`$openspec-propose`、`$openspec-apply-change`、`$openspec-archive-change`。
+- `openspec/`：规范驱动变更目录。L2 及以上实现类任务会先创建或进入 change，再按 tasks 逐项实施。
+- `.codex/memory/`：项目问题沉淀目录，用于记录文档与源码不一致、环境雷区、AI 踩过的坑。
+- `Books/AI-Development-Workflow.md`：更完整的人读版说明，记录当前 GPT/Codex 工作流的实际规则、纠偏方式和可选增强方向。
+
+### 任务分级
+
+| 等级 | 场景 | 工作流 |
+| --- | --- | --- |
+| L1 | typo、注释、日志、单行无框架语义改名 | 不激活 skill，不走 OpenSpec，直接处理 |
+| L2 | 单一模块局部修改、调用已知 API | 激活 `tyou-dev`，读取最少 reference，走轻量 OpenSpec change |
+| L3 | 新功能、跨文件、UI/资源/事件/配表逻辑 | 激活 `tyou-dev`，读取 2-4 个相关 reference，必须走 OpenSpec |
+| L4 | 多模块协作、框架规则、AI 工作流、重构决策 | 先探索和提案，再实施；涉及框架代码必须确认影响后再改 |
+
+### OpenSpec 监督边界
+
+除 L1 外，任何会修改代码、资源、Prefab、配置、工作流文档或框架行为的任务，都要求先确认 OpenSpec 可用，并进入对应 change。
+
+这是一套项目工作流监督机制，不是 CI、pre-commit 或文件系统级硬拦截。正常使用 Codex 时，AI 会按 `AGENTS.md` 和相关 skill 执行；如果需要技术层面的强制拦截，还需要额外接入 git hook 或 CI 检查。
+
+### Token 策略
+
+这套工作流的目标是少上下文、少返工：L1 跳过 reference 和 OpenSpec；L2+ 按主题读取最少 reference；同一会话已读过的主题优先复用摘要。
+
+它不能保证每一次对话都比“完全不用 AI 工作流”更省 token，因为根入口规则本身也有固定成本。它真正要优化的是中大型任务中的误读 API、重复搜索、绕过框架规则、返工修错等隐性消耗。
+
+详细说明见：[Books/AI-Development-Workflow.md](Books/AI-Development-Workflow.md)。
 
 ---
 
@@ -1356,81 +1395,6 @@ Log.setTags(LogType.Net | LogType.Model | LogType.Business | LogType.View | LogT
 ```
 
 > 日志输出格式：`[HH:MM:SS:ms][类型][文件名->方法名]:内容`。微信小游戏环境自动禁用所有分类日志，`Log.error()` 不受开关影响始终输出。
-
----
-
-## 调试/性能监控模块（Debug）
-
-运行时性能监控面板，通过 `tyou.debug` 访问。面板纯代码构建（不依赖预制体），挂载在 Canvas 最高层级（`setSiblingIndex(9999)`），不遮挡点击事件。
-
-### 如何开启
-
-```typescript
-// 方式 1：代码中直接调用
-tyou.debug.enable();
-
-// 方式 2：切换开关（enable/disable 互切）
-tyou.debug.toggle();
-
-// 方式 3：在 Tyou.onCreate() 里默认开启（当前默认行为）
-// 正式发布时删除或注释掉 this.debug.enable() 即可关闭
-
-// 关闭
-tyou.debug.disable();
-
-// 查询当前状态
-if (tyou.debug.isEnabled) { ... }
-```
-
-**推荐上线策略**：不要在正式包中调用 `enable()`。可通过以下方式实现「线上隐藏开关」：
-- 连续点击版本号 N 次触发 `toggle()`
-- URL 参数 `?debug=1` 启动时检测
-- 后台下发开关字段
-- 摇一摇 / 特定手势触发
-
-**性能影响**：关闭时 `onUpdate()` 第一行 `if (!this._enabled) return;`，零采集零渲染。开启时每 0.5 秒刷新一次 Label 文本，对帧率影响可忽略（< 0.1ms/次）。
-
-### 采集指标详解
-
-| 指标 | 面板显示示例 | 含义 | 关注阈值 / 注意事项 |
-|------|-------------|------|---------------------|
-| **FPS** | `FPS: 58` | 过去 0.5 秒的平均帧率 | 低于 **30** 需排查性能瓶颈；微信小游戏目标 ≥ 50 |
-| **MEM** | `MEM: 87MB / 512MB` | JS 堆已用 / 上限（`performance.memory`） | 持续增长不回落 = 内存泄漏；接近上限会触发 GC 卡顿。**仅 Chrome 系内核可用**，微信开发者工具可用，真机 iOS 不可用 |
-| **Timer** | `Timer: 12` | `TimerModule` 中活跃计时器数量 | 数量只增不减 = 忘记 `removeTimer`，存在计时器泄漏 |
-| **Event** | `Event: 8 types, 23 listeners` | 已注册事件类型数 / 监听器总数 | 监听器只增不减 = 忘记 `off()` 或 `targetOff()`，常见于 UI 关闭后未解绑 |
-| **UI** | `UI: 3 windows (top: MessageBoxUI)` | 当前打开的窗口数 / 最顶层窗口名 | 窗口数异常多 = 窗口未正确关闭，叠加堆积 |
-| **ECS** | `ECS: 156 entities` | ECS 系统中活跃实体数 | 持续增长 = 实体未 `destroy()`，对象池无法回收 |
-| **Pool** | `Pool: 4 pools (avail: 25, active: 12)` | Node 池数量 / 池中可用节点数 / 正在使用的节点数 | `avail` 过高 = 预创建过多浪费内存；`active` 只增不减 = 节点未归还 |
-| **Res Pending** | `Res Pending: 5` | 等待延迟释放的资源数量 | 通常在场景切换后短暂升高然后回落；**持续走高 = 资源引用计数异常，decRef 未正确调用** |
-| **DrawCall** | `DrawCall: 42` | 当前渲染批次（通过引擎内部 pipeline.stats 获取） | 微信小游戏建议 **< 100**；过高需优化合批（图集合并、减少材质切换）。**部分平台/引擎版本不可用** |
-
-### 常见排查场景
-
-| 现象 | 观察指标 | 可能原因 |
-|------|---------|---------|
-| 长时间游玩后卡顿 | FPS 降低 + MEM 持续增长 | 内存泄漏（资源/节点未释放） |
-| 场景切换后卡顿 | Res Pending 不回落 | `decRef` 未调用或 `addAutoReleaseAsset` 遗漏 |
-| 打开多个弹窗后变慢 | UI 窗口数异常 | 窗口未 `close()`，hideTimeToClose 过长 |
-| 战斗后期掉帧 | ECS 实体数只增不减 | 实体未 `destroy()`，死亡逻辑遗漏 |
-| 事件回调越来越多 | Event listeners 只增 | UI/组件销毁时未 `off()` / `targetOff()` |
-| 子弹等频繁对象卡顿 | Pool active 只增 | `releaseNode` 未调用，或 node 被 destroy 了（无法回池） |
-
-### API
-
-```typescript
-tyou.debug.enable();    // 开启面板
-tyou.debug.disable();   // 关闭面板（停止采集，零开销）
-tyou.debug.toggle();    // 切换开关
-tyou.debug.isEnabled;   // 查询状态（boolean）
-```
-
-### 技术细节
-
-- **刷新频率**：每 0.5 秒刷新一次（非逐帧），FPS 取 0.5 秒窗口的平均值
-- **面板构建**：纯代码创建 `Node` + `Label` + `UITransform` + `Widget`，不依赖任何预制体或资源
-- **层级**：挂载在 Canvas 下，`setSiblingIndex(9999)` 保证在最上层，使用系统字体
-- **容错**：每个指标采集独立 `try/catch`，单个模块异常不影响其他指标显示
-- **生命周期**：`enable()` 创建面板节点，`disable()` 销毁面板节点，`onDestroy()` 自动清理
 
 ---
 

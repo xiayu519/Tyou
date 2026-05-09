@@ -1,0 +1,25 @@
+schema: spec-driven
+
+context: |
+  Project: Tyou, a Cocos Creator 3.8.7 + TypeScript client framework.
+  AI entrypoint: AGENTS.md, with detailed Codex references under .agents/skills/tyou-dev/references/.
+  Framework code under Client/assets/ty-framework/ is protected. Any add/delete/modify in that directory requires developer confirmation with impact and consequences.
+  UI work must respect UIWindow/UIBase/@UIDecorator/UIName/UIImportAll and generated UI scripts. UI image loading, button events, and event listeners should use UIBase built-ins so close/release can clean them.
+  Resource work must use asset-index generation, avoid duplicate resource names, and treat addRef/decRef pairing as a crash/leak critical invariant.
+  Luban generated files and binary data are not normal repair targets. Check export scripts and original Excel data before changing source definitions.
+  Prefab creation priority: PSD one-click generation, then AI through the minimal prefab MCP workflow, then manual creation.
+  Do not preserve Unity/TEngine-specific concepts in this project workflow. Use the reference project only for workflow structure.
+
+rules:
+  proposal:
+    - Keep proposals concise and focused on Tyou/Cocos Creator behavior.
+    - Include non-goals when avoiding framework changes, generated file edits, or broad MCP scope.
+  design:
+    - Prefer existing project conventions and generated-tool workflows over new abstractions.
+    - State when ty-framework would be affected and require developer confirmation before implementation.
+  specs:
+    - Requirements must describe observable AI workflow behavior, not internal chat narration.
+    - Do not include Unity/TEngine-specific requirements.
+  tasks:
+    - Keep tasks small enough to verify independently.
+    - Include validation tasks for OpenSpec status and token-scope checks when workflow docs change.
