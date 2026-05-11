@@ -36,7 +36,7 @@
   -> L2+ 检查/进入 OpenSpec
   -> 触发或显式调用对应 Codex skill（tyou-dev、openspec-*）
   -> 读取最少 reference
-  -> rg / 源码确认实际 API
+  -> 优先 `rg`；不可用时用 `grep_search` / `Select-String`；再读源码确认实际 API
   -> 实施或先给方案
   -> 运行可承受校验
   -> 总结改动、流程、验证

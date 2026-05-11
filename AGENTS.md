@@ -35,7 +35,7 @@
 
 skill 与 reference 是省 token 的精炼规范，不是最终真相。若与实际代码冲突：
 
-1. 用 `rg` / 读取源码确认真实 API；
+1. 优先用 `rg` 定位源码；若 `rg` 不可用，使用 VS Code `grep_search` 或 PowerShell `Select-String` 后再读取源码确认真实 API；
 2. 以源码实现为准；
 3. 若是 AI 工作流文档过期，优先修正对应 md；
 4. 在回复中说明冲突点和已修正文档；
