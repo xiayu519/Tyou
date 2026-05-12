@@ -64,6 +64,7 @@
 - `AGENTS.md`：项目级入口，负责中文输出、任务分级、OpenSpec 监督和核心红线。
 - `.agents/skills/tyou-dev/`：Codex 原生 Tyou 开发 skill，按主题读取精简 reference。
 - `.agents/skills/openspec-*`：OpenSpec explore / propose / apply / archive 四阶段 skill。
+- `.agents/skills/tyou-dev/references/battle-design.md`：战斗设计规则，要求组合优先、先评估现有 ECS，并考虑小游戏 JavaScript 运行环境。
 - `.codex/memory/`：问题沉淀目录，记录文档与代码不一致、环境差异、AI 踩过的坑。
 - `openspec/`：变更监督目录，L2+ 实现类任务进入 change 后按 tasks 推进。
 - `Books/AI-Development-Workflow.md`：人读版流程说明，记录当前工作流的实际规则。
@@ -76,6 +77,8 @@
 - 资源必须走自动索引，禁止同名资源，加载找不到先检查是否执行索引生成。
 - 资源引用计数必须配对，崩溃或泄漏优先查 `addRef/decRef`。
 - Prefab 创建优先级：PSD 一键生成 > AI + 精简 MCP Prefab 流程 > 手动拼。
+- 战斗设计遵循组合大于继承；先评估现有 `tyou.ecs` 是否适合，适合则优先复用，不适合则在业务侧从 0 设计轻量方案并说明原因。
+- 战斗接口和高频逻辑必须考虑微信、抖音等小游戏正式环境的 JavaScript 运行成本，避免深继承、大接口、反射式动态派发、运行时生成和可避免的每帧分配。
 - `assetool` 资源索引流程。
 - `@UIDecorator + UIName + UIImportAll` 注册链路。
 - Cocos Creator 编辑器扩展约束。
