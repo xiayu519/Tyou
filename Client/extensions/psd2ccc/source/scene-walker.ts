@@ -1,3 +1,7 @@
+type Size = { width: number; height: number };
+
+const FALLBACK_DESIGN_SIZE: Size = { width: 720, height: 1280 };
+
 function findCanvasNode() {
     const scene = cc.director.getScene();
     if (!scene) return null;
@@ -17,7 +21,71 @@ function findCanvas(node: any): any {
     return null;
 }
 
-function calcPosition(childData: any, parentOffset: { left: number; top: number }, parentSize: { width: number; height: number }) {
+function isValidSize(size: any): size is Size {
+    return !!size
+        && Number.isFinite(size.width)
+        && Number.isFinite(size.height)
+        && size.width > 0
+        && size.height > 0;
+}
+
+function getContentSize(node: any): Size | null {
+    const transform = node && node.getComponent && node.getComponent('cc.UITransform');
+    if (!transform) return null;
+
+    if (typeof transform.getContentSize === 'function') {
+        const size = transform.getContentSize();
+        if (isValidSize(size)) {
+            return { width: size.width, height: size.height };
+        }
+    }
+
+    if (isValidSize(transform.contentSize)) {
+        return { width: transform.contentSize.width, height: transform.contentSize.height };
+    }
+
+    if (Number.isFinite(transform.width) && Number.isFinite(transform.height) && transform.width > 0 && transform.height > 0) {
+        return { width: transform.width, height: transform.height };
+    }
+
+    return null;
+}
+
+function getViewDesignResolutionSize(): Size | null {
+    const view = cc.view;
+    if (!view || typeof view.getDesignResolutionSize !== 'function') return null;
+
+    const designSize = view.getDesignResolutionSize();
+    if (!isValidSize(designSize)) return null;
+
+    return { width: designSize.width, height: designSize.height };
+}
+
+function resolveDesignSize(canvasNode: any): Size {
+    return getViewDesignResolutionSize() || getContentSize(canvasNode) || { ...FALLBACK_DESIGN_SIZE };
+}
+
+function setupFullScreenWidget(node: any) {
+    const widget = node.getComponent('cc.Widget') || node.addComponent('cc.Widget');
+
+    widget.isAlignLeft = true;
+    widget.isAlignRight = true;
+    widget.isAlignTop = true;
+    widget.isAlignBottom = true;
+    widget.left = 0;
+    widget.right = 0;
+    widget.top = 0;
+    widget.bottom = 0;
+    widget.alignMode = cc.Widget?.AlignMode?.ON_WINDOW_RESIZE ?? 0;
+
+    if (typeof widget.updateAlignment === 'function') {
+        widget.updateAlignment();
+    }
+
+    return widget;
+}
+
+function calcPosition(childData: any, parentOffset: { left: number; top: number }, parentSize: Size) {
     let centerX: number;
     let centerY: number;
 
@@ -65,7 +133,7 @@ function createNode(
     parent: any,
     data: any,
     parentOffset: { left: number; top: number },
-    parentSize: { width: number; height: number },
+    parentSize: Size,
     spriteMap: Record<string, string>,
 ) {
     const node = new cc.Node(data.name);
@@ -206,7 +274,7 @@ function buildChildren(
     parent: any,
     children: any[],
     parentOffset: { left: number; top: number },
-    parentSize: { width: number; height: number },
+    parentSize: Size,
     spriteMap: Record<string, string>,
 ) {
     // Photoshop JSON stores the visually upper layers before lower layers. Cocos renders
@@ -240,8 +308,10 @@ export const methods = {
         const uiRoot = new cc.Node(uiNodeName);
         canvasNode.addChild(uiRoot);
 
+        const designSize = resolveDesignSize(canvasNode);
         const uiTransform = uiRoot.addComponent('cc.UITransform');
-        uiTransform.setContentSize(data.size.width, data.size.height);
+        uiTransform.setContentSize(designSize.width, designSize.height);
+        setupFullScreenWidget(uiRoot);
 
         try {
             buildChildren(uiRoot, data.children, { left: 0, top: 0 }, data.size, spriteMap);

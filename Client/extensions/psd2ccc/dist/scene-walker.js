@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.methods = void 0;
+const FALLBACK_DESIGN_SIZE = { width: 720, height: 1280 };
 function findCanvasNode() {
     const scene = cc.director.getScene();
     if (!scene)
@@ -17,6 +18,60 @@ function findCanvas(node) {
             return found;
     }
     return null;
+}
+function isValidSize(size) {
+    return !!size
+        && Number.isFinite(size.width)
+        && Number.isFinite(size.height)
+        && size.width > 0
+        && size.height > 0;
+}
+function getContentSize(node) {
+    const transform = node && node.getComponent && node.getComponent('cc.UITransform');
+    if (!transform)
+        return null;
+    if (typeof transform.getContentSize === 'function') {
+        const size = transform.getContentSize();
+        if (isValidSize(size)) {
+            return { width: size.width, height: size.height };
+        }
+    }
+    if (isValidSize(transform.contentSize)) {
+        return { width: transform.contentSize.width, height: transform.contentSize.height };
+    }
+    if (Number.isFinite(transform.width) && Number.isFinite(transform.height) && transform.width > 0 && transform.height > 0) {
+        return { width: transform.width, height: transform.height };
+    }
+    return null;
+}
+function getViewDesignResolutionSize() {
+    const view = cc.view;
+    if (!view || typeof view.getDesignResolutionSize !== 'function')
+        return null;
+    const designSize = view.getDesignResolutionSize();
+    if (!isValidSize(designSize))
+        return null;
+    return { width: designSize.width, height: designSize.height };
+}
+function resolveDesignSize(canvasNode) {
+    return getViewDesignResolutionSize() || getContentSize(canvasNode) || Object.assign({}, FALLBACK_DESIGN_SIZE);
+}
+function setupFullScreenWidget(node) {
+    var _a, _b, _c;
+    const widget = node.getComponent('cc.Widget') || node.addComponent('cc.Widget');
+    widget.isAlignLeft = true;
+    widget.isAlignRight = true;
+    widget.isAlignTop = true;
+    widget.isAlignBottom = true;
+    widget.left = 0;
+    widget.right = 0;
+    widget.top = 0;
+    widget.bottom = 0;
+    widget.alignMode = (_c = (_b = (_a = cc.Widget) === null || _a === void 0 ? void 0 : _a.AlignMode) === null || _b === void 0 ? void 0 : _b.ON_WINDOW_RESIZE) !== null && _c !== void 0 ? _c : 0;
+    if (typeof widget.updateAlignment === 'function') {
+        widget.updateAlignment();
+    }
+    return widget;
 }
 function calcPosition(childData, parentOffset, parentSize) {
     let centerX;
@@ -200,8 +255,10 @@ exports.methods = {
         }
         const uiRoot = new cc.Node(uiNodeName);
         canvasNode.addChild(uiRoot);
+        const designSize = resolveDesignSize(canvasNode);
         const uiTransform = uiRoot.addComponent('cc.UITransform');
-        uiTransform.setContentSize(data.size.width, data.size.height);
+        uiTransform.setContentSize(designSize.width, designSize.height);
+        setupFullScreenWidget(uiRoot);
         try {
             buildChildren(uiRoot, data.children, { left: 0, top: 0 }, data.size, spriteMap);
         }

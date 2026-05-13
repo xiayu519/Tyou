@@ -608,6 +608,119 @@ function getBounds(ly) {
     return { left: l, top: t, width: r - l, height: bt - t, right: r, bottom: bt };
 }
 
+function clampByte(v) {
+    v = Math.round(Number(v));
+    if (!isFinite(v)) v = 0;
+    if (v < 0) return 0;
+    if (v > 255) return 255;
+    return v;
+}
+
+function rgbColor(r, g, b) {
+    return { red: clampByte(r), green: clampByte(g), blue: clampByte(b) };
+}
+
+function descriptorHasKey(desc, id) {
+    try { return desc && desc.hasKey(id); } catch (e) { return false; }
+}
+
+function descriptorNumber(desc, ids) {
+    for (var i = 0; i < ids.length; i++) {
+        var id = ids[i];
+        if (!descriptorHasKey(desc, id)) continue;
+        try { return desc.getDouble(id); } catch (e1) {}
+        try { return desc.getUnitDoubleValue(id); } catch (e2) {}
+        try { return desc.getInteger(id); } catch (e3) {}
+    }
+    return null;
+}
+
+function descriptorBoolean(desc, ids, defaultValue) {
+    for (var i = 0; i < ids.length; i++) {
+        var id = ids[i];
+        if (!descriptorHasKey(desc, id)) continue;
+        try { return desc.getBoolean(id); } catch (e) {}
+    }
+    return defaultValue;
+}
+
+function descriptorObject(desc, ids) {
+    for (var i = 0; i < ids.length; i++) {
+        var id = ids[i];
+        if (!descriptorHasKey(desc, id)) continue;
+        try { return desc.getObjectValue(id); } catch (e) {}
+    }
+    return null;
+}
+
+function descriptorRGB(desc) {
+    if (!desc) return null;
+    var r = descriptorNumber(desc, [charIDToTypeID("Rd  "), stringIDToTypeID("red")]);
+    var g = descriptorNumber(desc, [charIDToTypeID("Grn "), stringIDToTypeID("green")]);
+    var b = descriptorNumber(desc, [charIDToTypeID("Bl  "), stringIDToTypeID("blue")]);
+    if (r === null || g === null || b === null) return null;
+    return rgbColor(r, g, b);
+}
+
+function firstTextStyle(ly) {
+    try {
+        var ref = new ActionReference();
+        ref.putIdentifier(charIDToTypeID("Lyr "), ly.id);
+        var desc = executeActionGet(ref);
+        if (!descriptorHasKey(desc, stringIDToTypeID("textKey"))) return null;
+
+        var textDesc = desc.getObjectValue(stringIDToTypeID("textKey"));
+        if (descriptorHasKey(textDesc, stringIDToTypeID("textStyleRange"))) {
+            var tsrList = textDesc.getList(stringIDToTypeID("textStyleRange"));
+            if (tsrList.count > 0) {
+                var tsr = tsrList.getObjectValue(0);
+                if (descriptorHasKey(tsr, stringIDToTypeID("textStyle"))) {
+                    return tsr.getObjectValue(stringIDToTypeID("textStyle"));
+                }
+            }
+        }
+
+        if (descriptorHasKey(textDesc, stringIDToTypeID("textStyle"))) {
+            return textDesc.getObjectValue(stringIDToTypeID("textStyle"));
+        }
+    } catch (e) {}
+    return null;
+}
+
+function textStyleColor(ly) {
+    var style = firstTextStyle(ly);
+    if (!style) return null;
+    var colorDesc = descriptorObject(style, [stringIDToTypeID("color"), charIDToTypeID("Clr ")]);
+    return descriptorRGB(colorDesc);
+}
+
+function blendRGB(base, overlay, opacityPercent) {
+    if (!base) return overlay;
+    var a = Math.max(0, Math.min(100, opacityPercent)) / 100;
+    return rgbColor(
+        base.red * (1 - a) + overlay.red * a,
+        base.green * (1 - a) + overlay.green * a,
+        base.blue * (1 - a) + overlay.blue * a
+    );
+}
+
+function colorOverlayTextColor(fx, baseColor) {
+    var solidFill = descriptorObject(fx, [stringIDToTypeID("solidFill"), charIDToTypeID("SoFi")]);
+    if (!solidFill) return null;
+
+    var enabled = descriptorBoolean(solidFill, [stringIDToTypeID("enabled")], true);
+    if (!enabled) return null;
+
+    var colorDesc = descriptorObject(solidFill, [stringIDToTypeID("color"), charIDToTypeID("Clr ")]);
+    var overlayColor = descriptorRGB(colorDesc);
+    if (!overlayColor) return null;
+
+    var opacity = descriptorNumber(solidFill, [stringIDToTypeID("opacity"), charIDToTypeID("Opct")]);
+    if (opacity === null) opacity = 100;
+    if (opacity >= 99.5) return overlayColor;
+    return blendRGB(baseColor, overlayColor, opacity);
+}
+
 function textInfo(ly) {
     var r = {
         textContents: "", textFont: "Arial", textSize: 14,
@@ -631,8 +744,10 @@ function textInfo(ly) {
         try { r.textSize = Math.round(parseFloat(t.size)); } catch (e) {}
         try {
             var c = t.color.rgb;
-            r.textColor = { red: Math.round(c.red), green: Math.round(c.green), blue: Math.round(c.blue) };
+            r.textColor = rgbColor(c.red, c.green, c.blue);
         } catch (e) {}
+        var styleColor = textStyleColor(ly);
+        if (styleColor) r.textColor = styleColor;
         // 对齐方式
         try { r.justification = String(t.justification).replace("Justification.", ""); } catch (e) {}
         // 行高
@@ -647,24 +762,12 @@ function textInfo(ly) {
         try { r.blendMode = String(ly.blendMode).replace("BlendMode.", ""); } catch (e) {}
         // faux 样式（通过 AM 读取）
         try {
-            var ref = new ActionReference();
-            ref.putIdentifier(charIDToTypeID("Lyr "), ly.id);
-            var desc = executeActionGet(ref);
-            if (desc.hasKey(stringIDToTypeID("textKey"))) {
-                var textDesc = desc.getObjectValue(stringIDToTypeID("textKey"));
-                if (textDesc.hasKey(stringIDToTypeID("textStyleRange"))) {
-                    var tsrList = textDesc.getList(stringIDToTypeID("textStyleRange"));
-                    if (tsrList.count > 0) {
-                        var tsr = tsrList.getObjectValue(0);
-                        if (tsr.hasKey(stringIDToTypeID("textStyle"))) {
-                            var ts = tsr.getObjectValue(stringIDToTypeID("textStyle"));
-                            if (ts.hasKey(stringIDToTypeID("syntheticBold")))
-                                r.fauxBold = ts.getBoolean(stringIDToTypeID("syntheticBold"));
-                            if (ts.hasKey(stringIDToTypeID("syntheticItalic")))
-                                r.fauxItalic = ts.getBoolean(stringIDToTypeID("syntheticItalic"));
-                        }
-                    }
-                }
+            var ts = firstTextStyle(ly);
+            if (ts) {
+                if (descriptorHasKey(ts, stringIDToTypeID("syntheticBold")))
+                    r.fauxBold = ts.getBoolean(stringIDToTypeID("syntheticBold"));
+                if (descriptorHasKey(ts, stringIDToTypeID("syntheticItalic")))
+                    r.fauxItalic = ts.getBoolean(stringIDToTypeID("syntheticItalic"));
             }
         } catch (e) {}
         // 文本框尺寸（段落文本）
@@ -676,13 +779,15 @@ function textInfo(ly) {
                 };
             }
         } catch (e) {}
-        // 图层样式：描边(Stroke)和投影(DropShadow) 通过 AM 读取 layerEffects
+        // 图层样式：颜色叠加(Color Overlay)、描边(Stroke)和投影(DropShadow) 通过 AM 读取 layerEffects
         try {
             var lref = new ActionReference();
             lref.putIdentifier(charIDToTypeID("Lyr "), ly.id);
             var ldesc = executeActionGet(lref);
             if (ldesc.hasKey(stringIDToTypeID("layerEffects"))) {
                 var fx = ldesc.getObjectValue(stringIDToTypeID("layerEffects"));
+                var overlayTextColor = colorOverlayTextColor(fx, r.textColor);
+                if (overlayTextColor) r.textColor = overlayTextColor;
                 // 描边 (frameFX)
                 if (fx.hasKey(stringIDToTypeID("frameFX"))) {
                     var stroke = fx.getObjectValue(stringIDToTypeID("frameFX"));

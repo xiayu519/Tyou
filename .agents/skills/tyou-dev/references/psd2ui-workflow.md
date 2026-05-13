@@ -15,7 +15,7 @@
 3. 在 Photoshop 运行 `Psd2CCC-Digest.jsx`。
 4. 输出 PNG 到 `assets/asset-art/atlas/{psdName}/`。
 5. 输出结构 JSON 到 `assets/asset-art/psd/tool/{psdName}/{psdName}-structure.json`。
-6. 在 Cocos 资源面板右键 PSD 或结构 JSON，执行“PSD生成UI”。
+6. 在 Cocos 资源面板右键 `assets/asset-art/psd/tool/{psdName}/{psdName}-structure.json`，执行“PSD生成UI”。
 7. 扩展在当前场景 Canvas 下生成 `{psdName}UI` 节点树。
 8. 人工调整节点命名，加 `m_btn/m_text/m_img/...` 前缀。
 9. 层级面板右键根节点，执行“检查前缀组件”。
@@ -51,6 +51,8 @@ PSD 图层后缀：
 ## AI 注意事项
 
 - 不直接重写 PSD 流程，优先修补现有扩展。
+- Cocos 右键流程只从 `*-structure.json` 生成 UI；PSD 切图导出仍在 Photoshop 内运行 `Psd2CCC-Digest.jsx`。
+- 生成后文字颜色和 PSD 视觉不一致时，先检查结构 JSON 的 `options.textColor`；修复导出脚本后必须重新在 Photoshop 中导出 JSON。
 - 生成节点后不要跳过“前缀组件检查”。
 - `{psdName}UI` 必须与最终 UI 类名、Prefab 名、`UIName` 保持一致。
 - PSD 导出资源若要运行时加载，还要考虑资源索引规则。

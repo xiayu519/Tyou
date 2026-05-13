@@ -5,8 +5,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
-const child_process_1 = require("child_process");
-const psd_legacy_1 = require("./psd-legacy");
 function normalizePath(input) {
     return input.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 }
@@ -178,127 +176,8 @@ function getWarningPreview(warnings) {
     const suffix = warnings.length > 5 ? `\n... and ${warnings.length - 5} more` : '';
     return `${preview}${suffix}`;
 }
-function getExtensionRoot() {
-    return path_1.default.resolve(__dirname, '..');
-}
-function getDigestScriptPath() {
-    return path_1.default.join(Editor.Project.path, 'tools', 'psd', 'Psd2CCC-Digest.jsx');
-}
-function getPhotoshopRunnerPath() {
-    return path_1.default.join(getExtensionRoot(), 'scripts', 'run-photoshop-export.ps1');
-}
-function getExportPaths(psdFilePath) {
-    const rawPsdName = path_1.default.basename(psdFilePath, path_1.default.extname(psdFilePath));
-    const psdPrefix = (0, psd_legacy_1.getLegacyPsdPrefix)(Editor.Project.path, rawPsdName);
-    const psdDir = path_1.default.dirname(psdFilePath);
-    return {
-        psdPrefix,
-        jsonPath: path_1.default.join(psdDir, 'tool', psdPrefix, `${psdPrefix}-structure.json`),
-        reportPath: path_1.default.join(psdDir, 'tool', psdPrefix, `${psdPrefix}-report.json`),
-        atlasPath: path_1.default.posix.join('asset-art', 'atlas', psdPrefix),
-    };
-}
-function toAssetDbPathFromAbsolute(absPath) {
-    const assetsRoot = path_1.default.join(Editor.Project.path, 'assets');
-    const relative = path_1.default.relative(assetsRoot, absPath);
-    if (!relative || relative.startsWith('..')) {
-        return null;
-    }
-    return `db://assets/${normalizePath(relative)}`;
-}
-function execFileAsync(command, args, cwd) {
-    return new Promise((resolve, reject) => {
-        (0, child_process_1.execFile)(command, args, { cwd, windowsHide: true }, (error, stdout, stderr) => {
-            if (error) {
-                reject(new Error((stderr === null || stderr === void 0 ? void 0 : stderr.trim()) || (stdout === null || stdout === void 0 ? void 0 : stdout.trim()) || error.message));
-                return;
-            }
-            resolve({ stdout: stdout || '', stderr: stderr || '' });
-        });
-    });
-}
-async function waitForFileUpdate(filePath, previousMtimeMs, timeoutMs = 20000) {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-        if (fs_1.default.existsSync(filePath)) {
-            const stat = fs_1.default.statSync(filePath);
-            if (stat.mtimeMs > previousMtimeMs) {
-                return;
-            }
-        }
-        await delay(200);
-    }
-    throw new Error(`Export output was not updated in time: ${filePath}`);
-}
-async function runPhotoshopDigestExport(psdFilePath) {
-    const jsxPath = getDigestScriptPath();
-    const runnerPath = getPhotoshopRunnerPath();
-    if (!fs_1.default.existsSync(jsxPath)) {
-        throw new Error(`PSD digest script not found: ${jsxPath}`);
-    }
-    if (!fs_1.default.existsSync(runnerPath)) {
-        throw new Error(`Photoshop runner script not found: ${runnerPath}`);
-    }
-    const exportPaths = getExportPaths(psdFilePath);
-    const jsonMtime = fs_1.default.existsSync(exportPaths.jsonPath) ? fs_1.default.statSync(exportPaths.jsonPath).mtimeMs : 0;
-    const reportMtime = fs_1.default.existsSync(exportPaths.reportPath) ? fs_1.default.statSync(exportPaths.reportPath).mtimeMs : 0;
-    const result = await execFileAsync('powershell.exe', [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        runnerPath,
-        '-PsdPath',
-        psdFilePath,
-        '-JsxPath',
-        jsxPath,
-    ], Editor.Project.path);
-    const output = `${result.stdout}\n${result.stderr}`.trim();
-    try {
-        await waitForFileUpdate(exportPaths.jsonPath, jsonMtime);
-        if (fs_1.default.existsSync(exportPaths.reportPath) || reportMtime > 0) {
-            await waitForFileUpdate(exportPaths.reportPath, reportMtime);
-        }
-    }
-    catch (error) {
-        throw new Error(output || (error === null || error === void 0 ? void 0 : error.message) || String(error));
-    }
-    const jsonDbFilePath = toAssetDbPathFromAbsolute(exportPaths.jsonPath);
-    const jsonDbDirPath = toAssetDbPathFromAbsolute(path_1.default.dirname(exportPaths.jsonPath));
-    const atlasDbDirPath = `db://assets/${normalizePath(exportPaths.atlasPath)}`;
-    const atlasParentDbDirPath = `db://assets/${normalizePath(path_1.default.posix.dirname(exportPaths.atlasPath))}`;
-    if (jsonDbDirPath)
-        await refreshAsset(jsonDbDirPath);
-    if (jsonDbFilePath)
-        await refreshAsset(jsonDbFilePath);
-    await refreshAsset(atlasParentDbDirPath);
-    await refreshAsset(atlasDbDirPath);
-    if (output) {
-        console.log('[PSD2CCC] Photoshop export output:', output);
-    }
-    return exportPaths;
-}
 function readSceneTree(jsonFilePath) {
     return JSON.parse(fs_1.default.readFileSync(jsonFilePath, 'utf8'));
-}
-function readExportReport(reportPath) {
-    var _a, _b;
-    if (!fs_1.default.existsSync(reportPath)) {
-        return { warnings: [] };
-    }
-    try {
-        const report = JSON.parse(fs_1.default.readFileSync(reportPath, 'utf8'));
-        const warnings = Array.isArray(report === null || report === void 0 ? void 0 : report.warnings) ? report.warnings.map((item) => JSON.stringify(item)) : [];
-        return {
-            warnings,
-            exportedCount: typeof ((_a = report === null || report === void 0 ? void 0 : report.statistics) === null || _a === void 0 ? void 0 : _a.png) === 'number' ? report.statistics.png : undefined,
-            dedupCount: typeof ((_b = report === null || report === void 0 ? void 0 : report.statistics) === null || _b === void 0 ? void 0 : _b.dedup) === 'number' ? report.statistics.dedup : undefined,
-        };
-    }
-    catch (error) {
-        console.warn('[PSD2CCC] Failed to read export report:', reportPath, (error === null || error === void 0 ? void 0 : error.message) || error);
-        return { warnings: [] };
-    }
 }
 async function buildUIFromData(data, options) {
     var _a, _b;
@@ -393,19 +272,6 @@ async function buildUIFromJSON(jsonFilePath) {
         waitForAssets: false,
     });
 }
-async function buildUIFromPSD(psdFilePath) {
-    const exportPaths = await runPhotoshopDigestExport(psdFilePath);
-    const data = readSceneTree(exportPaths.jsonPath);
-    const report = readExportReport(exportPaths.reportPath);
-    await buildUIFromData(data, {
-        sourcePath: psdFilePath,
-        sourceLabel: path_1.default.basename(psdFilePath),
-        waitForAssets: true,
-        warnings: report.warnings,
-        exportedCount: report.exportedCount,
-        dedupCount: report.dedupCount,
-    });
-}
 module.exports = {
     onAssetMenu(assetInfo) {
         if (assetInfo.isDirectory || !assetInfo.name) {
@@ -413,7 +279,6 @@ module.exports = {
         }
         const isJsonFile = /\.json$/i.test(assetInfo.name);
         const isStructure = /-structure\.json$/i.test(assetInfo.name);
-        const isPsdFile = /\.psd$/i.test(assetInfo.name);
         const items = [];
         if (isJsonFile) {
             items.push({
@@ -422,16 +287,6 @@ module.exports = {
                 visible: true,
                 async click() {
                     await buildUIFromJSON(assetInfo.file);
-                },
-            });
-        }
-        if (isPsdFile) {
-            items.push({
-                label: 'PSD\u751f\u6210UI',
-                enabled: true,
-                visible: true,
-                async click() {
-                    await buildUIFromPSD(assetInfo.file);
                 },
             });
         }
