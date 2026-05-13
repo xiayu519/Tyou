@@ -36,6 +36,21 @@ function calcPosition(childData, parentOffset, parentSize) {
         y: -(centerY - parentCenterY),
     };
 }
+function getLayoutRect(data) {
+    if (data.sourceBounds) {
+        return {
+            offset: { left: data.sourceBounds.left, top: data.sourceBounds.top },
+            size: {
+                width: data.sourceBounds.right - data.sourceBounds.left,
+                height: data.sourceBounds.bottom - data.sourceBounds.top,
+            },
+        };
+    }
+    return {
+        offset: data.offset,
+        size: data.size,
+    };
+}
 function ensureOpacity(node, opacityPercent) {
     if (opacityPercent >= 100)
         return;
@@ -54,7 +69,11 @@ function createNode(parent, data, parentOffset, parentSize, spriteMap) {
     node.setPosition(pos.x, pos.y, 0);
     if (data.type === 'png') {
         const sprite = node.addComponent('cc.Sprite');
-        sprite.sizeMode = 2;
+        const applyCustomSize = () => {
+            sprite.sizeMode = 0;
+            transform.setContentSize(displayWidth, displayHeight);
+        };
+        applyCustomSize();
         if (data.sliceBorder) {
             sprite.type = 1;
         }
@@ -74,6 +93,7 @@ function createNode(parent, data, parentOffset, parentSize, spriteMap) {
                         asset.insetRight = sliceBorder.right;
                     }
                     sprite.spriteFrame = asset;
+                    applyCustomSize();
                     if (sliceBorder && originalSize) {
                         transform.setContentSize(originalSize.width, originalSize.height);
                     }
@@ -148,11 +168,14 @@ function createNode(parent, data, parentOffset, parentSize, spriteMap) {
         }
     }
     if (data.children && data.children.length > 0) {
-        buildChildren(node, data.children, data.offset, data.size, spriteMap);
+        const layoutRect = getLayoutRect(data);
+        buildChildren(node, data.children, layoutRect.offset, layoutRect.size, spriteMap);
     }
     return node;
 }
 function buildChildren(parent, children, parentOffset, parentSize, spriteMap) {
+    // Photoshop JSON stores the visually upper layers before lower layers. Cocos renders
+    // later siblings above earlier siblings, so add every children array from bottom to top.
     for (let i = children.length - 1; i >= 0; i--) {
         createNode(parent, children[i], parentOffset, parentSize, spriteMap);
     }

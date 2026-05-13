@@ -38,6 +38,23 @@ function calcPosition(childData: any, parentOffset: { left: number; top: number 
     };
 }
 
+function getLayoutRect(data: any) {
+    if (data.sourceBounds) {
+        return {
+            offset: { left: data.sourceBounds.left, top: data.sourceBounds.top },
+            size: {
+                width: data.sourceBounds.right - data.sourceBounds.left,
+                height: data.sourceBounds.bottom - data.sourceBounds.top,
+            },
+        };
+    }
+
+    return {
+        offset: data.offset,
+        size: data.size,
+    };
+}
+
 function ensureOpacity(node: any, opacityPercent: number) {
     if (opacityPercent >= 100) return;
     const opacity = node.getComponent('cc.UIOpacity') || node.addComponent('cc.UIOpacity');
@@ -64,7 +81,11 @@ function createNode(
 
     if (data.type === 'png') {
         const sprite = node.addComponent('cc.Sprite');
-        sprite.sizeMode = 2;
+        const applyCustomSize = () => {
+            sprite.sizeMode = 0;
+            transform.setContentSize(displayWidth, displayHeight);
+        };
+        applyCustomSize();
 
         if (data.sliceBorder) {
             sprite.type = 1;
@@ -89,6 +110,7 @@ function createNode(
                     }
 
                     sprite.spriteFrame = asset;
+                    applyCustomSize();
 
                     if (sliceBorder && originalSize) {
                         transform.setContentSize(originalSize.width, originalSize.height);
@@ -173,7 +195,8 @@ function createNode(
     }
 
     if (data.children && data.children.length > 0) {
-        buildChildren(node, data.children, data.offset, data.size, spriteMap);
+        const layoutRect = getLayoutRect(data);
+        buildChildren(node, data.children, layoutRect.offset, layoutRect.size, spriteMap);
     }
 
     return node;
@@ -186,6 +209,8 @@ function buildChildren(
     parentSize: { width: number; height: number },
     spriteMap: Record<string, string>,
 ) {
+    // Photoshop JSON stores the visually upper layers before lower layers. Cocos renders
+    // later siblings above earlier siblings, so add every children array from bottom to top.
     for (let i = children.length - 1; i >= 0; i--) {
         createNode(parent, children[i], parentOffset, parentSize, spriteMap);
     }

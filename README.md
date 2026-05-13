@@ -143,16 +143,20 @@ Photoshop 脚本位于项目中：
 
 ```
 Client/tools/psd/Psd2CCC-Digest.jsx
+Client/tools/psd/Psd2CCC-LayerTagMenu.jsx
 ```
 
-使用前需将此文件 **复制到 Photoshop 的 Scripts 目录**，便于通过菜单快速调用：
+- `Psd2CCC-Digest.jsx`：导出 PNG 和结构 JSON。
+- `Psd2CCC-LayerTagMenu.jsx`：可选的 PSD 图层打标签脚本，支持追加 `.img` 合图标签和填写九宫格上/下/左/右参数。
+
+使用前可将这些文件 **复制到 Photoshop 的 Scripts 目录**，便于通过菜单快速调用：
 
 | 系统 | Photoshop Scripts 目录 |
 |------|-------------------------|
 | Windows | `C:\Program Files\Adobe\Adobe Photoshop <版本>\Presets\Scripts\` |
 | macOS | `/Applications/Adobe Photoshop <版本>/Presets/Scripts/` |
 
-复制后重启 Photoshop，即可在菜单栏 `文件 → 脚本` 中看到 `Psd2CCC-Digest`。
+复制后重启 Photoshop，即可在菜单栏 `文件 → 脚本` 中看到 `Psd2CCC-Digest` 和 `Psd2CCC-LayerTagMenu`。
 
 > 也可不复制，直接通过 `文件 → 脚本 → 浏览` 手动选择项目中的 `.jsx` 文件运行。
 
@@ -164,15 +168,17 @@ Client/tools/psd/Psd2CCC-Digest.jsx
 #### 使用步骤
 
 1. 在 Photoshop 中打开位于 `assets/asset-art/psd/` 目录下的 PSD 文件
-2. 运行脚本：`文件 → 脚本 → Psd2CCC-Digest`（或浏览选择 `.jsx`）
-3. 脚本自动执行以下操作：
-   - **栈格化**智能对象/形状/填充层（自动恢复，不修改 PSD）
+2. 如需合图或九宫格标记，先选中图层运行 `Psd2CCC-LayerTagMenu.jsx`
+3. 运行脚本：`文件 → 脚本 → Psd2CCC-Digest`（或浏览选择 `.jsx`）
+4. 脚本自动执行以下操作：
+    - 智能对象默认尝试展开为可编辑结构，名称以 `.img` 结尾时按单张 PNG 合图导出
+    - 形状/填充等特殊图层会按需栅格化（自动恢复，不修改 PSD）
    - **导出 PNG** → `Client/assets/asset-art/atlas/{psdName}/`
    - **生成结构 JSON** → `Client/assets/asset-art/psd/tool/{psdName}/{psdName}-structure.json`
    - 文字层自动识别为 `text` 节点（保留字体/字号/颜色）
    - 重复图层自动去重（相同像素只导出一次，多个节点共用引用）
    - 中文图层名自动转拼音首字母（避免文件名乱码）
-4. 导出完成后显示统计信息（PNG 数量、文字数量、去重数量、输出路径）
+5. 导出完成后显示统计信息（PNG 数量、文字数量、去重数量、输出路径）
 
 #### 输出目录说明
 
@@ -187,7 +193,19 @@ Client/tools/psd/Psd2CCC-Digest.jsx
 - **组（LayerSet）** 会生成对应的父节点，保留层级结构
 - **文字层** 自动识别为 text 节点，保留字体、字号、颜色信息
 - **调整层**（亮度/对比度等）自动跳过
+- **合图标签 `.img`**：名称以 `.img` 结尾的图层、组或智能对象，会按 Photoshop 当前视觉结果合成为单张 PNG 节点；不会继续拆子节点，也不会展开智能对象内部结构
 - **九宫格切图** 支持通过图层命名后缀自动裁切和设置，详见下方「九宫格命名规范」
+
+#### PSD 辅助打标签脚本
+
+`Psd2CCC-LayerTagMenu.jsx` 用于在 Photoshop 中给当前选中的单个或多个图层快速追加项目识别的标签：
+
+| 标签动作 | 结果 | 适用场景 |
+|---------|------|---------|
+| 添加 `.img` | 图层名追加 `.img` | 需要把组、智能对象、剪贴蒙版或复杂效果保真合成一张图 |
+| 确定九宫格 | 图层名追加 `_9s_上_下_左_右` | 需要手动指定 SpriteFrame border 的可拉伸图片 |
+
+`.img` 和九宫格是不同导出用途：`.img` 会整图导出，不参与九宫格裁切；九宫格图层应使用 `_9s_T_B_L_R` 或 `_scale9_T_B_L_R` 后缀。
 
 #### 九宫格命名规范
 

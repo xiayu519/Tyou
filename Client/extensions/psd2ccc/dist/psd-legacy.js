@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getLegacyPsdPrefix = getLegacyPsdPrefix;
+exports.getLegacyPsdPrefix = void 0;
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 let cachedLegacyPinyinMap = null;
@@ -77,4 +77,5 @@ function getLegacyPsdPrefix(projectPath, rawPsdName) {
     const converted = hasChinese(rawPsdName) ? toPinyinInitials(rawPsdName, pinyinMap) : rawPsdName;
     return sanitizeFileName(converted) || 'psd';
 }
+exports.getLegacyPsdPrefix = getLegacyPsdPrefix;
 //# sourceMappingURL=psd-legacy.js.map

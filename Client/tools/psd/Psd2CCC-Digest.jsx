@@ -30,6 +30,8 @@
 // 配置项
 // ===========================
 var EXPORT_GROUP_AS_PNG  = false;  // 是否将组合并导出为一张 PNG
+var EXPAND_SMART_OBJECTS = true;   // 是否默认展开智能对象内部结构
+var SMART_OBJECT_MAX_DEPTH = 5;    // 智能对象递归展开最大深度
 var TEMP_DOC_MARGIN      = 200;   // 导出临时文档裁切边距（像素），兼容图层效果溢出
 var SCALE9_KEEP_CENTER   = 2;     // 九宫格裁切后中间保留的拉伸像素数
 
@@ -163,6 +165,7 @@ var stat = {
     raster: 0, png: 0, text: 0, skip: 0, dedup: 0,
     groupCount: 0, emptyGroupCount: 0,
     clippingLayerCount: 0, unsupportedCount: 0,
+    smartObjectExpanded: 0, smartObjectFallback: 0,
     scale9Count: 0,
     warnings: 0, errors: 0
 };
@@ -171,6 +174,31 @@ var warnings = [];
 function addWarning(layerPath, step, message) {
     warnings.push({ layer: layerPath, step: step, message: message });
     stat.warnings++;
+}
+
+function makeVisualFeatureStats() {
+    return { clipped: 0, adjustment: 0 };
+}
+
+function countVisualFeatures(doc, layers, stats) {
+    stats = stats || makeVisualFeatureStats();
+    for (var i = 0; i < layers.length; i++) {
+        try {
+            var ly = layers[i];
+            if (!ly.visible) continue;
+            if (ly.typename === "LayerSet") {
+                countVisualFeatures(doc, ly.layers, stats);
+            } else if (ly.typename === "ArtLayer") {
+                if (isClipped(ly)) stats.clipped++;
+                if (lkind(doc, ly) == 2) stats.adjustment++;
+            }
+        } catch (e) {}
+    }
+    return stats;
+}
+
+function isImageGroupName(name) {
+    return /\.img$/i.test(name || "");
 }
 
 // ===========================
@@ -186,6 +214,7 @@ function doRasterize(doc, layers) {
             } else if (ly.typename === "ArtLayer") {
                 if (isText(ly)) continue;
                 var k = lkind(doc, ly);
+                if (EXPAND_SMART_OBJECTS && k == 5) continue;
                 if (k == 3 || k == 4 || k == 5 || k == 7 || k == 8) {
                     if (rasterize(doc, ly)) stat.raster++;
                 }
@@ -431,12 +460,13 @@ function savePNG(doc, layer, path, relPath, layerRelPath, s9) {
 
         app.activeDocument = tmp;
 
-        // 性能优化（Fix #9）：合并前裁切到图层区域 + 边距，减少处理量
-        var margin = TEMP_DOC_MARGIN;
-        var cL = Math.max(0, bL - margin);
-        var cT = Math.max(0, bT - margin);
-        var cR = Math.min(docW, bR + margin);
-        var cB = Math.min(docH, bB + margin);
+        // 合并前裁切到图层真实 bounds。
+        // 旧逻辑额外保留 TEMP_DOC_MARGIN，遇到剪贴蒙版/智能对象栅格层时会把 bounds 外的大图也 trim 出来，
+        // 导致 Cocos 节点按小 sourceBounds 定位、却按大 PNG 显示，出现偏移和遮挡。
+        var cL = Math.max(0, bL);
+        var cT = Math.max(0, bT);
+        var cR = Math.min(docW, bR);
+        var cB = Math.min(docH, bB);
         if (cR - cL < docW || cB - cT < docH) {
             try {
                 tmp.crop([UnitValue(cL, "px"), UnitValue(cT, "px"),
@@ -445,6 +475,21 @@ function savePNG(doc, layer, path, relPath, layerRelPath, s9) {
         }
 
         tmp.mergeVisibleLayers();
+        var visibleBounds = null;
+        try {
+            var vb = tmp.activeLayer.bounds;
+            var vL = parseFloat(vb[0]), vT = parseFloat(vb[1]);
+            var vR = parseFloat(vb[2]), vB = parseFloat(vb[3]);
+            if (vR > vL && vB > vT) {
+                visibleBounds = {
+                    left: Math.round(cL + vL),
+                    top: Math.round(cT + vT),
+                    right: Math.round(cL + vR),
+                    bottom: Math.round(cT + vB)
+                };
+            }
+        } catch (e) {}
+
         try { tmp.trim(TrimType.TRANSPARENT); } catch (e) {
             tmp.close(SaveOptions.DONOTSAVECHANGES);
             app.activeDocument = doc;
@@ -519,7 +564,7 @@ function savePNG(doc, layer, path, relPath, layerRelPath, s9) {
             stat.dedup++;
             var prev = dedupMap[fp];
             return { ok: true, width: tw, height: th, relPath: prev.relPath,
-                sourceBounds: { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
+                sourceBounds: visibleBounds || { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
                 trimmedSize: { width: tw, height: th },
                 preScale9Size: prev.preScale9Size || null };
         }
@@ -534,7 +579,7 @@ function savePNG(doc, layer, path, relPath, layerRelPath, s9) {
         dedupMap[fp] = { relPath: relPath, preScale9Size: preScale9Size };
 
         return { ok: true, width: tw, height: th, relPath: relPath,
-            sourceBounds: { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
+            sourceBounds: visibleBounds || { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
             trimmedSize: { width: tw, height: th },
             preScale9Size: preScale9Size };
     } catch (e) {
@@ -696,6 +741,161 @@ function textInfo(ly) {
 }
 
 // ===========================
+// 坐标变换：用于把智能对象内部文档坐标映射回主 PSD 坐标
+// ===========================
+function identityTransform() {
+    return { offsetLeft: 0, offsetTop: 0, scaleX: 1, scaleY: 1 };
+}
+
+function mapBounds(b, tx) {
+    tx = tx || identityTransform();
+    var l = tx.offsetLeft + b.left * tx.scaleX;
+    var t = tx.offsetTop + b.top * tx.scaleY;
+    var r = tx.offsetLeft + b.right * tx.scaleX;
+    var bt = tx.offsetTop + b.bottom * tx.scaleY;
+    l = Math.round(l); t = Math.round(t); r = Math.round(r); bt = Math.round(bt);
+    return { left: l, top: t, right: r, bottom: bt, width: r - l, height: bt - t };
+}
+
+function mapSize(size, tx) {
+    tx = tx || identityTransform();
+    return {
+        width: Math.max(1, Math.round(size.width * Math.abs(tx.scaleX))),
+        height: Math.max(1, Math.round(size.height * Math.abs(tx.scaleY)))
+    };
+}
+
+function scaleTextInfo(ti, tx) {
+    tx = tx || identityTransform();
+    var sy = Math.abs(tx.scaleY);
+    var sx = Math.abs(tx.scaleX);
+    var s = (sx + sy) * 0.5;
+    if (s === 1) return ti;
+    try { ti.textSize = Math.max(1, Math.round(ti.textSize * sy)); } catch (e) {}
+    try { if (ti.leading > 0) ti.leading = Math.max(1, Math.round(ti.leading * sy)); } catch (e) {}
+    try {
+        if (ti.textBoxBounds) {
+            ti.textBoxBounds.width = Math.max(1, Math.round(ti.textBoxBounds.width * sx));
+            ti.textBoxBounds.height = Math.max(1, Math.round(ti.textBoxBounds.height * sy));
+        }
+    } catch (e) {}
+    try { if (ti.outline) ti.outline.width = Math.max(1, Math.round(ti.outline.width * s)); } catch (e) {}
+    try {
+        if (ti.shadow) {
+            ti.shadow.offsetX = Math.round(ti.shadow.offsetX * sx);
+            ti.shadow.offsetY = Math.round(ti.shadow.offsetY * sy);
+            ti.shadow.blur = Math.max(1, Math.round(ti.shadow.blur * s));
+        }
+    } catch (e) {}
+    return ti;
+}
+
+function mapPNGResult(res, tx) {
+    if (!res || !tx) return res;
+    var mappedSource = mapBounds({
+        left: res.sourceBounds.left,
+        top: res.sourceBounds.top,
+        right: res.sourceBounds.right,
+        bottom: res.sourceBounds.bottom
+    }, tx);
+    var mappedTrim = mapSize(res.trimmedSize, tx);
+    res.sourceBounds = {
+        left: mappedSource.left,
+        top: mappedSource.top,
+        right: mappedSource.right,
+        bottom: mappedSource.bottom
+    };
+    res.trimmedSize = mappedTrim;
+    res.width = mappedTrim.width;
+    res.height = mappedTrim.height;
+    if (res.preScale9Size) res.preScale9Size = mapSize(res.preScale9Size, tx);
+    return res;
+}
+
+function getDocSize(doc) {
+    return {
+        width: Math.round(parseFloat(doc.width)),
+        height: Math.round(parseFloat(doc.height))
+    };
+}
+
+function makeSmartObjectTransform(parentTx, layerBounds, smartDoc) {
+    parentTx = parentTx || identityTransform();
+    var ds = getDocSize(smartDoc);
+    if (ds.width <= 0 || ds.height <= 0 || layerBounds.width <= 0 || layerBounds.height <= 0) return null;
+    return {
+        offsetLeft: parentTx.offsetLeft + layerBounds.left * parentTx.scaleX,
+        offsetTop: parentTx.offsetTop + layerBounds.top * parentTx.scaleY,
+        scaleX: parentTx.scaleX * (layerBounds.width / ds.width),
+        scaleY: parentTx.scaleY * (layerBounds.height / ds.height)
+    };
+}
+
+function openSmartObjectContents(doc, ly) {
+    var before = app.activeDocument;
+    app.activeDocument = doc;
+    doc.activeLayer = ly;
+    var savedDialogs = app.displayDialogs;
+    try { app.displayDialogs = DialogModes.NO; } catch (e0) {}
+    try {
+        executeAction(stringIDToTypeID("placedLayerEditContents"), new ActionDescriptor(), DialogModes.NO);
+    } catch (e1) {
+        try { app.displayDialogs = savedDialogs; } catch (e2) {}
+        throw e1;
+    }
+    try { app.displayDialogs = savedDialogs; } catch (e3) {}
+    if (app.activeDocument === doc) {
+        app.activeDocument = before;
+        return null;
+    }
+    return app.activeDocument;
+}
+
+function tryExpandSmartObject(doc, ly, rel, assetsDir, psdPrefix, tx, smartDepth) {
+    if (!EXPAND_SMART_OBJECTS) return null;
+    if (smartDepth >= SMART_OBJECT_MAX_DEPTH) {
+        addWarning(rel, "smartObject", "智能对象嵌套超过最大深度，已回退为 PNG");
+        return null;
+    }
+
+    var bdRaw = getBounds(ly);
+    var bd = mapBounds(bdRaw, tx);
+    var smartDoc = null;
+    try {
+        smartDoc = openSmartObjectContents(doc, ly);
+        if (!smartDoc) throw new Error("无法打开智能对象内容");
+
+        var smartTx = makeSmartObjectTransform(tx, bdRaw, smartDoc);
+        if (!smartTx) throw new Error("智能对象尺寸无效，无法映射坐标");
+
+        doRasterize(smartDoc, smartDoc.layers);
+        var sub = walk(smartDoc, smartDoc.layers, rel, assetsDir, psdPrefix, smartTx, smartDepth + 1);
+        smartDoc.close(SaveOptions.DONOTSAVECHANGES);
+        app.activeDocument = doc;
+
+        stat.smartObjectExpanded++;
+        return {
+            name: ly.name,
+            type: "group",
+            options: { smartObject: true },
+            offset: { left: bd.left, top: bd.top },
+            size: { width: bd.width, height: bd.height },
+            sourceBounds: { left: bd.left, top: bd.top, right: bd.right, bottom: bd.bottom },
+            relativePath: rel,
+            children: sub
+        };
+    } catch (e) {
+        stat.smartObjectFallback++;
+        addWarning(rel, "smartObjectFallback", e.message || String(e));
+        try {
+            if (smartDoc && app.documents.length > 0) smartDoc.close(SaveOptions.DONOTSAVECHANGES);
+        } catch (e2) {}
+        try { app.activeDocument = doc; } catch (e3) {}
+        return null;
+    }
+}
+
+// ===========================
 // 文件名去重
 // ===========================
 var usedNames = {};
@@ -724,11 +924,10 @@ function saveGroupPNG(doc, layerSet, path, relPath, layerRelPath) {
         layerSet.duplicate(tmp, ElementPlacement.INSIDE);
         app.activeDocument = tmp;
 
-        var margin = TEMP_DOC_MARGIN;
-        var cL = Math.max(0, bL - margin);
-        var cT = Math.max(0, bT - margin);
-        var cR = Math.min(docW, bR + margin);
-        var cB = Math.min(docH, bB + margin);
+        var cL = Math.max(0, bL);
+        var cT = Math.max(0, bT);
+        var cR = Math.min(docW, bR);
+        var cB = Math.min(docH, bB);
         if (cR - cL < docW || cB - cT < docH) {
             try {
                 tmp.crop([UnitValue(cL, "px"), UnitValue(cT, "px"),
@@ -737,6 +936,21 @@ function saveGroupPNG(doc, layerSet, path, relPath, layerRelPath) {
         }
 
         tmp.mergeVisibleLayers();
+        var visibleBounds = null;
+        try {
+            var vb = tmp.activeLayer.bounds;
+            var vL = parseFloat(vb[0]), vT = parseFloat(vb[1]);
+            var vR = parseFloat(vb[2]), vB = parseFloat(vb[3]);
+            if (vR > vL && vB > vT) {
+                visibleBounds = {
+                    left: Math.round(cL + vL),
+                    top: Math.round(cT + vT),
+                    right: Math.round(cL + vR),
+                    bottom: Math.round(cT + vB)
+                };
+            }
+        } catch (e) {}
+
         try { tmp.trim(TrimType.TRANSPARENT); } catch (e) {
             tmp.close(SaveOptions.DONOTSAVECHANGES);
             app.activeDocument = doc;
@@ -758,7 +972,7 @@ function saveGroupPNG(doc, layerSet, path, relPath, layerRelPath) {
             stat.dedup++;
             var prev = dedupMap[fp];
             return { ok: true, width: tw, height: th, relPath: prev.relPath,
-                sourceBounds: { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
+                sourceBounds: visibleBounds || { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
                 trimmedSize: { width: tw, height: th } };
         }
 
@@ -772,7 +986,7 @@ function saveGroupPNG(doc, layerSet, path, relPath, layerRelPath) {
         dedupMap[fp] = { relPath: relPath };
 
         return { ok: true, width: tw, height: th, relPath: relPath,
-            sourceBounds: { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
+            sourceBounds: visibleBounds || { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
             trimmedSize: { width: tw, height: th } };
     } catch (e) {
         addWarning(layerRelPath, "saveGroupPNG", e.message || String(e));
@@ -792,7 +1006,9 @@ function saveGroupPNG(doc, layerSet, path, relPath, layerRelPath) {
 // ===========================
 // 遍历 + 导出 + 构建 JSON（Fix #1, #7, #8, #10, #14）
 // ===========================
-function walk(doc, layers, parent, assetsDir, psdPrefix) {
+function walk(doc, layers, parent, assetsDir, psdPrefix, tx, smartDepth) {
+    tx = tx || identityTransform();
+    smartDepth = smartDepth || 0;
     var out = [];
     for (var i = 0; i < layers.length; i++) {
         var rel = "";
@@ -801,7 +1017,8 @@ function walk(doc, layers, parent, assetsDir, psdPrefix) {
             if (!ly.visible) continue;
             var nm  = ly.name;
             rel = parent ? (parent + "/" + nm) : nm;
-            var bd  = getBounds(ly);
+            var bdRaw = getBounds(ly);
+            var bd  = mapBounds(bdRaw, tx);
 
             // 检测剪贴蒙版（Fix #8）
             if (ly.typename === "ArtLayer" && isClipped(ly)) {
@@ -813,7 +1030,30 @@ function walk(doc, layers, parent, assetsDir, psdPrefix) {
             if (ly.typename === "LayerSet") {
                 stat.groupCount++;
                 if (ly.layers.length === 0) { stat.emptyGroupCount++; stat.skip++; continue; }
-                var sub = walk(doc, ly.layers, rel, assetsDir, psdPrefix);
+                if (isImageGroupName(nm)) {
+                    var imageGroupFp = uniqueName(buildExportName(psdPrefix, rel));
+                    var imageGroupRes = saveGroupPNG(doc, ly, assetsDir + "/" + imageGroupFp + ".png", imageGroupFp, rel);
+                    imageGroupRes = mapPNGResult(imageGroupRes, tx);
+                    if (imageGroupRes) {
+                        stat.png++;
+                        out.push({
+                            name: nm,
+                            type: "png",
+                            options: {},
+                            offset: { left: imageGroupRes.sourceBounds.left, top: imageGroupRes.sourceBounds.top },
+                            size: { width: imageGroupRes.width, height: imageGroupRes.height },
+                            sourceBounds: imageGroupRes.sourceBounds,
+                            trimmedSize: imageGroupRes.trimmedSize,
+                            relativePath: imageGroupRes.relPath,
+                            children: []
+                        });
+                        continue;
+                    }
+                    addWarning(rel, "imageGroupFallback", ".img 组合导出 PNG 失败，已跳过，避免拆分 .img 内容");
+                    stat.skip++;
+                    continue;
+                }
+                var sub = walk(doc, ly.layers, rel, assetsDir, psdPrefix, tx, smartDepth);
                 var groupNode = {
                     name: nm, type: "group", options: {},
                     offset: { left: bd.left, top: bd.top },
@@ -826,6 +1066,7 @@ function walk(doc, layers, parent, assetsDir, psdPrefix) {
                 if (EXPORT_GROUP_AS_PNG) {
                     var groupFp = uniqueName(buildExportName(psdPrefix, rel));
                     var groupRes = saveGroupPNG(doc, ly, assetsDir + "/" + groupFp + ".png", groupFp, rel);
+                    groupRes = mapPNGResult(groupRes, tx);
                     if (groupRes) {
                         groupNode.groupImage = {
                             relPath: groupRes.relPath,
@@ -839,8 +1080,34 @@ function walk(doc, layers, parent, assetsDir, psdPrefix) {
                 }
                 out.push(groupNode);
             } else if (ly.typename === "ArtLayer") {
+                if (isImageGroupName(nm)) {
+                    var imageLayerFp = uniqueName(buildExportName(psdPrefix, rel));
+                    var imageLayerRes = savePNG(doc, ly, assetsDir + "/" + imageLayerFp + ".png", imageLayerFp, rel, null);
+                    imageLayerRes = mapPNGResult(imageLayerRes, tx);
+                    if (imageLayerRes) {
+                        stat.png++;
+                        var imageLayerOpacity = 100;
+                        try { imageLayerOpacity = Math.round(ly.opacity); } catch (e) {}
+                        out.push({
+                            name: nm,
+                            type: "png",
+                            options: { opacity: imageLayerOpacity },
+                            offset: { left: imageLayerRes.sourceBounds.left, top: imageLayerRes.sourceBounds.top },
+                            size: { width: imageLayerRes.width, height: imageLayerRes.height },
+                            sourceBounds: imageLayerRes.sourceBounds,
+                            trimmedSize: imageLayerRes.trimmedSize,
+                            relativePath: imageLayerRes.relPath,
+                            children: []
+                        });
+                        continue;
+                    }
+                    addWarning(rel, "imageLayerFallback", ".img 图层导出 PNG 失败，已跳过，避免拆分 .img 内容");
+                    stat.skip++;
+                    continue;
+                }
                 if (isText(ly)) {
                     var ti = textInfo(ly);
+                    ti = scaleTextInfo(ti, tx);
                     if (bd.width <= 0 && bd.height <= 0 && ti.textContents === "") {
                         stat.skip++; continue;
                     }
@@ -868,8 +1135,17 @@ function walk(doc, layers, parent, assetsDir, psdPrefix) {
                         relativePath: rel, children: [] });
                     stat.text++;
                 } else {
+                    var kArt = lkind(doc, ly);
+                    if (kArt == 5) {
+                        var smartNode = tryExpandSmartObject(doc, ly, rel, assetsDir, psdPrefix, tx, smartDepth);
+                        if (smartNode) {
+                            out.push(smartNode);
+                            continue;
+                        }
+                    }
+
                     if (shouldSkip(doc, ly)) {
-                        var k = lkind(doc, ly);
+                        var k = kArt;
                         if (k != 2 && k != -1) stat.unsupportedCount++;
                         stat.skip++;
                         continue;
@@ -882,6 +1158,7 @@ function walk(doc, layers, parent, assetsDir, psdPrefix) {
                     // 只有显式指定参数时才传 s9 给 savePNG 做裁切
                     var cropS9 = (s9 && s9.source === "name_params") ? s9 : null;
                     var res2 = savePNG(doc, ly, assetsDir + "/" + fp2 + ".png", fp2, rel, cropS9);
+                    res2 = mapPNGResult(res2, tx);
                     if (res2) {
                         stat.png++;
                         var layerOpacity = 100;
@@ -953,6 +1230,9 @@ function main() {
     ensureFolder(assetsDir);
     ensureFolder(jsonDir);
 
+    var savedDialogs = app.displayDialogs;
+    try { app.displayDialogs = DialogModes.NO; } catch (e) {}
+
     var savedUnits = app.preferences.rulerUnits;
     app.preferences.rulerUnits = Units.PIXELS;
 
@@ -1003,6 +1283,7 @@ function main() {
     // ⑤ 恢复 PSD
     try { doc.activeHistoryState = savedHistory; } catch (e) {}
 
+    try { app.displayDialogs = savedDialogs; } catch (e) {}
     app.preferences.rulerUnits = savedUnits;
 
     // 汇总（Fix #14：更详细的统计信息）
@@ -1011,6 +1292,8 @@ function main() {
     m += "组: " + stat.groupCount + "  空组: " + stat.emptyGroupCount + "\n";
     if (stat.dedup > 0) m += "去重: " + stat.dedup + " 个重复PNG已合并引用\n";
     if (stat.raster > 0) m += "栅格化: " + stat.raster + " 个特殊图层（已自动恢复）\n";
+    if (stat.smartObjectExpanded > 0) m += "智能对象展开: " + stat.smartObjectExpanded + " 个\n";
+    if (stat.smartObjectFallback > 0) m += "智能对象回退PNG: " + stat.smartObjectFallback + " 个\n";
     if (stat.clippingLayerCount > 0) m += "剪贴蒙版图层: " + stat.clippingLayerCount + " 个（可能失真）\n";
     if (stat.scale9Count > 0) m += "九宫格图层: " + stat.scale9Count + " 个\n";
     if (stat.unsupportedCount > 0) m += "不支持的图层: " + stat.unsupportedCount + "\n";
