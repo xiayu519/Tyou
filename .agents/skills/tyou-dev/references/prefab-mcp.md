@@ -1,6 +1,6 @@
 # Prefab MCP 精简指南
 
-本文件只描述 AI 创建 UI Prefab 需要的最小 MCP 能力。不要读取或引用完整 `cocos-mcp-server` 工具全集，避免 token 浪费。
+本文件只描述 AI 创建 UI Prefab 需要的最小 MCP 能力。不要读取或依赖完整通用 MCP 工具全集，避免 token 浪费。
 
 ## 使用场景
 

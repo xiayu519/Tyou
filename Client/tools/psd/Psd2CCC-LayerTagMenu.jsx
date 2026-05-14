@@ -11,6 +11,8 @@
     var SCALE9_PREFIX = "_9s";
     var IMG_SUFFIX_RE = /\.img$/i;
     var SCALE9_SUFFIX_RE = /_(9s|scale9)(_(\d+)_(\d+)_(\d+)_(\d+))?$/i;
+    var PREVIEW_MAX_WIDTH = 420;
+    var PREVIEW_MAX_HEIGHT = 260;
 
     if (!app.documents.length) {
         alert("请先打开一个 PSD 文档");
@@ -29,6 +31,10 @@
         return;
     }
 
+    var initialInsets = getInitialScale9Insets(layerInfos);
+    var scale9Preview = null;
+    var previewCleaned = false;
+
     var w = new Window("dialog", "Psd2CCC - PSD 标签");
     w.alignChildren = "fill";
     w.spacing = 12;
@@ -40,13 +46,13 @@
 
     if (layerInfos.length === 1) {
         var nameText = infoPanel.add("statictext", undefined, layerInfos[0].name);
-        nameText.preferredSize.width = 320;
+        nameText.preferredSize.width = 420;
     } else {
         infoPanel.add("statictext", undefined, "已选择 " + layerInfos.length + " 个图层");
         var displayCount = Math.min(layerInfos.length, 6);
         for (var i = 0; i < displayCount; i++) {
             var item = infoPanel.add("statictext", undefined, "  - " + layerInfos[i].name);
-            item.preferredSize.width = 320;
+            item.preferredSize.width = 420;
         }
         if (layerInfos.length > displayCount) {
             infoPanel.add("statictext", undefined, "  ... 还有 " + (layerInfos.length - displayCount) + " 个");
@@ -57,7 +63,7 @@
     imgPanel.alignChildren = "fill";
     imgPanel.margins = 10;
     var imgTip = imgPanel.add("statictext", undefined, "追加 .img，导出时按 Photoshop 视觉结果合成一张 PNG");
-    imgTip.preferredSize.width = 360;
+    imgTip.preferredSize.width = 420;
     var imgButton = imgPanel.add("button", undefined, "添加 .img");
     imgButton.preferredSize.height = 30;
     imgButton.onClick = function () {
@@ -65,6 +71,7 @@
             return makeImgName(name);
         });
         restoreSelection(savedSelection);
+        cleanupDialogPreview();
         w.close();
         showResult(".img", result);
     };
@@ -72,18 +79,22 @@
     var scale9Panel = w.add("panel", undefined, "九宫格标签");
     scale9Panel.alignChildren = "fill";
     scale9Panel.margins = 10;
-    var scale9Tip = scale9Panel.add("statictext", undefined, "填写上/下/左/右像素，确认后追加 _9s_上_下_左_右");
-    scale9Tip.preferredSize.width = 360;
+    var scale9Tip = scale9Panel.add("statictext", undefined, "填写上/下/左/右像素，单选图层时可实时预览，确认后追加 _9s_上_下_左_右");
+    scale9Tip.preferredSize.width = 440;
+
+    var previewData = createLayerPreviewData(layerInfos, savedSelection);
+    var previewArea = addScale9PreviewArea(scale9Panel, previewData);
 
     var inputRow = scale9Panel.add("group");
     inputRow.orientation = "row";
     inputRow.alignChildren = "center";
     inputRow.spacing = 6;
 
-    var topInput = addNumberInput(inputRow, "上", "10");
-    var bottomInput = addNumberInput(inputRow, "下", "10");
-    var leftInput = addNumberInput(inputRow, "左", "10");
-    var rightInput = addNumberInput(inputRow, "右", "10");
+    var topInput = addNumberInput(inputRow, "上", String(initialInsets.top));
+    var bottomInput = addNumberInput(inputRow, "下", String(initialInsets.bottom));
+    var leftInput = addNumberInput(inputRow, "左", String(initialInsets.left));
+    var rightInput = addNumberInput(inputRow, "右", String(initialInsets.right));
+    scale9Preview = bindScale9Preview(previewArea, previewData, topInput, bottomInput, leftInput, rightInput);
 
     var scale9Button = scale9Panel.add("button", undefined, "确定九宫格");
     scale9Button.preferredSize.height = 30;
@@ -95,11 +106,16 @@
             return;
         }
 
+        if (scale9Preview) {
+            insets = scale9Preview.normalizeInsets(insets);
+        }
+
         var suffix = SCALE9_PREFIX + "_" + insets.top + "_" + insets.bottom + "_" + insets.left + "_" + insets.right;
         var result = batchRename(layerInfos, function (name) {
             return makeScale9Name(name, suffix);
         });
         restoreSelection(savedSelection);
+        cleanupDialogPreview();
         w.close();
         showResult(suffix, result);
     };
@@ -108,9 +124,18 @@
     bottomGroup.alignment = "center";
     var cancelBtn = bottomGroup.add("button", undefined, "取消", { name: "cancel" });
     cancelBtn.preferredSize = [100, 28];
+    cancelBtn.onClick = function () {
+        cleanupDialogPreview();
+        w.close();
+    };
+
+    w.onClose = function () {
+        cleanupDialogPreview();
+    };
 
     w.center();
     w.show();
+    cleanupDialogPreview();
 
     function addNumberInput(parent, label, defaultValue) {
         var group = parent.add("group");
@@ -141,6 +166,25 @@
         return value.replace(/^\s+|\s+$/g, "");
     }
 
+    function getInitialScale9Insets(infos) {
+        if (infos.length === 1) {
+            var parsed = parseScale9InsetsFromName(infos[0].name);
+            if (parsed) return parsed;
+        }
+        return { top: 10, bottom: 10, left: 10, right: 10 };
+    }
+
+    function parseScale9InsetsFromName(name) {
+        var match = String(name).match(SCALE9_SUFFIX_RE);
+        if (!match || match.length < 7 || match[3] === undefined) return null;
+        return {
+            top: parseInt(match[3], 10),
+            bottom: parseInt(match[4], 10),
+            left: parseInt(match[5], 10),
+            right: parseInt(match[6], 10)
+        };
+    }
+
     function makeImgName(name) {
         var baseName = stripProjectTags(name);
         return baseName + IMG_SUFFIX;
@@ -166,6 +210,345 @@
             }
         }
         return next;
+    }
+
+    function addScale9PreviewArea(parent, previewData) {
+        if (!previewData || !previewData.image) {
+            var message = previewData && previewData.message ? previewData.message : "单选可渲染图层时显示预览；当前可手动填写九宫格参数。";
+            var fallback = parent.add("statictext", undefined, message);
+            fallback.preferredSize.width = 440;
+            return null;
+        }
+
+        try {
+            var panel = parent.add("panel", undefined, "图片预览");
+            panel.alignChildren = "center";
+            panel.margins = 8;
+            var canvas = panel.add("panel", undefined, "");
+            canvas.margins = 0;
+            canvas.preferredSize = [previewData.viewWidth, previewData.viewHeight];
+            canvas.minimumSize = [previewData.viewWidth, previewData.viewHeight];
+            canvas.maximumSize = [previewData.viewWidth, previewData.viewHeight];
+            var tip = panel.add("statictext", undefined, "修改下面数值可实时预览九宫格切线");
+            tip.preferredSize.width = Math.max(260, previewData.viewWidth);
+            return { panel: panel, canvas: canvas };
+        } catch (e) {
+            var text = parent.add("statictext", undefined, "当前 Photoshop 不支持可绘制预览控件，可手动填写九宫格参数。");
+            text.preferredSize.width = 440;
+        }
+        return null;
+    }
+
+    function bindScale9Preview(area, previewData, topInput, bottomInput, leftInput, rightInput) {
+        if (!area || !area.canvas || !previewData || !previewData.image) return null;
+
+        var state = {
+            image: previewData.image,
+            imageFile: previewData.file,
+            sourceWidth: previewData.sourceWidth,
+            sourceHeight: previewData.sourceHeight,
+            viewWidth: previewData.viewWidth,
+            viewHeight: previewData.viewHeight,
+            scale: previewData.scale,
+            insets: { top: 0, bottom: 0, left: 0, right: 0 },
+            lastDrawKey: ""
+        };
+
+        setStateInsets(state, readInsets(topInput, bottomInput, leftInput, rightInput) || getInitialScale9Insets(layerInfos), null);
+        writeInsetsToInputs(state.insets, topInput, bottomInput, leftInput, rightInput);
+
+        area.canvas.onDraw = function () {
+            drawScale9Preview(this, state);
+        };
+
+        attachScale9InputSync(topInput, area.canvas, state, topInput, bottomInput, leftInput, rightInput);
+        attachScale9InputSync(bottomInput, area.canvas, state, topInput, bottomInput, leftInput, rightInput);
+        attachScale9InputSync(leftInput, area.canvas, state, topInput, bottomInput, leftInput, rightInput);
+        attachScale9InputSync(rightInput, area.canvas, state, topInput, bottomInput, leftInput, rightInput);
+        requestPreviewRedraw(area.canvas, state, true);
+
+        return {
+            normalizeInsets: function (insets) {
+                setStateInsets(state, insets, null);
+                writeInsetsToInputs(state.insets, topInput, bottomInput, leftInput, rightInput);
+                requestPreviewRedraw(area.canvas, state, true);
+                return cloneInsets(state.insets);
+            },
+            cleanup: function () {
+                var file = state.imageFile;
+                state.image = null;
+                state.imageFile = null;
+                try { previewData.image = null; } catch (clearImageError) {}
+                try { previewData.file = null; } catch (clearFileError) {}
+                removePreviewFile(file);
+                runExtendScriptGc();
+                removePreviewFile(file);
+            }
+        };
+    }
+
+    function attachScale9InputSync(input, canvas, state, topInput, bottomInput, leftInput, rightInput) {
+        var syncLive = function () {
+            syncScale9PreviewFromInputs(canvas, state, topInput, bottomInput, leftInput, rightInput, false);
+        };
+        var syncFinal = function () {
+            syncScale9PreviewFromInputs(canvas, state, topInput, bottomInput, leftInput, rightInput, true);
+        };
+        input.onChanging = syncLive;
+        input.onChange = syncFinal;
+
+        try {
+            input.addEventListener("keyup", syncLive);
+            input.addEventListener("change", syncFinal);
+        } catch (e) {}
+    }
+
+    function syncScale9PreviewFromInputs(canvas, state, topInput, bottomInput, leftInput, rightInput, writeBack) {
+        var insets = readInsets(topInput, bottomInput, leftInput, rightInput);
+        if (!insets) return;
+        setStateInsets(state, insets, null);
+        if (writeBack) {
+            writeInsetsToInputs(state.insets, topInput, bottomInput, leftInput, rightInput);
+        }
+        requestPreviewRedraw(canvas, state, true);
+    }
+
+    function createLayerPreviewData(infos, selection) {
+        if (infos.length !== 1) {
+            return { message: "多选图层时不显示图片预览，可继续手动填写九宫格参数。" };
+        }
+
+        var originalDoc = app.activeDocument;
+        var oldUnits = null;
+        var previewDoc = null;
+        var previewFile = null;
+
+        try {
+            oldUnits = app.preferences.rulerUnits;
+            app.preferences.rulerUnits = Units.PIXELS;
+            selectLayerById(infos[0].id);
+            var sourceLayer = originalDoc.activeLayer;
+            var bounds = getLayerPixelBounds(sourceLayer);
+            if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+                return { message: "无法读取图层像素边界，可手动填写九宫格参数。" };
+            }
+
+            previewDoc = app.documents.add(bounds.width, bounds.height, originalDoc.resolution || 72, "__psd2ccc_9s_preview__", NewDocumentMode.RGB, DocumentFill.TRANSPARENT);
+            app.activeDocument = originalDoc;
+            selectLayerById(infos[0].id);
+            sourceLayer = originalDoc.activeLayer;
+            sourceLayer.duplicate(previewDoc, ElementPlacement.PLACEATBEGINNING);
+
+            app.activeDocument = previewDoc;
+            try {
+                previewDoc.activeLayer.translate(-bounds.left, -bounds.top);
+            } catch (translateError) {}
+
+            previewFile = new File(Folder.temp.fsName + "/psd2ccc_9s_preview_" + (new Date()).getTime() + ".png");
+            var pngOptions = new PNGSaveOptions();
+            previewDoc.saveAs(previewFile, pngOptions, true, Extension.LOWERCASE);
+            var image = ScriptUI.newImage(previewFile);
+            var previewSize = calculatePreviewSize(bounds.width, bounds.height);
+            return {
+                image: image,
+                file: previewFile,
+                sourceWidth: bounds.width,
+                sourceHeight: bounds.height,
+                viewWidth: previewSize.width,
+                viewHeight: previewSize.height,
+                scale: previewSize.scale
+            };
+        } catch (e) {
+            try {
+                if (previewFile && previewFile.exists) previewFile.remove();
+            } catch (removeError) {}
+            return { message: "无法生成预览图，可手动填写九宫格参数。" };
+        } finally {
+            try {
+                if (previewDoc) previewDoc.close(SaveOptions.DONOTSAVECHANGES);
+            } catch (closeError) {}
+            try {
+                app.activeDocument = originalDoc;
+            } catch (activeError) {}
+            try {
+                restoreSelection(selection);
+            } catch (restoreError) {}
+            try {
+                if (oldUnits !== null) app.preferences.rulerUnits = oldUnits;
+            } catch (unitError) {}
+        }
+    }
+
+    function calculatePreviewSize(width, height) {
+        var scale = Math.min(PREVIEW_MAX_WIDTH / width, PREVIEW_MAX_HEIGHT / height);
+        if (scale > 1.5) scale = 1.5;
+        if (scale <= 0) scale = 1;
+        return {
+            width: Math.max(40, Math.round(width * scale)),
+            height: Math.max(40, Math.round(height * scale)),
+            scale: scale
+        };
+    }
+
+    function getLayerPixelBounds(layer) {
+        try {
+            var bounds = layer.bounds;
+            var left = unitToPixel(bounds[0]);
+            var top = unitToPixel(bounds[1]);
+            var right = unitToPixel(bounds[2]);
+            var bottom = unitToPixel(bounds[3]);
+            return {
+                left: left,
+                top: top,
+                right: right,
+                bottom: bottom,
+                width: Math.max(0, right - left),
+                height: Math.max(0, bottom - top)
+            };
+        } catch (e) {}
+        return null;
+    }
+
+    function unitToPixel(value) {
+        try {
+            return Math.round(value.as("px"));
+        } catch (e) {}
+        return Math.round(parseFloat(value));
+    }
+
+    function drawScale9Preview(control, state) {
+        var g = control.graphics;
+        try {
+            g.drawImage(state.image, 0, 0, state.viewWidth, state.viewHeight);
+        } catch (drawImageError) {}
+
+        try {
+            var greenBrush = g.newBrush(g.BrushType.SOLID_COLOR, [0, 1, 0, 0.95]);
+            var xLeft = state.insets.left * state.scale;
+            var xRight = (state.sourceWidth - state.insets.right) * state.scale;
+            var yTop = state.insets.top * state.scale;
+            var yBottom = (state.sourceHeight - state.insets.bottom) * state.scale;
+
+            fillRect(g, xLeft - 1, 0, 2, state.viewHeight, greenBrush);
+            fillRect(g, xRight - 1, 0, 2, state.viewHeight, greenBrush);
+            fillRect(g, 0, yTop - 1, state.viewWidth, 2, greenBrush);
+            fillRect(g, 0, yBottom - 1, state.viewWidth, 2, greenBrush);
+        } catch (drawGuideError) {}
+    }
+
+    function fillRect(graphics, x, y, width, height, brush) {
+        graphics.newPath();
+        graphics.rectPath(x, y, width, height);
+        graphics.fillPath(brush);
+    }
+
+    function setStateInsets(state, insets, changedGuide) {
+        var next = {
+            top: clampInt(insets.top, 0, state.sourceHeight),
+            bottom: clampInt(insets.bottom, 0, state.sourceHeight),
+            left: clampInt(insets.left, 0, state.sourceWidth),
+            right: clampInt(insets.right, 0, state.sourceWidth)
+        };
+
+        if (changedGuide === "left") {
+            next.left = clampInt(next.left, 0, state.sourceWidth - next.right);
+        } else if (changedGuide === "right") {
+            next.right = clampInt(next.right, 0, state.sourceWidth - next.left);
+        } else if (changedGuide === "top") {
+            next.top = clampInt(next.top, 0, state.sourceHeight - next.bottom);
+        } else if (changedGuide === "bottom") {
+            next.bottom = clampInt(next.bottom, 0, state.sourceHeight - next.top);
+        } else {
+            next.right = clampInt(next.right, 0, state.sourceWidth - next.left);
+            next.bottom = clampInt(next.bottom, 0, state.sourceHeight - next.top);
+        }
+
+        state.insets = next;
+    }
+
+    function writeInsetsToInputs(insets, topInput, bottomInput, leftInput, rightInput) {
+        topInput.text = String(insets.top);
+        bottomInput.text = String(insets.bottom);
+        leftInput.text = String(insets.left);
+        rightInput.text = String(insets.right);
+    }
+
+    function cloneInsets(insets) {
+        return { top: insets.top, bottom: insets.bottom, left: insets.left, right: insets.right };
+    }
+
+    function getInsetKey(insets) {
+        return [insets.top, insets.bottom, insets.left, insets.right].join("_");
+    }
+
+    function clampInt(value, min, max) {
+        var next = Math.round(Number(value));
+        if (isNaN(next)) next = min;
+        if (max < min) max = min;
+        if (next < min) return min;
+        if (next > max) return max;
+        return next;
+    }
+
+    function requestPreviewRedraw(control, state, fullRefresh) {
+        var key = getInsetKey(state.insets);
+        if (state.lastDrawKey === key) return;
+        state.lastDrawKey = key;
+        redrawControl(control, fullRefresh);
+    }
+
+    function redrawControl(control, fullRefresh) {
+        if (fullRefresh) {
+            try {
+                control.visible = false;
+                control.visible = true;
+            } catch (e) {}
+            try {
+                if (control.parent && control.parent.layout) control.parent.layout.layout(true);
+            } catch (e2) {}
+        }
+        try {
+            if (control.onDraw) control.onDraw.call(control);
+        } catch (e3) {}
+        try {
+            if (control.update) control.update();
+        } catch (e4) {}
+        if (fullRefresh) {
+            try {
+                if (control.window && control.window.layout) control.window.layout.layout(true);
+                if (control.window) control.window.update();
+            } catch (e5) {}
+        } else {
+            try {
+                if (control.window) control.window.update();
+            } catch (e6) {}
+        }
+    }
+
+    function cleanupScale9Preview(preview) {
+        if (!preview || !preview.cleanup) return;
+        preview.cleanup();
+    }
+
+    function removePreviewFile(file) {
+        if (!file) return;
+        try {
+            if (file.exists) file.remove();
+        } catch (e) {}
+    }
+
+    function runExtendScriptGc() {
+        try {
+            if (typeof $ !== "undefined" && $.gc) $.gc();
+        } catch (e) {}
+    }
+
+    function cleanupDialogPreview() {
+        if (previewCleaned) return;
+        previewCleaned = true;
+        cleanupScale9Preview(scale9Preview);
+        scale9Preview = null;
+        previewData = null;
     }
 
     function batchRename(layerInfos, makeName) {

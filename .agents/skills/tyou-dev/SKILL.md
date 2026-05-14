@@ -1,6 +1,6 @@
 ---
 name: tyou-dev
-description: Tyou Cocos Creator 3.8.7 + TypeScript 客户端框架开发指导。涉及以下任意主题时必须激活：tyou 全局入口、UIWindow、UIBase、@UIDecorator、UIName、UIImportAll、UIModule、tyou.ui.showUIAsync、tyou.res、tyou.event、ResourceModule、AssetIndexManager、asset-index.json、addRef/decRef、PSD2CCC、psd2ui、Luban 配表、Cocos Prefab/Scene/Meta 修改、Cocos 编辑器扩展（assetool/uitscreate/cocos-mcp-server）、ty-framework 框架代码、UI 节点前缀、UI 命名规范、战斗设计、ECS、小游戏运行时约束。触发词：Tyou、tyou、Cocos Creator、UIWindow、UIBase、UIName、UIImportAll、ty-framework、psd2ccc、uitscreate、assetool、asset-index、Luban、配表、UI 开发、资源加载、事件系统、Prefab、战斗、技能、Buff、ECS、小游戏。
+description: Tyou Cocos Creator 3.8.7 + TypeScript 客户端框架开发指导。涉及以下任意主题时必须激活：tyou 全局入口、UIWindow、UIBase、@UIDecorator、UIName、UIImportAll、UIModule、tyou.ui.showUIAsync、tyou.res、tyou.event、ResourceModule、AssetIndexManager、asset-index.json、addRef/decRef、PSD2CCC、psd2ui、Luban 配表、Cocos Prefab/Scene/Meta 修改、Cocos 编辑器扩展（assetool/psd2ccc/uitscreate）、ty-framework 框架代码、UI 节点前缀、UI 命名规范、战斗设计、ECS、小游戏运行时约束。触发词：Tyou、tyou、Cocos Creator、UIWindow、UIBase、UIName、UIImportAll、ty-framework、psd2ccc、uitscreate、assetool、asset-index、Luban、配表、UI 开发、资源加载、事件系统、Prefab、战斗、技能、Buff、ECS、小游戏。
 ---
 
 # Tyou 开发指导
