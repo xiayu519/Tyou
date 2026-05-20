@@ -924,15 +924,199 @@ function getDocSize(doc) {
     };
 }
 
-function makeSmartObjectTransform(parentTx, layerBounds, smartDoc) {
+function descriptorList(desc, ids) {
+    for (var i = 0; i < ids.length; i++) {
+        var id = ids[i];
+        if (!descriptorHasKey(desc, id)) continue;
+        try { return desc.getList(id); } catch (e) {}
+    }
+    return null;
+}
+
+function descriptorEnumName(desc, ids) {
+    for (var i = 0; i < ids.length; i++) {
+        var id = ids[i];
+        if (!descriptorHasKey(desc, id)) continue;
+        try { return typeIDToStringID(desc.getEnumerationValue(id)); } catch (e1) {}
+        try { return typeIDToCharID(desc.getEnumerationValue(id)); } catch (e2) {}
+    }
+    return "";
+}
+
+function actionListNumber(list, index) {
+    try { return list.getUnitDoubleValue(index); } catch (e1) {}
+    try { return list.getDouble(index); } catch (e2) {}
+    try { return list.getInteger(index); } catch (e3) {}
+    return null;
+}
+
+function readTransformPoints(list) {
+    if (!list || list.count < 8) return null;
+    var pts = [];
+    for (var i = 0; i < 8; i++) {
+        var v = actionListNumber(list, i);
+        if (v === null) return null;
+        pts.push(v);
+    }
+    return pts;
+}
+
+function hasUnsupportedWarp(warpDesc) {
+    if (!warpDesc) return false;
+
+    var style = descriptorEnumName(warpDesc, [stringIDToTypeID("warpStyle")]);
+    if (style && style !== "warpNone" && style !== "none") return true;
+
+    var warpValue = descriptorNumber(warpDesc, [stringIDToTypeID("warpValue")]);
+    var warpPerspective = descriptorNumber(warpDesc, [stringIDToTypeID("warpPerspective")]);
+    var warpPerspectiveOther = descriptorNumber(warpDesc, [stringIDToTypeID("warpPerspectiveOther")]);
+    if ((warpValue && Math.abs(warpValue) > 0.001)
+            || (warpPerspective && Math.abs(warpPerspective) > 0.001)
+            || (warpPerspectiveOther && Math.abs(warpPerspectiveOther) > 0.001)) {
+        return true;
+    }
+
+    return descriptorHasKey(warpDesc, stringIDToTypeID("customEnvelopeWarp"));
+}
+
+function hasNonRectTransform(points) {
+    if (!points || points.length < 8) return false;
+    var eps = 0.5;
+    var x0 = points[0], y0 = points[1];
+    var x1 = points[2], y1 = points[3];
+    var x2 = points[4], y2 = points[5];
+    var x3 = points[6], y3 = points[7];
+    return Math.abs(y0 - y1) > eps
+        || Math.abs(x1 - x2) > eps
+        || Math.abs(y2 - y3) > eps
+        || Math.abs(x3 - x0) > eps;
+}
+
+function getSmartObjectPlacementInfo(doc, ly) {
+    var info = { unsupported: false, reason: "", transform: null };
+    try {
+        var ref = new ActionReference();
+        ref.putIdentifier(charIDToTypeID("Lyr "), ly.id);
+        var desc = executeActionGet(ref);
+        var more = descriptorObject(desc, [stringIDToTypeID("smartObjectMore")]);
+        if (!more) return info;
+
+        info.transform = readTransformPoints(descriptorList(more, [stringIDToTypeID("transform"), charIDToTypeID("Trnf")]));
+        if (hasNonRectTransform(info.transform)) {
+            info.unsupported = true;
+            info.reason = "非轴对齐 transform";
+            return info;
+        }
+
+        var warp = descriptorObject(more, [stringIDToTypeID("warp")]);
+        if (hasUnsupportedWarp(warp)) {
+            info.unsupported = true;
+            info.reason = "warp/customEnvelopeWarp";
+            return info;
+        }
+    } catch (e) {}
+    return info;
+}
+
+function makeBounds(l, t, r, b) {
+    l = Math.round(l); t = Math.round(t); r = Math.round(r); b = Math.round(b);
+    return { left: l, top: t, right: r, bottom: b, width: r - l, height: b - t };
+}
+
+function isValidBounds(b) {
+    return b && isFinite(b.left) && isFinite(b.top) && isFinite(b.right) && isFinite(b.bottom)
+        && b.width > 0 && b.height > 0;
+}
+
+function cloneBounds(b) {
+    return makeBounds(b.left, b.top, b.right, b.bottom);
+}
+
+function unionBounds(a, b) {
+    if (!isValidBounds(a)) return isValidBounds(b) ? cloneBounds(b) : null;
+    if (!isValidBounds(b)) return cloneBounds(a);
+    return makeBounds(
+        Math.min(a.left, b.left),
+        Math.min(a.top, b.top),
+        Math.max(a.right, b.right),
+        Math.max(a.bottom, b.bottom)
+    );
+}
+
+function getMergedVisibleBounds(doc) {
+    var before = app.activeDocument;
+    var tmp = null;
+    try {
+        app.activeDocument = doc;
+        tmp = doc.duplicate("__smart_bounds__", true);
+        app.activeDocument = tmp;
+        try { tmp.mergeVisibleLayers(); } catch (eMerge) {}
+        var b = getBounds(tmp.activeLayer);
+        if (isValidBounds(b)) {
+            tmp.close(SaveOptions.DONOTSAVECHANGES);
+            app.activeDocument = before;
+            return b;
+        }
+    } catch (e) {
+    }
+    try {
+        if (tmp) tmp.close(SaveOptions.DONOTSAVECHANGES);
+    } catch (e2) {}
+    try { app.activeDocument = before; } catch (e3) {}
+    return null;
+}
+
+function collectVisibleLayerBounds(doc, layers) {
+    var result = null;
+    for (var i = 0; i < layers.length; i++) {
+        try {
+            var ly = layers[i];
+            if (!ly.visible) continue;
+            var b = null;
+            if (ly.typename === "LayerSet") {
+                b = collectVisibleLayerBounds(doc, ly.layers);
+                if (!isValidBounds(b)) b = getBounds(ly);
+            } else if (ly.typename === "ArtLayer") {
+                if (lkind(doc, ly) == 2) continue;
+                b = getBounds(ly);
+            }
+            result = unionBounds(result, b);
+        } catch (e) {}
+    }
+    return result;
+}
+
+function getSmartObjectContentBounds(smartDoc) {
+    var merged = getMergedVisibleBounds(smartDoc);
+    if (isValidBounds(merged)) {
+        return { bounds: merged, source: "mergedVisible", fallback: false };
+    }
+
+    var union = collectVisibleLayerBounds(smartDoc, smartDoc.layers);
+    if (isValidBounds(union)) {
+        return { bounds: union, source: "layerUnion", fallback: false };
+    }
+
+    var ds = getDocSize(smartDoc);
+    if (ds.width > 0 && ds.height > 0) {
+        return { bounds: makeBounds(0, 0, ds.width, ds.height), source: "documentCanvas", fallback: true };
+    }
+    return null;
+}
+
+function makeSmartObjectTransform(parentTx, layerBounds, smartDoc, contentBounds) {
     parentTx = parentTx || identityTransform();
     var ds = getDocSize(smartDoc);
-    if (ds.width <= 0 || ds.height <= 0 || layerBounds.width <= 0 || layerBounds.height <= 0) return null;
+    var cb = isValidBounds(contentBounds) ? contentBounds : makeBounds(0, 0, ds.width, ds.height);
+    if (ds.width <= 0 || ds.height <= 0 || layerBounds.width <= 0 || layerBounds.height <= 0
+            || !isValidBounds(cb)) return null;
+    var sx = parentTx.scaleX * (layerBounds.width / cb.width);
+    var sy = parentTx.scaleY * (layerBounds.height / cb.height);
     return {
-        offsetLeft: parentTx.offsetLeft + layerBounds.left * parentTx.scaleX,
-        offsetTop: parentTx.offsetTop + layerBounds.top * parentTx.scaleY,
-        scaleX: parentTx.scaleX * (layerBounds.width / ds.width),
-        scaleY: parentTx.scaleY * (layerBounds.height / ds.height)
+        offsetLeft: parentTx.offsetLeft + layerBounds.left * parentTx.scaleX - cb.left * sx,
+        offsetTop: parentTx.offsetTop + layerBounds.top * parentTx.scaleY - cb.top * sy,
+        scaleX: sx,
+        scaleY: sy
     };
 }
 
@@ -967,10 +1151,35 @@ function tryExpandSmartObject(doc, ly, rel, assetsDir, psdPrefix, tx, smartDepth
     var bd = mapBounds(bdRaw, tx);
     var smartDoc = null;
     try {
+        var placementInfo = getSmartObjectPlacementInfo(doc, ly);
+        if (placementInfo.unsupported) {
+            stat.smartObjectFallback++;
+            addWarning(rel, "smartObjectTransform",
+                "智能对象包含 " + placementInfo.reason + "，当前拆节点无法还原，已回退为 PNG");
+            return null;
+        }
+
         smartDoc = openSmartObjectContents(doc, ly);
         if (!smartDoc) throw new Error("无法打开智能对象内容");
 
-        var smartTx = makeSmartObjectTransform(tx, bdRaw, smartDoc);
+        var visualFeatures = countVisualFeatures(smartDoc, smartDoc.layers);
+        if (visualFeatures.clipped > 0 || visualFeatures.adjustment > 0) {
+            stat.smartObjectFallback++;
+            addWarning(rel, "smartObjectComposite",
+                "智能对象内容包含剪贴蒙版/调整层（clipped=" + visualFeatures.clipped
+                + ", adjustment=" + visualFeatures.adjustment + "），当前拆节点无法保持 Photoshop 合成语义，已回退为 PNG");
+            smartDoc.close(SaveOptions.DONOTSAVECHANGES);
+            app.activeDocument = doc;
+            return null;
+        }
+
+        var contentInfo = getSmartObjectContentBounds(smartDoc);
+        if (contentInfo && contentInfo.fallback) {
+            addWarning(rel, "smartObjectBounds", "无法计算智能对象内部可见 bounds，已回退为文档画布映射");
+        }
+        var smartDocSize = getDocSize(smartDoc);
+
+        var smartTx = makeSmartObjectTransform(tx, bdRaw, smartDoc, contentInfo ? contentInfo.bounds : null);
         if (!smartTx) throw new Error("智能对象尺寸无效，无法映射坐标");
 
         doRasterize(smartDoc, smartDoc.layers);
@@ -982,7 +1191,12 @@ function tryExpandSmartObject(doc, ly, rel, assetsDir, psdPrefix, tx, smartDepth
         return {
             name: ly.name,
             type: "group",
-            options: { smartObject: true },
+            options: {
+                smartObject: true,
+                smartContentBounds: contentInfo ? contentInfo.bounds : null,
+                smartContentBoundsSource: contentInfo ? contentInfo.source : "unknown",
+                smartDocSize: smartDocSize
+            },
             offset: { left: bd.left, top: bd.top },
             size: { width: bd.width, height: bd.height },
             sourceBounds: { left: bd.left, top: bd.top, right: bd.right, bottom: bd.bottom },
