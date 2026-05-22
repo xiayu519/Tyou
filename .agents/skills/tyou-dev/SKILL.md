@@ -43,12 +43,13 @@ Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。本 skill 是 Codex 
 ## 实施节奏
 
 1. 判断 L1-L4。
-2. L2+ 先按 `.ai/rules/tyou-dev/openspec-workflow.md` 检查 OpenSpec；没有初始化就等待开发者确认。
-3. 读取最少共享规则。
-4. 优先用 `rg` 定位实际代码和调用样例；若 `rg` 不可用，改用 VS Code `grep_search` 或 PowerShell `Select-String`。
-5. 修改前说明将改哪些文件。
-6. 实施后运行能承受的校验：TypeScript 编译、相关脚本或静态搜索。
-7. 汇报改动、流程、验证结果。
+2. 会话开始处理 L2+ 任务前，先 `Get-ChildItem .codex/memory -ErrorAction SilentlyContinue`，若有文件则按修改时间倒序读最近 1-2 份，避免重踩已记录过的问题。
+3. L2+ 先按 `.ai/rules/tyou-dev/openspec-workflow.md` 检查 OpenSpec；没有初始化就等待开发者确认。
+4. 读取最少共享规则。
+5. 优先用 `rg` 定位实际代码和调用样例；若 `rg` 不可用，改用 VS Code `grep_search` 或 PowerShell `Select-String`。
+6. 修改前说明将改哪些文件。
+7. 实施后运行能承受的校验：TypeScript 编译、相关脚本或静态搜索。
+8. 汇报改动、流程、验证结果。
 
 ## 任务结束自检
 

@@ -130,7 +130,7 @@ openspec status --change "<change-name>" --json
 
 - tasks 是否全部完成。
 - 代码是否已验证。
-- reference 是否需要同步更新。
+- 共享规则是否需要同步更新。
 - 是否存在开发者确认过的未完成项。
 - 是否仍有与源码不一致的 AI 工作流文档。
 - 若存在 `openspec/changes/<change-name>/specs/`，归档前评估是否需要同步到 `openspec/specs/`。

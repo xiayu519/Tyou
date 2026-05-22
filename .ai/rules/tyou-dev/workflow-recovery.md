@@ -39,7 +39,7 @@ AI 工作流本身发生变更时，必须在同一个 OpenSpec change 中同步
 - 修改 `.ai/rules/` 中影响任务分级、OpenSpec 门禁、路由、记忆、自检或开发约束的规则时，同时检查 `AGENTS.md`、`.agents/skills/*`、`CLAUDE.md`、`.claude/skills/*`、`.claude/commands/*`。
 - 修改任一 CLI 的触发词、命令名、skill 路由、OpenSpec 入口或结束自检时，同时检查另一套 CLI 适配壳。
 - 如果某个能力确实只属于单一 CLI，必须在对应文档或 OpenSpec artifact 中明确标注“CLI 专属”，并说明另一套 CLI 不需要同步的原因。
-- 不保留旧 reference 兼容目录；规则正文只维护在 `.ai/rules/`。
+- 不保留旧兼容目录；规则正文只维护在 `.ai/rules/`。
 
 ## 记录问题
 
