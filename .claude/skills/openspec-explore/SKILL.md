@@ -1,6 +1,6 @@
 ---
 name: openspec-explore
-description: 进入只读探索模式，作为需求/方案/排障的思考伙伴。当用户在 propose 之前需要厘清需求、对比方案、调研代码、评估风险时使用。只读不写，可读取代码、可创建/更新 OpenSpec artifacts，但不实现功能。触发词：explore、调研、研究一下、想一想、对比方案、不确定怎么做、先看看、需求不清楚。
+description: 进入只读探索模式，作为需求/方案/排障的思考伙伴。当用户在 propose 之前需要厘清需求、对比方案、调研代码、评估风险时使用。只读不写，可读取代码、可创建/更新 OpenSpec artifacts，但不实现功能。Claude Code 可通过本 skill 或 /opsx:explore 进入。触发词：explore、调研、研究一下、想一想、对比方案、不确定怎么做、先看看、需求不清楚。
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
@@ -11,9 +11,11 @@ metadata:
 
 Enter explore mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
 
-This is the Codex CLI adapter for OpenSpec explore. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`; do not depend on other CLI adapter files.
+This is the Claude Code CLI adapter for OpenSpec explore. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`; do not depend on other CLI adapter files.
 
-**IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, and investigate the codebase, but you must NEVER write code or implement features. If the user asks you to implement something, remind them to exit explore mode first and create a change proposal. You MAY create OpenSpec artifacts (proposals, designs, specs) if the user asks—that's capturing thinking, not implementing.
+Windows PowerShell 若拦截 `openspec.ps1`，改用 `cmd /c openspec.cmd ...`。
+
+**IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, and investigate the codebase, but you must NEVER write code or implement features. If the user asks you to implement something, remind them to exit explore mode first and create a change proposal. You MAY create OpenSpec artifacts (proposals, designs, specs) if the user asks - that's capturing thinking, not implementing.
 
 **This is a stance, not a workflow.** There are no fixed steps, no required sequence, no mandatory outputs. You're a thinking partner helping the user explore.
 
@@ -58,10 +60,10 @@ Depending on what the user brings, you might:
 │     Use ASCII diagrams liberally        │
 ├─────────────────────────────────────────┤
 │                                         │
-│      ┌────────┐         ┌────────┐      │
-│      │ State  │────────▶│ State  │      │
-│      │   A    │         │   B    │      │
-│      └────────┘         └────────┘      │
+│   ┌────────┐         ┌────────┐        │
+│   │ State  │────────▶│ State  │        │
+│   │   A    │         │   B    │        │
+│   └────────┘         └────────┘        │
 │                                         │
 │   System diagrams, state machines,      │
 │   data flows, architecture sketches,    │
@@ -116,14 +118,14 @@ If the user mentions a change or you detect one is relevant:
 
 3. **Offer to capture when decisions are made**
 
-    | Insight Type               | Where to Capture               |
-    |----------------------------|--------------------------------|
-    | New requirement discovered | `specs/<capability>/spec.md` |
-    | Requirement changed        | `specs/<capability>/spec.md` |
-    | Design decision made       | `design.md`                  |
-    | Scope changed              | `proposal.md`                |
-    | New work identified        | `tasks.md`                   |
-    | Assumption invalidated     | Relevant artifact              |
+   | Insight Type | Where to Capture |
+   | --- | --- |
+   | New requirement discovered | `specs/<capability>/spec.md` |
+   | Requirement changed | `specs/<capability>/spec.md` |
+   | Design decision made | `design.md` |
+   | Scope changed | `proposal.md` |
+   | New work identified | `tasks.md` |
+   | Assumption invalidated | Relevant artifact |
 
    Example offers:
    - "That's a design decision. Capture it in design.md?"
@@ -229,7 +231,7 @@ User: A CLI tool that tracks local dev environments
 You: That changes everything.
 
      ┌─────────────────────────────────────────────────┐
-     │          CLI TOOL DATA STORAGE                  │
+     │         CLI TOOL DATA STORAGE                   │
      └─────────────────────────────────────────────────┘
 
      Key constraints:
@@ -260,7 +262,7 @@ There's no required ending. Discovery might:
 
 When it feels like things are crystallizing, you might summarize:
 
-```
+```text
 ## What We Figured Out
 
 **The problem**: [crystallized understanding]

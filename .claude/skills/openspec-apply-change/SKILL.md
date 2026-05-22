@@ -1,6 +1,6 @@
 ---
 name: openspec-apply-change
-description: 实施一个已存在的 OpenSpec change，逐项完成 tasks.md 并勾选。当用户要开始实现、继续实现、跑任务、做 propose 后的下一步时使用。会先读 proposal/design/specs/tasks 再动手，每完成一个任务立刻把 [ ] 改为 [x]。触发词：apply、实现、开始实施、继续做、跑 tasks、完成任务、做下一步、写代码（在已有 change 上）。
+description: 实施一个已存在的 OpenSpec change，逐项完成 tasks.md 并勾选。当用户要开始实现、继续实现、跑任务、做 propose 后的下一步时使用。会先读 proposal/design/specs/tasks 再动手，每完成一个任务立刻把 [ ] 改为 [x]。Claude Code 可通过本 skill 或 /opsx:apply 使用。触发词：apply、实现、开始实施、继续做、跑 tasks、完成任务、做下一步、写代码（在已有 change 上）。
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
@@ -11,7 +11,9 @@ metadata:
 
 Implement tasks from an OpenSpec change.
 
-This is the Codex CLI adapter for OpenSpec apply. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`; do not depend on other CLI adapter files.
+This is the Claude Code CLI adapter for OpenSpec apply. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`; do not depend on other CLI adapter files.
+
+Windows PowerShell 若拦截 `openspec.ps1`，改用 `cmd /c openspec.cmd ...`。
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
@@ -24,7 +26,7 @@ This is the Codex CLI adapter for OpenSpec apply. Follow the shared OpenSpec rul
    - Auto-select if only one active change exists
    - If ambiguous, run `openspec list --json` to get available changes and use the **AskUserQuestion tool** to let the user select
 
-   Always announce: "Using change: <name>" and how to override (e.g., `$openspec-apply-change <other>`).
+   Always announce: "Using change: <name>" and how to override (e.g., `/opsx:apply <other>`).
 
 2. **Check status to understand the schema**
    ```bash
@@ -47,7 +49,7 @@ This is the Codex CLI adapter for OpenSpec apply. Follow the shared OpenSpec rul
    - Dynamic instruction based on current state
 
    **Handle states:**
-   - If `state: "blocked"` (missing artifacts): show message, suggest using openspec-continue-change
+   - If `state: "blocked"` (missing artifacts): show message, suggest using the appropriate continue/propose workflow
    - If `state: "all_done"`: congratulate, suggest archive
    - Otherwise: proceed to implementation
 
@@ -72,13 +74,13 @@ This is the Codex CLI adapter for OpenSpec apply. Follow the shared OpenSpec rul
    - Show which task is being worked on
    - Make the code changes required
    - Keep changes minimal and focused
-   - Mark task complete in the tasks file: `- [ ]` → `- [x]`
+   - Mark task complete in the tasks file: `- [ ]` -> `- [x]`
    - Continue to next task
 
    **Pause if:**
-   - Task is unclear → ask for clarification
-   - Implementation reveals a design issue → suggest updating artifacts
-   - Error or blocker encountered → report and wait for guidance
+   - Task is unclear -> ask for clarification
+   - Implementation reveals a design issue -> suggest updating artifacts
+   - Error or blocker encountered -> report and wait for guidance
    - User interrupts
 
 7. **On completion or pause, show status**
@@ -91,38 +93,38 @@ This is the Codex CLI adapter for OpenSpec apply. Follow the shared OpenSpec rul
 
 **Output During Implementation**
 
-```
+```text
 ## Implementing: <change-name> (schema: <schema-name>)
 
 Working on task 3/7: <task description>
 [...implementation happening...]
-✓ Task complete
+Task complete
 
 Working on task 4/7: <task description>
 [...implementation happening...]
-✓ Task complete
+Task complete
 ```
 
 **Output On Completion**
 
-```
+```text
 ## Implementation Complete
 
 **Change:** <change-name>
 **Schema:** <schema-name>
-**Progress:** 7/7 tasks complete ✓
+**Progress:** 7/7 tasks complete
 
 ### Completed This Session
 - [x] Task 1
 - [x] Task 2
 ...
 
-All tasks complete! Ready to archive this change.
+All tasks complete! Ready to archive this change with `/opsx:archive`.
 ```
 
 **Output On Pause (Issue Encountered)**
 
-```
+```text
 ## Implementation Paused
 
 **Change:** <change-name>

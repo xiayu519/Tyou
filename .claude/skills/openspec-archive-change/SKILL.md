@@ -1,6 +1,6 @@
 ---
 name: openspec-archive-change
-description: 把已完成实施的 OpenSpec change 归档到 openspec/changes/archive/YYYY-MM-DD-<name>/。当 tasks 全部勾选完成、用户说收尾/归档/结束变更时使用。归档前会校验 artifacts 与 tasks 完成度，并评估 specs/ delta 是否需要同步到主 specs。触发词：archive、归档、收尾、关闭变更、change 完成、结束这个 change。
+description: 把已完成实施的 OpenSpec change 归档到 openspec/changes/archive/YYYY-MM-DD-<name>/。当 tasks 全部勾选完成、用户说收尾/归档/结束变更时使用。归档前会校验 artifacts 与 tasks 完成度，并评估 specs/ delta 是否需要同步到主 specs。Claude Code 可通过本 skill 或 /opsx:archive 使用。触发词：archive、归档、收尾、关闭变更、change 完成、结束这个 change。
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
@@ -11,7 +11,9 @@ metadata:
 
 Archive a completed change in the experimental workflow.
 
-This is the Codex CLI adapter for OpenSpec archive. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`; do not depend on other CLI adapter files.
+This is the Claude Code CLI adapter for OpenSpec archive. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`; do not depend on other CLI adapter files.
+
+Windows PowerShell 若拦截 `openspec.ps1`，改用 `cmd /c openspec.cmd ...`。
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
@@ -36,7 +38,7 @@ This is the Codex CLI adapter for OpenSpec archive. Follow the shared OpenSpec r
 
    **If any artifacts are not `done`:**
    - Display warning listing incomplete artifacts
-   - Use **AskUserQuestion tool** to confirm user wants to proceed
+   - Use the **AskUserQuestion tool** to confirm the user wants to proceed
    - Proceed if user confirms
 
 3. **Check task completion status**
@@ -47,7 +49,7 @@ This is the Codex CLI adapter for OpenSpec archive. Follow the shared OpenSpec r
 
    **If incomplete tasks found:**
    - Display warning showing count of incomplete tasks
-   - Use **AskUserQuestion tool** to confirm user wants to proceed
+   - Use the **AskUserQuestion tool** to confirm the user wants to proceed
    - Proceed if user confirms
 
    **If no tasks file exists:** Proceed without task-related warning.
@@ -65,7 +67,7 @@ This is the Codex CLI adapter for OpenSpec archive. Follow the shared OpenSpec r
    - If changes needed: "Sync now (recommended)", "Archive without syncing"
    - If already synced: "Archive now", "Sync anyway", "Cancel"
 
-   If user chooses sync, use Task tool (subagent_type: "general-purpose", prompt: "Use Skill tool to invoke openspec-sync-specs for change '<name>'. Delta spec analysis: <include the analyzed delta spec summary>"). Proceed to archive regardless of choice.
+   If the user chooses sync, use Task tool (subagent_type: "general-purpose", prompt: "Use Skill tool to invoke openspec-sync-specs for change '<name>'. Delta spec analysis: <include the analyzed delta spec summary>"). Proceed to archive regardless of choice.
 
 5. **Perform the archive**
 
@@ -74,7 +76,7 @@ This is the Codex CLI adapter for OpenSpec archive. Follow the shared OpenSpec r
    mkdir -p openspec/changes/archive
    ```
 
-   Generate target name using current date: `YYYY-MM-DD-<change-name>`
+   Generate target name using current date: `YYYY-MM-DD-<change-name>`.
 
    **Check if target already exists:**
    - If yes: Fail with error, suggest renaming existing archive or using different date
@@ -95,22 +97,21 @@ This is the Codex CLI adapter for OpenSpec archive. Follow the shared OpenSpec r
 
 **Output On Success**
 
-```
+```text
 ## Archive Complete
 
 **Change:** <change-name>
 **Schema:** <schema-name>
 **Archived to:** openspec/changes/archive/YYYY-MM-DD-<name>/
-**Specs:** ✓ Synced to main specs (or "No delta specs" or "Sync skipped")
+**Specs:** Synced to main specs (or "No delta specs" or "Sync skipped")
 
 All artifacts complete. All tasks complete.
 ```
 
 **Guardrails**
 - Always prompt for change selection if not provided
-- Use artifact graph (openspec status --json) for completion checking
+- Use artifact graph (`openspec status --json`) for completion checking
 - Don't block archive on warnings - just inform and confirm
-- Preserve .openspec.yaml when moving to archive (it moves with the directory)
+- Preserve `.openspec.yaml` when moving to archive (it moves with the directory)
 - Show clear summary of what happened
-- If sync is requested, use openspec-sync-specs approach (agent-driven)
 - If delta specs exist, always run the sync assessment and show the combined summary before prompting
