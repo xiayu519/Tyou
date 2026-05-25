@@ -162,7 +162,7 @@ function rasterize(doc, ly) {
 // 统计 & 警告（Fix #10, #14）
 // ===========================
 var stat = {
-    raster: 0, png: 0, text: 0, skip: 0, dedup: 0,
+    raster: 0, png: 0, text: 0, skip: 0,
     groupCount: 0, emptyGroupCount: 0,
     clippingLayerCount: 0, unsupportedCount: 0,
     smartObjectExpanded: 0, smartObjectFallback: 0,
@@ -224,11 +224,6 @@ function doRasterize(doc, layers) {
         }
     }
 }
-
-// ===========================
-// 指纹去重注册表（基于文件内容哈希）
-// ===========================
-var dedupMap = {};
 
 // ===========================
 // 中文 → 拼音首字母 查找表
@@ -439,7 +434,7 @@ function buildExportName(psdPrefix, layerPath) {
 }
 
 // ===========================
-// 导出单个图层/组为 PNG（Fix #2: 文件内容哈希去重, Fix #7: sourceBounds/trimmedSize, Fix #9: 裁切优化, Fix #10: 警告记录）
+// 导出单个图层/组为 PNG（Fix #7: sourceBounds/trimmedSize, Fix #9: 裁切优化, Fix #10: 警告记录）
 // ===========================
 function savePNG(doc, layer, path, relPath, layerRelPath, s9) {
     try {
@@ -516,67 +511,12 @@ function savePNG(doc, layer, path, relPath, layerRelPath, s9) {
             }
         }
 
-        // 去重指纹
-        var fp;
-        var hist = tmp.histogram;
-        if (s9) {
-            // 九宫格：用尺寸 + 四角区域颜色采样（AM 方式）生成指纹
-            // 避免抗锯齿亚像素差异导致相同图层样式的图无法去重
-            fp = tw + "x" + th + "|s9";
-            var sampler = tmp.colorSamplers;
-            // 清除已有采样点
-            while (sampler.length > 0) sampler[0].remove();
-            // 采样四角：各偏移 inset/2 处取色（远离抗锯齿边缘）
-            var sOff = Math.max(2, Math.min(Math.round(Math.min(s9.top, s9.left) / 2), tw - 1, th - 1));
-            var pts = [
-                [sOff, sOff],
-                [tw - sOff, sOff],
-                [sOff, th - sOff],
-                [tw - sOff, th - sOff]
-            ];
-            for (var pi = 0; pi < pts.length; pi++) {
-                var px = Math.max(0, Math.min(pts[pi][0], tw - 1));
-                var py = Math.max(0, Math.min(pts[pi][1], th - 1));
-                try {
-                    var cs = sampler.add([UnitValue(px, "px"), UnitValue(py, "px")]);
-                    var cr = Math.round(cs.color.rgb.red);
-                    var cg = Math.round(cs.color.rgb.green);
-                    var cb = Math.round(cs.color.rgb.blue);
-                    fp += "|" + cr + "," + cg + "," + cb;
-                    cs.remove();
-                } catch (e) {
-                    fp += "|?";
-                }
-            }
-            // 补充总像素量级（粗粒度）
-            var totalPx = 0;
-            for (var hi = 0; hi < 256; hi++) totalPx += hist[hi];
-            fp += "|" + Math.round(totalPx / 100);
-        } else {
-            // 普通图：精确直方图
-            fp = tw + "x" + th;
-            for (var hi = 0; hi < 256; hi++) fp += "," + hist[hi];
-        }
-
-        if (dedupMap[fp]) {
-            tmp.close(SaveOptions.DONOTSAVECHANGES);
-            app.activeDocument = doc;
-            stat.dedup++;
-            var prev = dedupMap[fp];
-            return { ok: true, width: tw, height: th, relPath: prev.relPath,
-                sourceBounds: visibleBounds || { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
-                trimmedSize: { width: tw, height: th },
-                preScale9Size: prev.preScale9Size || null };
-        }
-
         var f = new File(path);
         var o = new PNGSaveOptions();
         o.interlaced = false;
         tmp.saveAs(f, o, true, Extension.LOWERCASE);
         tmp.close(SaveOptions.DONOTSAVECHANGES);
         app.activeDocument = doc;
-
-        dedupMap[fp] = { relPath: relPath, preScale9Size: preScale9Size };
 
         return { ok: true, width: tw, height: th, relPath: relPath,
             sourceBounds: visibleBounds || { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
@@ -1280,29 +1220,12 @@ function saveGroupPNG(doc, layerSet, path, relPath, layerRelPath) {
         var tw = Math.round(parseFloat(tmp.width));
         var th = Math.round(parseFloat(tmp.height));
 
-        // 去重指纹：在临时文档上用尺寸+直方图计算
-        var fp = tw + "x" + th;
-        var hist = tmp.histogram;
-        for (var hi = 0; hi < 256; hi++) fp += "," + hist[hi];
-
-        if (dedupMap[fp]) {
-            tmp.close(SaveOptions.DONOTSAVECHANGES);
-            app.activeDocument = doc;
-            stat.dedup++;
-            var prev = dedupMap[fp];
-            return { ok: true, width: tw, height: th, relPath: prev.relPath,
-                sourceBounds: visibleBounds || { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
-                trimmedSize: { width: tw, height: th } };
-        }
-
         var f = new File(path);
         var o = new PNGSaveOptions();
         o.interlaced = false;
         tmp.saveAs(f, o, true, Extension.LOWERCASE);
         tmp.close(SaveOptions.DONOTSAVECHANGES);
         app.activeDocument = doc;
-
-        dedupMap[fp] = { relPath: relPath };
 
         return { ok: true, width: tw, height: th, relPath: relPath,
             sourceBounds: visibleBounds || { left: Math.round(bL), top: Math.round(bT), right: Math.round(bR), bottom: Math.round(bB) },
@@ -1609,7 +1532,7 @@ function main() {
     var m = "Psd2CCC Digest 完成！\n\n";
     m += "导出PNG: " + stat.png + "  文字: " + stat.text + "\n";
     m += "组: " + stat.groupCount + "  空组: " + stat.emptyGroupCount + "\n";
-    if (stat.dedup > 0) m += "去重: " + stat.dedup + " 个重复PNG已合并引用\n";
+    m += "去重: 已交由 Cocos 公共图集检查处理\n";
     if (stat.raster > 0) m += "栅格化: " + stat.raster + " 个特殊图层（已自动恢复）\n";
     if (stat.smartObjectExpanded > 0) m += "智能对象展开: " + stat.smartObjectExpanded + " 个\n";
     if (stat.smartObjectFallback > 0) m += "智能对象回退PNG: " + stat.smartObjectFallback + " 个\n";

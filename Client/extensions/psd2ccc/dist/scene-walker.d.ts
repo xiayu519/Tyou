@@ -5,4 +5,6 @@ export declare const methods: {
         rootUuid: any;
         rootName: any;
     };
+    collectSpriteFrameRefs(rootUuid: string): string[];
+    replaceSpriteFramesInNodeTree(rootUuid: string, replacementsJson: string): Promise<number>;
 };

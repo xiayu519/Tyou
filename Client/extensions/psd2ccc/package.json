@@ -28,7 +28,7 @@
     "hierarchy": {
       "menu": {
         "methods": "./dist/hierarchy-menu.js",
-        "hierarchyMenu": "onHierarchyMenu"
+        "createMenu": "onHierarchyMenu"
       }
     }
   }

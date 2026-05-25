@@ -122,21 +122,25 @@ Claude Code 工作流只使用 `CLAUDE.md`、`.claude/`、`.ai/rules/` 和 `open
 ```
 PSD 设计稿
   │  ① 在 Photoshop 中打开 PSD，运行 Psd2CCC-Digest.jsx 脚本
-  │     → 自动切图导出 PNG + 生成节点结构 JSON
+  │     → 忠实切图导出 PNG + 生成节点结构 JSON
   ▼
 导入 Cocos Creator
   │  ② 在资源管理器中右键 JSON 文件 → 「📐 PSD生成UI」
   │     → 自动在 Canvas 下生成完整节点树（位置/尺寸/精灵帧自动绑定）
   ▼
+检查公共图集（可选但推荐）
+  │  ③ 在层级管理器中右键根节点 → 「🧩 检查公共图集」
+  │     → 在 Cocos 侧用真实 SpriteFrame 引用做公共图集去重与引用替换
+  ▼
 手动调整
-  │  ③ 调整键点、布局、按命名规范改前缀（m_btn、m_text、m_img 等）
+  │  ④ 调整键点、布局、按命名规范改前缀（m_btn、m_text、m_img 等）
   ▼
 检查前缀组件
-  │  ④ 在层级管理器中右键根节点 → 「🔍 检查前缀组件」
+  │  ⑤ 在层级管理器中右键根节点 → 「🔍 检查前缀组件」
   │     → 自动检查所有子节点，移除互斥组件，添加正确组件
   ▼
 生成 UI 代码
-  │  ⑤ 右键根节点 → 「🎯 生成UI脚本」
+  │  ⑥ 右键根节点 → 「🎯 生成UI脚本」
   │     → 自动生成 TypeScript 类（属性绑定 + 事件注册）
   │     → 自动更新 UIName.ts 和 UIImportAll.ts
   ▼
@@ -186,9 +190,9 @@ Client/tools/psd/Psd2CCC-LayerTagMenu.jsx
    - **导出 PNG** → `Client/assets/asset-art/atlas/{psdName}/`
    - **生成结构 JSON** → `Client/assets/asset-art/psd/tool/{psdName}/{psdName}-structure.json`
    - 文字层自动识别为 `text` 节点（保留字体/字号/颜色）
-   - 重复图层自动去重（相同像素只导出一次，多个节点共用引用）
+   - PSD 阶段不做最终资源去重，重复图片先忠实导出，公共化交给 Cocos 侧「检查公共图集」
    - 中文图层名自动转拼音首字母（避免文件名乱码）
-5. 导出完成后显示统计信息（PNG 数量、文字数量、去重数量、输出路径）
+5. 导出完成后显示统计信息（PNG 数量、文字数量、输出路径）
 
 #### 输出目录说明
 
@@ -230,7 +234,7 @@ Client/tools/psd/Psd2CCC-LayerTagMenu.jsx
 
 **显式指定参数时**，导出的 PNG 会被自动裁切：保留四边 inset 像素 + 中间仅保留 2px 拉伸带，大幅减小图片体积。导入 Cocos Creator 后，节点 contentSize 自动还原为原始尺寸，Sprite Border 自动设置，Type 自动设为 SLICED。
 
-> 后缀用下划线 `_` 连接，参数顺序为 **上_下_左_右**。同一九宫格图层样式用于多个不同尺寸的图层时，裁切后会自动去重（只保留一份 PNG）。
+> 后缀用下划线 `_` 连接，参数顺序为 **上_下_左_右**。同一九宫格图层样式用于多个不同尺寸的图层时，PSD 阶段仍按图层忠实导出；需要复用公共资源时，在 Cocos 层级面板对根节点执行「🧩 检查公共图集」。
 
 ---
 
@@ -254,6 +258,23 @@ PSD 切图完成后，在 CocosCreator 中通过 `psd2ccc` 编辑器扩展将 JS
 5. 完成后弹出统计信息
 
 > 坐标转换说明：PSD 原点在左上角、Y 轴向下；Cocos 原点在父节点锚点（默认中心）、Y 轴向上。扩展自动完成转换。
+
+---
+
+### 检查公共图集（Cocos 侧去重）
+
+PSD 导出的 `*-structure.json` 只是生成节点树的中间产物，不参与最终资源去重。生成 UI 节点后，可在 Cocos 层级管理器中右键 UI 根节点，选择 **「🧩 检查公共图集」**。
+
+该工具会在 Cocos 项目侧执行更可靠的公共化：
+
+- 只比较解码后的可见 PNG 像素和 SpriteFrame 导入参数，透明像素的 RGB 脏数据不会影响判断。
+- 九宫格 border、trim、尺寸等 SpriteFrame 语义不同的图片不会合并。
+- 优先复用 `assets/asset-art/atlas/common/` 中已有等价图片；不存在时复制一张代表图进去。
+- 替换选中节点树和可解析 Prefab/Scene 文本资源里的 SpriteFrame UUID 引用。
+- 只在项目内确认旧 PNG 的 image UUID 和 SpriteFrame UUID 都不再被引用后，才通过 AssetDB 删除重复图片。
+- 执行时会优先显示编辑器进度反馈；若当前 Cocos 进度接口不可用，则回退到控制台日志和完成弹窗。
+
+> 注意：该工具不修改 `{psdName}-structure.json`。重新从 PSD 生成 UI 时，重新执行一次「🧩 检查公共图集」即可。
 
 ---
 

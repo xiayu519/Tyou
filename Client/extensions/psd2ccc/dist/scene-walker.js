@@ -245,6 +245,48 @@ function countNodes(children) {
     }
     return total;
 }
+function findNodeByUuid(root, uuid) {
+    if (!root)
+        return null;
+    if (root.uuid === uuid)
+        return root;
+    for (const child of root.children || []) {
+        const found = findNodeByUuid(child, uuid);
+        if (found)
+            return found;
+    }
+    return null;
+}
+function findSceneNode(uuid) {
+    const scene = cc.director.getScene();
+    if (!scene)
+        return null;
+    return findNodeByUuid(scene, uuid);
+}
+function visitNodeTree(node, visitor) {
+    if (!node)
+        return;
+    visitor(node);
+    for (const child of node.children || []) {
+        visitNodeTree(child, visitor);
+    }
+}
+function getSpriteFrameUuid(spriteFrame) {
+    return (spriteFrame === null || spriteFrame === void 0 ? void 0 : spriteFrame._uuid) || (spriteFrame === null || spriteFrame === void 0 ? void 0 : spriteFrame.uuid) || '';
+}
+function loadSpriteFrame(uuid) {
+    const cached = cc.assetManager.assets.get(uuid);
+    if (cached)
+        return Promise.resolve(cached);
+    return new Promise((resolve, reject) => {
+        cc.assetManager.loadAny(uuid, (err, asset) => {
+            if (err || !asset)
+                reject(err || new Error(`SpriteFrame not found: ${uuid}`));
+            else
+                resolve(asset);
+        });
+    });
+}
 exports.methods = {
     buildNodes(uiNodeName, jsonStr, spriteMapStr) {
         const data = JSON.parse(jsonStr);
@@ -272,6 +314,41 @@ exports.methods = {
             rootUuid: uiRoot.uuid,
             rootName: uiRoot.name,
         };
+    },
+    collectSpriteFrameRefs(rootUuid) {
+        const root = findSceneNode(rootUuid);
+        if (!root)
+            return [];
+        const refs = [];
+        visitNodeTree(root, (node) => {
+            const sprite = node.getComponent && node.getComponent('cc.Sprite');
+            const uuid = getSpriteFrameUuid(sprite === null || sprite === void 0 ? void 0 : sprite.spriteFrame);
+            if (uuid)
+                refs.push(uuid);
+        });
+        return refs;
+    },
+    async replaceSpriteFramesInNodeTree(rootUuid, replacementsJson) {
+        const root = findSceneNode(rootUuid);
+        if (!root)
+            return 0;
+        const replacements = JSON.parse(replacementsJson || '{}');
+        const targetUuids = Array.from(new Set(Object.values(replacements).filter(Boolean)));
+        const loaded = {};
+        for (const uuid of targetUuids) {
+            loaded[uuid] = await loadSpriteFrame(uuid);
+        }
+        let changed = 0;
+        visitNodeTree(root, (node) => {
+            const sprite = node.getComponent && node.getComponent('cc.Sprite');
+            const currentUuid = getSpriteFrameUuid(sprite === null || sprite === void 0 ? void 0 : sprite.spriteFrame);
+            const nextUuid = currentUuid ? replacements[currentUuid] : '';
+            if (sprite && nextUuid && loaded[nextUuid]) {
+                sprite.spriteFrame = loaded[nextUuid];
+                changed++;
+            }
+        });
+        return changed;
     },
 };
 //# sourceMappingURL=scene-walker.js.map

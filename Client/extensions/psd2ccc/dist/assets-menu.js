@@ -44,6 +44,13 @@ function resolveSpriteFrameUuids(atlasPath) {
     }
     return spriteMap;
 }
+function mergeSpriteMaps(...maps) {
+    const merged = {};
+    for (const map of maps) {
+        Object.assign(merged, map);
+    }
+    return merged;
+}
 function listAtlasPngFiles(atlasPath) {
     const dirPath = path_1.default.join(Editor.Project.path, 'assets', atlasPath);
     if (!fs_1.default.existsSync(dirPath))
@@ -198,7 +205,7 @@ async function buildUIFromData(data, options) {
             const sliceMap = collectSliceBorders(data.children);
             if (!waitForAssets) {
                 applySliceBordersToMeta(atlasPath, sliceMap);
-                spriteMap = resolveSpriteFrameUuids(atlasPath);
+                spriteMap = mergeSpriteMaps(resolveSpriteFrameUuids(atlasPath), resolveSpriteFrameUuids('asset-art/atlas/common'));
                 const dirPath = path_1.default.join(Editor.Project.path, 'assets', atlasPath);
                 if (fs_1.default.existsSync(dirPath)) {
                     const pngFiles = fs_1.default.readdirSync(dirPath).filter((file) => file.endsWith('.png'));
@@ -224,6 +231,7 @@ async function buildUIFromData(data, options) {
                 spriteMap = Object.keys(sliceMap).length > 0
                     ? await waitForSpriteFrames(atlasPath, expectedSprites)
                     : initialSpriteMap;
+                spriteMap = mergeSpriteMaps(spriteMap, resolveSpriteFrameUuids('asset-art/atlas/common'));
                 if (Object.keys(spriteMap).length < expectedSprites) {
                     await Editor.Dialog.warn('\u8b66\u544a', {
                         title: '\u8d44\u6e90\u5bfc\u5165\u672a\u5b8c\u6210',
@@ -244,7 +252,7 @@ async function buildUIFromData(data, options) {
         const warnings = options.warnings || [];
         const warningPreview = getWarningPreview(warnings);
         const exportDetail = typeof options.exportedCount === 'number'
-            ? `\nPNG: ${options.exportedCount}${typeof options.dedupCount === 'number' ? `, dedup reused: ${options.dedupCount}` : ''}`
+            ? `\nPNG: ${options.exportedCount}`
             : '';
         const warningDetail = warnings.length > 0
             ? `\nWarnings: ${warnings.length}\n${warningPreview}`
@@ -274,7 +282,7 @@ async function buildUIFromJSON(jsonFilePath) {
 }
 module.exports = {
     onAssetMenu(assetInfo) {
-        if (assetInfo.isDirectory || !assetInfo.name) {
+        if (!assetInfo.name) {
             return [];
         }
         const isJsonFile = /\.json$/i.test(assetInfo.name);

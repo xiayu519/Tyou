@@ -2,6 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const psd2cccCommonAtlas = require("../../psd2ccc/dist/common-atlas-checker.js");
 
 // 默认组件配置
 const DEFAULT_COMPONENT_CONFIG = [
@@ -824,6 +825,25 @@ async function checkPrefixComponents(nodeUuid) {
     }
 }
 
+async function checkCommonAtlas(nodeUuid) {
+    try {
+        let uuid = nodeUuid;
+        if (!uuid) {
+            const uuids = Editor.Selection.getSelected('node');
+            if (!uuids || uuids.length === 0) {
+                await showWarning('请先选中一个节点');
+                return;
+            }
+            uuid = uuids[0];
+        }
+
+        await psd2cccCommonAtlas.runCommonAtlasCheckForNode(uuid);
+    } catch (e) {
+        console.error('[UI脚本生成器] 检查公共图集失败:', e);
+        await showErrorMessage('检查失败', e.message || String(e));
+    }
+}
+
 // 导出函数
 module.exports = {
     onHierarchyMenu: function(assetInfo) {
@@ -838,6 +858,12 @@ module.exports = {
                 label: '🔍 检查前缀组件',
                 async click() {
                     await checkPrefixComponents(assetInfo);
+                }
+            },
+            {
+                label: '🧩 检查公共图集',
+                async click() {
+                    await checkCommonAtlas(assetInfo);
                 }
             }
         ];

@@ -295,6 +295,48 @@ function countNodes(children: any[]): number {
     return total;
 }
 
+function findNodeByUuid(root: any, uuid: string): any | null {
+    if (!root) return null;
+    if (root.uuid === uuid) return root;
+
+    for (const child of root.children || []) {
+        const found = findNodeByUuid(child, uuid);
+        if (found) return found;
+    }
+
+    return null;
+}
+
+function findSceneNode(uuid: string): any | null {
+    const scene = cc.director.getScene();
+    if (!scene) return null;
+    return findNodeByUuid(scene, uuid);
+}
+
+function visitNodeTree(node: any, visitor: (node: any) => void) {
+    if (!node) return;
+    visitor(node);
+    for (const child of node.children || []) {
+        visitNodeTree(child, visitor);
+    }
+}
+
+function getSpriteFrameUuid(spriteFrame: any): string {
+    return spriteFrame?._uuid || spriteFrame?.uuid || '';
+}
+
+function loadSpriteFrame(uuid: string): Promise<any> {
+    const cached = cc.assetManager.assets.get(uuid);
+    if (cached) return Promise.resolve(cached);
+
+    return new Promise((resolve, reject) => {
+        cc.assetManager.loadAny(uuid, (err: Error | null, asset: any) => {
+            if (err || !asset) reject(err || new Error(`SpriteFrame not found: ${uuid}`));
+            else resolve(asset);
+        });
+    });
+}
+
 export const methods = {
     buildNodes(uiNodeName: string, jsonStr: string, spriteMapStr: string) {
         const data = JSON.parse(jsonStr);
@@ -326,5 +368,44 @@ export const methods = {
             rootUuid: uiRoot.uuid,
             rootName: uiRoot.name,
         };
+    },
+
+    collectSpriteFrameRefs(rootUuid: string) {
+        const root = findSceneNode(rootUuid);
+        if (!root) return [];
+
+        const refs: string[] = [];
+        visitNodeTree(root, (node) => {
+            const sprite = node.getComponent && node.getComponent('cc.Sprite');
+            const uuid = getSpriteFrameUuid(sprite?.spriteFrame);
+            if (uuid) refs.push(uuid);
+        });
+
+        return refs;
+    },
+
+    async replaceSpriteFramesInNodeTree(rootUuid: string, replacementsJson: string) {
+        const root = findSceneNode(rootUuid);
+        if (!root) return 0;
+
+        const replacements = JSON.parse(replacementsJson || '{}');
+        const targetUuids = Array.from(new Set(Object.values(replacements).filter(Boolean))) as string[];
+        const loaded: Record<string, any> = {};
+        for (const uuid of targetUuids) {
+            loaded[uuid] = await loadSpriteFrame(uuid);
+        }
+
+        let changed = 0;
+        visitNodeTree(root, (node) => {
+            const sprite = node.getComponent && node.getComponent('cc.Sprite');
+            const currentUuid = getSpriteFrameUuid(sprite?.spriteFrame);
+            const nextUuid = currentUuid ? replacements[currentUuid] : '';
+            if (sprite && nextUuid && loaded[nextUuid]) {
+                sprite.spriteFrame = loaded[nextUuid];
+                changed++;
+            }
+        });
+
+        return changed;
     },
 };
