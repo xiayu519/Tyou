@@ -15,5 +15,17 @@
       "Skill(openspec-apply-change)",
       "Skill(openspec-archive-change)"
     ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"⚠️ CLAUDE.md 强制工作流：1) 先判断任务等级(L1-L4) 2) 非L1必须触发 tyou-dev skill (Skill tool, skill: tyou-dev) 3) 检查 OpenSpec 状态 4) 走完流程再动手写代码\"}'"
+          }
+        ]
+      }
+    ]
   }
 }
