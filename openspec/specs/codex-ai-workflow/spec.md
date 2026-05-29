@@ -1,7 +1,7 @@
 # codex-ai-workflow Specification
 
 ## Purpose
-Define the mandatory Codex CLI adapter workflow for the Tyou Cocos Creator project, including OpenSpec supervision, Tyou-specific rule precedence, local correction loops, and token-efficient task routing over shared `.ai/rules/` content.
+Define the mandatory Codex workflow for the Tyou Cocos Creator project, including OpenSpec supervision, Tyou-specific rule precedence, local correction loops, and token-efficient task routing over shared `.ai/rules/` content.
 ## Requirements
 ### Requirement: Codex replies in Chinese
 The Codex workflow MUST require project-facing proposals and answers to be written in Chinese, while preserving literal code identifiers, commands, file paths, API names, and logs in their original language.
@@ -32,14 +32,25 @@ OpenSpec artifacts MUST follow Tyou rules from `AGENTS.md`, `.agents/skills/tyou
 - **WHEN** an OpenSpec artifact suggests behavior that conflicts with Tyou framework, UI, resource, Luban, prefab, or shared AI workflow constraints
 - **THEN** the Tyou rule takes precedence and the artifact is updated before implementation continues
 
-### Requirement: Codex adapter is isolated from Claude Code
-The Codex workflow MUST use Codex-native files as its adapter layer and MUST NOT depend on Claude Code-specific workflow files.
+### Requirement: Codex workflow uses Codex files
+The Codex workflow MUST use `AGENTS.md`, `.agents/skills/*`, `.ai/rules/`, `openspec/`, and `.codex/memory/`.
 
 #### Scenario: Codex loads project workflow
 - **WHEN** Codex reads project workflow instructions
 - **THEN** it uses `AGENTS.md` and `.agents/skills/*`
 - **AND** it may read shared `.ai/rules/` and `openspec/` files
-- **AND** it does not require `.claude/` files
+
+#### Scenario: Codex workflow files are updated
+- **WHEN** `AGENTS.md`, `.agents/skills/*`, `.ai/rules/`, README/Books workflow docs, or OpenSpec workflow specs are updated
+- **THEN** the change checks Codex workflow consistency
+
+### Requirement: Codex workflow stays concise
+The Codex workflow MUST keep entry files focused on executable constraints and route detailed topic rules to `.ai/rules/`.
+
+#### Scenario: AI workflow task begins
+- **WHEN** Codex handles an AI workflow documentation, routing, OpenSpec, memory, or task classification change
+- **THEN** the workflow preserves Codex entrypoints and shared rules
+- **AND** it avoids duplicating long topic reference content in entry files
 
 ### Requirement: Codex rules route to shared rules
 The Codex workflow MUST treat `.ai/rules/` as the canonical source for detailed Tyou development rules.
@@ -47,7 +58,7 @@ The Codex workflow MUST treat `.ai/rules/` as the canonical source for detailed 
 #### Scenario: Codex skill needs topic details
 - **WHEN** `.agents/skills/tyou-dev/SKILL.md` routes a task to topic details
 - **THEN** it points to the corresponding `.ai/rules/tyou-dev/*.md` file
-- **AND** it does not rely on any CLI-specific legacy reference tree
+- **AND** it does not duplicate detailed topic rules inside the skill file
 
 ### Requirement: Workflow docs stay local and factual
 The workflow documentation MUST describe Tyou's current Codex adapter behavior directly and MUST NOT keep external project comparison sections or unrelated external engine concepts.

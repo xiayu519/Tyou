@@ -2,7 +2,7 @@ schema: spec-driven
 
 context: |
   Project: Tyou, a Cocos Creator 3.8.7 + TypeScript client framework.
-  AI entrypoints: AGENTS.md for Codex CLI and CLAUDE.md for Claude Code CLI. Shared Tyou rules live under .ai/rules/.
+  AI entrypoints: AGENTS.md for Codex CLI. Shared Tyou rules live under .ai/rules/.
   Framework code under Client/assets/ty-framework/ is protected. Any add/delete/modify in that directory requires developer confirmation with impact and consequences.
   UI work must respect UIWindow/UIBase/@UIDecorator/UIName/UIImportAll and generated UI scripts. UI image loading, button events, and event listeners should use UIBase built-ins so close/release can clean them.
   Resource work must use asset-index generation, avoid duplicate resource names, and treat addRef/decRef pairing as a crash/leak critical invariant.

@@ -1,6 +1,6 @@
 # Tyou AI 开发工作流
 
-本文档说明本仓库的 AI 开发工作流。当前架构是：**Codex CLI 与 Claude Code CLI 各自使用专属适配壳，Tyou 具体规则统一维护在 `.ai/rules/`**。
+本文档说明本仓库的 Codex AI 开发工作流。Tyou 具体规则统一维护在 `.ai/rules/`。
 
 目标：任务目标明确、按需读取、少上下文、少返工、少重复维护。
 
@@ -11,39 +11,19 @@
   .ai/rules/tyou-dev/*.md
   openspec/
 
-Codex 适配壳
+Codex 入口
   AGENTS.md
   .agents/skills/*
   .codex/memory/*
-
-Claude Code 适配壳
-  CLAUDE.md
-  .claude/skills/*
-  .claude/commands/opsx/*
-  .claude/settings.local.json
-  .claude/agent-memory/*
 ```
 
-`AGENTS.md` 与 `.agents/skills/` 是 Codex 专属入口，不要求读取 `.claude/`。
-
-`CLAUDE.md` 与 `.claude/` 是 Claude Code 专属入口，不要求读取 `.agents/`。
-
-两套壳只共享 `.ai/rules/` 与 `openspec/`。
+`AGENTS.md` 与 `.agents/skills/` 是 Codex 工作流入口。
 
 ## 入口
-
-Codex CLI：
 
 - `AGENTS.md`：项目级入口，负责中文输出、任务分级、OpenSpec 监督和核心红线。
 - `.agents/skills/tyou-dev/SKILL.md`：Codex 原生 Tyou skill，按主题路由到 `.ai/rules/tyou-dev/*.md`。
 - `.agents/skills/openspec-*`：Codex OpenSpec 四阶段 skill。
-
-Claude Code CLI：
-
-- `CLAUDE.md`：项目级入口，负责中文输出、任务分级、OpenSpec 监督和核心红线。
-- `.claude/skills/tyou-dev/SKILL.md`：Claude Code Tyou skill，按主题路由到 `.ai/rules/tyou-dev/*.md`。
-- `.claude/commands/opsx/*`：Claude Code slash commands。
-- `.claude/settings.local.json`：Claude Code 权限配置。
 
 共享规则：
 
@@ -68,7 +48,7 @@ Claude Code CLI：
 3. L3 读取 2-4 个相关主题。
 4. L4 先读必要主题并给方案，不全量加载。
 5. 同一会话已读主题只复用摘要，不重复读取。
-6. 壳文件只写触发方式和路由，具体规则不在 Codex/Claude 两边重复维护。
+6. Codex 壳文件只写触发方式和路由，具体规则不在壳文件里重复维护。
 7. 共享规则与代码冲突时读源码验证，避免靠长文档猜。
 
 这套策略不能承诺任何模型环境下绝对更省 token，但目标是让工作流增加判断质量，而不是上下文噪声。
@@ -77,10 +57,10 @@ Claude Code CLI：
 
 ```text
 用户需求
-  -> 当前 CLI 读取自己的入口壳
+  -> Codex 读取自己的入口壳
   -> 判断 L1/L2/L3/L4
   -> L2+ 检查/进入 OpenSpec
-  -> 触发当前 CLI 的 tyou-dev / openspec 入口
+  -> 触发 Codex 的 tyou-dev / openspec 入口
   -> 读取最少 .ai/rules/tyou-dev/*.md
   -> 优先 rg；不可用时用可用搜索工具或 Select-String
   -> 读源码确认实际 API
@@ -93,31 +73,21 @@ Claude Code CLI：
 
 除 L1 简单任务外，实现类任务必须使用 OpenSpec 监督，详细规则见 `.ai/rules/tyou-dev/openspec-workflow.md`。
 
-Codex 使用：
-
 - `$openspec-explore`
 - `$openspec-propose`
 - `$openspec-apply-change`
 - `$openspec-archive-change`
 
-Claude Code 使用：
-
-- `/opsx:explore`
-- `/opsx:propose`
-- `/opsx:apply`
-- `/opsx:archive`
-- 或 `.claude/skills/openspec-*`
-
 Windows PowerShell 若拦截 npm 生成的 `openspec.ps1`，统一改用 `cmd /c openspec.cmd ...`。
 
-## 容错与同步
+## 容错与一致性
 
 当源码、工具实际行为和 AI 工作流 md 不一致时，以源码和工具实际行为为准，并修正对应 md。详细规则见 `.ai/rules/tyou-dev/workflow-recovery.md`。
 
-优先同步位置：
+优先修正位置：
 
-- 当前会话必须知道的规则：`AGENTS.md` 或 `CLAUDE.md`。
-- CLI 路由和触发：`.agents/skills/*` 或 `.claude/*`。
+- 当前会话必须知道的规则：`AGENTS.md`。
+- Codex 路由和触发：`.agents/skills/*`。
 - 具体主题规范：`.ai/rules/tyou-dev/*.md`。
 - 人读工作流说明：`Books/AI-Development-Workflow.md`。
 - 面向项目用户的概要说明：`README.md`。

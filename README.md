@@ -67,43 +67,31 @@ Unitask       // 全局异步工具（globalThis.Unitask）
 
 ## AI 开发工作流
 
-本仓库已经接入一套**双 CLI 适配壳 + 单一共享规范源**的本地 AI 开发工作流，同时支持 Codex CLI 与 Claude Code CLI。
+本仓库使用 **Codex CLI + `.ai/rules/`** 的本地 AI 开发工作流。
 
 ### 当前实际组成
 
 - `.ai/rules/`：Tyou/OpenSpec/UI/资源/Prefab/PSD/Luban/战斗等共享规范正文。具体规则尽量只在这里维护一份。
-- `AGENTS.md`：Codex CLI 项目级入口，定义中文回复、L1-L4 任务分级、OpenSpec 监督和 Codex 壳隔离规则。
-- `.agents/skills/`：Codex 原生 skill 壳，负责 Codex 的 skill 触发与共享规则路由。
-- `CLAUDE.md`：Claude Code CLI 项目级入口，定义 Claude Code 的任务分级、OpenSpec 监督和 Claude 壳隔离规则。
-- `.claude/skills/`：Claude Code skill 壳，负责 Claude 的 skill 触发与共享规则路由。
-- `.claude/commands/opsx/`：Claude Code slash command 壳，覆盖 `/opsx:explore`、`/opsx:propose`、`/opsx:apply`、`/opsx:archive`。
-- `.claude/settings.local.json`：Claude Code 本地权限配置。
-- `openspec/`：共享规范驱动变更目录。L2 及以上实现类任务会先创建或进入 change，再按 tasks 逐项实施。
-- `.codex/memory/` 与 `.claude/agent-memory/`：分别服务各自 CLI 的问题沉淀；记忆机制不强行合并。
+- `AGENTS.md`：Codex 项目级入口，定义中文回复、L1-L4 任务分级和 OpenSpec 监督。
+- `.agents/skills/`：Codex skills，负责 skill 触发与共享规则路由。
+- `openspec/`：规范驱动变更目录。L2 及以上实现类任务会先创建或进入 change，再按 tasks 逐项实施。
+- `.codex/memory/`：服务 Codex 的可复用问题沉淀。
 - `Books/AI-Development-Workflow.md`：更完整的人读版说明。
-
-### 隔离原则
-
-Codex 工作流只使用 `AGENTS.md`、`.agents/skills/`、`.ai/rules/` 和 `openspec/`；不要要求 Codex 读取 `.claude/`。
-
-Claude Code 工作流只使用 `CLAUDE.md`、`.claude/`、`.ai/rules/` 和 `openspec/`；不要要求 Claude Code 读取 `.agents/`。
-
-两边的触发机制不同，但具体 Tyou 规则指向同一份 `.ai/rules/`。
 
 ### 任务分级
 
 | 等级 | 场景 | 工作流 |
 | --- | --- | --- |
 | L1 | typo、注释、日志、单行无框架语义改名 | 不激活 skill，不走 OpenSpec，直接处理 |
-| L2 | 单一模块局部修改、调用已知 API | 激活当前 CLI 的 `tyou-dev` skill，读取最少共享规则，走轻量 OpenSpec change |
-| L3 | 新功能、跨文件、UI/资源/事件/配表逻辑 | 激活当前 CLI 的 `tyou-dev` skill，读取 2-4 个相关共享规则，必须走 OpenSpec |
+| L2 | 单一模块局部修改、调用已知 API | 激活 Codex 的 `tyou-dev` skill，读取最少共享规则，走轻量 OpenSpec change |
+| L3 | 新功能、跨文件、UI/资源/事件/配表逻辑 | 激活 Codex 的 `tyou-dev` skill，读取 2-4 个相关共享规则，必须走 OpenSpec |
 | L4 | 多模块协作、框架规则、AI 工作流、重构决策 | 先探索和提案，再实施；涉及框架代码必须确认影响后再改 |
 
 ### OpenSpec 监督边界
 
 除 L1 外，任何会修改代码、资源、Prefab、配置、工作流文档或框架行为的任务，都要求先确认 OpenSpec 可用，并进入对应 change。
 
-这是一套项目工作流监督机制，不是 CI、pre-commit 或文件系统级硬拦截。正常使用 Codex 或 Claude Code 时，AI 会按对应 CLI 适配壳和共享规则执行；如果需要技术层面的强制拦截，还需要额外接入 git hook 或 CI 检查。
+这是一套项目工作流监督机制，不是 CI、pre-commit 或文件系统级硬拦截。正常使用 Codex 时，AI 会按 `AGENTS.md`、`.agents/skills/` 和共享规则执行；如果需要技术层面的强制拦截，还需要额外接入 git hook 或 CI 检查。
 
 ### Token 策略
 

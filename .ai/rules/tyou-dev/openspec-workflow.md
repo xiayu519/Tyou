@@ -138,7 +138,7 @@ openspec status --change "<change-name>" --json
 
 ## 本项目集成规则
 
-- OpenSpec 不能绕过当前 CLI 适配壳和 `tyou-dev` 共享规则；Codex 入口是 `AGENTS.md` 与 `.agents/skills/`，Claude Code 入口是 `CLAUDE.md` 与 `.claude/`。
+- OpenSpec 不能绕过 `AGENTS.md`、`.agents/skills/` 和 `tyou-dev` 共享规则。
 - OpenSpec 只监督目标、范围、任务和验收；具体实现仍以 Tyou 源码和 `.ai/rules/tyou-dev/` 共享规则为准。
 - 涉及 UI 时仍必须走 UI 自动生成链路。
 - 涉及资源时仍必须走资源索引和引用计数约束。

@@ -11,7 +11,7 @@ metadata:
 
 Propose a new change - create the change and generate all artifacts in one step.
 
-This is the Codex CLI adapter for OpenSpec propose. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`; do not depend on other CLI adapter files.
+This is the Codex OpenSpec propose skill. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`.
 
 I'll create a change with artifacts:
 - proposal.md (what & why)

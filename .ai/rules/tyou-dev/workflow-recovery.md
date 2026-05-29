@@ -25,28 +25,25 @@
 优先修正这些文件：
 
 - `AGENTS.md`：只修正每次会话必须知道的短规则。
-- `.agents/skills/tyou-dev/SKILL.md`：只修正 Codex 适配壳路由和核心原则。
-- `CLAUDE.md`、`.claude/skills/*.md`、`.claude/commands/*.md`：只修正 Claude Code 适配壳路由和 CLI 触发方式。
+- `.agents/skills/tyou-dev/SKILL.md`：只修正 Codex skill 路由和核心原则。
 - `.ai/rules/tyou-dev/*.md`：修正具体主题规范正文。
 - `Books/AI-Development-Workflow.md`：修正人读的流程说明。
+- `README.md`：修正面向项目用户的概要说明。
+- `openspec/specs/`：修正当前 AI 工作流的行为规范。
 
 不要为了修正文档去改 `ty-framework` 框架代码。
 
-## 双适配壳同步
+## Codex 工作流一致性
 
-AI 工作流本身发生变更时，必须在同一个 OpenSpec change 中同步检查 Codex 与 Claude Code 两套适配壳：
+AI 工作流本身发生变更时，必须在同一个 OpenSpec change 中检查这些位置是否一致：
 
-- 修改 `.ai/rules/` 中影响任务分级、OpenSpec 门禁、路由、记忆、自检或开发约束的规则时，同时检查 `AGENTS.md`、`.agents/skills/*`、`CLAUDE.md`、`.claude/skills/*`、`.claude/commands/*`。
-- 修改任一 CLI 的触发词、命令名、skill 路由、OpenSpec 入口或结束自检时，同时检查另一套 CLI 适配壳。
-- 如果某个能力确实只属于单一 CLI，必须在对应文档或 OpenSpec artifact 中明确标注“CLI 专属”，并说明另一套 CLI 不需要同步的原因。
-- 不保留旧兼容目录；规则正文只维护在 `.ai/rules/`。
+- 修改 `.ai/rules/` 中影响任务分级、OpenSpec 门禁、路由、记忆、自检或开发约束的规则时，同时检查 `AGENTS.md`、`.agents/skills/*`、`README.md`、`Books/AI-Development-Workflow.md` 与 `openspec/specs/`。
+- 修改 Codex 的触发词、skill 路由、OpenSpec 入口或结束自检时，同时检查 `.agents/skills/*` 与共享规则。
+- 规则正文只维护在 `.ai/rules/`；`.agents/skills/*` 只写触发和路由。
 
 ## 记录问题
 
-如果问题可能再次出现，记录到：
-
-- **Codex CLI**：`.codex/memory/problem_YYYY-MM-DD.md`
-- **Claude Code**：按 Claude Code memory 机制或 `.claude/agent-memory/` 记录
+如果问题可能再次出现，记录到 `.codex/memory/problem_YYYY-MM-DD.md`。
 
 记录内容：
 

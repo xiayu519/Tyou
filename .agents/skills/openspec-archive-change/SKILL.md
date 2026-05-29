@@ -11,7 +11,7 @@ metadata:
 
 Archive a completed change in the experimental workflow.
 
-This is the Codex CLI adapter for OpenSpec archive. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`; do not depend on other CLI adapter files.
+This is the Codex OpenSpec archive skill. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`.
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
