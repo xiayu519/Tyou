@@ -1,112 +1,47 @@
 # Tyou AI 开发工作流
 
-本文档说明本仓库的 Codex AI 开发工作流。Tyou 具体规则统一维护在 `.ai/rules/`。
+## 文件
 
-目标：任务目标明确、按需读取、少上下文、少返工、少重复维护。
+- `AGENTS.md`：会话入口规则。
+- `.codex/rules/tyou-dev/*.md`：Tyou 主题规则，按需读取。
+- `.codex/memory/`：可复发问题记录。
+- `openspec/`：L2+ 变更监督。
 
-## 分层
+## 等级
 
-```text
-共享规范层
-  .ai/rules/tyou-dev/*.md
-  openspec/
+| 等级 | 场景 | 处理 |
+| --- | --- | --- |
+| L1 | typo、注释、日志、单行无框架语义改名 | 直接处理 |
+| L2 | 单一模块局部修改、调用已知 API | 读 1 个相关规则，走轻量 change |
+| L3 | 新功能、跨文件、UI/资源/事件/配表逻辑 | 读 2-4 个相关规则，必须走 change |
+| L4 | 多模块协作、框架规则、AI 工作流、重构决策 | 先探索和提案，再实施 |
 
-Codex 入口
-  AGENTS.md
-  .agents/skills/*
-  .codex/memory/*
+## OpenSpec
+
+除 L1 外，任何会修改代码、资源、Prefab、配置、工作流文档或框架行为的任务，先确认 OpenSpec 可用并进入 change。
+
+PowerShell 拦截 `openspec.ps1` 时，用：
+
+```powershell
+cmd /c openspec.cmd ...
 ```
 
-`AGENTS.md` 与 `.agents/skills/` 是 Codex 工作流入口。
+## 代码优先
 
-## 入口
+规则与源码冲突时：
 
-- `AGENTS.md`：项目级入口，负责中文输出、任务分级、OpenSpec 监督和核心红线。
-- `.agents/skills/tyou-dev/SKILL.md`：Codex 原生 Tyou skill，按主题路由到 `.ai/rules/tyou-dev/*.md`。
-- `.agents/skills/openspec-*`：Codex OpenSpec 四阶段 skill。
+1. 用 `rg` 定位源码；不可用时用 VS Code `grep_search` 或 PowerShell `Select-String`。
+2. 以源码和工具实际行为为准。
+3. 同步修正文档。
+4. 可复发问题记到 `.codex/memory/problem_YYYY-MM-DD.md`。
 
-共享规则：
+## 强约束
 
-- `.ai/rules/tyou-dev/architecture.md`
-- `.ai/rules/tyou-dev/modules.md`
-- `.ai/rules/tyou-dev/ui-lifecycle.md`
-- `.ai/rules/tyou-dev/ui-patterns.md`
-- `.ai/rules/tyou-dev/resource-api.md`
-- `.ai/rules/tyou-dev/event-system.md`
-- `.ai/rules/tyou-dev/luban-config.md`
-- `.ai/rules/tyou-dev/psd2ui-workflow.md`
-- `.ai/rules/tyou-dev/prefab-workflow.md`
-- `.ai/rules/tyou-dev/prefab-mcp.md`
-- `.ai/rules/tyou-dev/battle-design.md`
-- `.ai/rules/tyou-dev/openspec-workflow.md`
-- `.ai/rules/tyou-dev/workflow-recovery.md`
-
-## Token 策略
-
-1. L1 不读共享规则，不走 OpenSpec。
-2. L2 只读一个主题。
-3. L3 读取 2-4 个相关主题。
-4. L4 先读必要主题并给方案，不全量加载。
-5. 同一会话已读主题只复用摘要，不重复读取。
-6. Codex 壳文件只写触发方式和路由，具体规则不在壳文件里重复维护。
-7. 共享规则与代码冲突时读源码验证，避免靠长文档猜。
-
-这套策略不能承诺任何模型环境下绝对更省 token，但目标是让工作流增加判断质量，而不是上下文噪声。
-
-## 工作流
-
-```text
-用户需求
-  -> Codex 读取自己的入口壳
-  -> 判断 L1/L2/L3/L4
-  -> L2+ 检查/进入 OpenSpec
-  -> 触发 Codex 的 tyou-dev / openspec 入口
-  -> 读取最少 .ai/rules/tyou-dev/*.md
-  -> 优先 rg；不可用时用可用搜索工具或 Select-String
-  -> 读源码确认实际 API
-  -> 实施或先给方案
-  -> 运行可承受校验
-  -> 总结改动、流程、验证
-```
-
-## OpenSpec 监督
-
-除 L1 简单任务外，实现类任务必须使用 OpenSpec 监督，详细规则见 `.ai/rules/tyou-dev/openspec-workflow.md`。
-
-- `$openspec-explore`
-- `$openspec-propose`
-- `$openspec-apply-change`
-- `$openspec-archive-change`
-
-Windows PowerShell 若拦截 npm 生成的 `openspec.ps1`，统一改用 `cmd /c openspec.cmd ...`。
-
-## 容错与一致性
-
-当源码、工具实际行为和 AI 工作流 md 不一致时，以源码和工具实际行为为准，并修正对应 md。详细规则见 `.ai/rules/tyou-dev/workflow-recovery.md`。
-
-优先修正位置：
-
-- 当前会话必须知道的规则：`AGENTS.md`。
-- Codex 路由和触发：`.agents/skills/*`。
-- 具体主题规范：`.ai/rules/tyou-dev/*.md`。
-- 人读工作流说明：`Books/AI-Development-Workflow.md`。
-- 面向项目用户的概要说明：`README.md`。
-
-## 强约束摘要
-
-- `Client/assets/ty-framework/` 是框架代码，默认不改；确需修改必须先确认。
-- UI 脚本创建必须优先走 `uitscreate`，不能绕开 `UIName/UIImportAll` 自动链路。
-- UI 图片加载、按钮点击、事件监听必须优先用 `UIBase` 内置能力，确保关闭时统一清理。
-- 资源必须走自动索引，禁止同名资源，加载找不到先检查是否执行索引生成。
-- 资源引用计数必须配对，崩溃或泄漏优先查 `addRef/decRef`。
+- `Client/assets/ty-framework/` 默认不改；确需修改必须先确认。
+- UI 脚本创建优先走 `uitscreate`，不绕开 `UIName/UIImportAll`。
+- UI 图片加载、按钮点击、事件监听优先用 `UIBase` 内置能力。
+- 资源走自动索引；禁止同名资源；找不到资源先检查索引生成。
+- `addRef/decRef` 必须配对。
 - Prefab 创建优先级：PSD 一键生成 > AI + 精简 MCP Prefab 流程 > 手动拼。
-- 战斗设计遵循组合大于继承；先评估现有 `tyou.ecs` 是否适合。
-- 高频战斗逻辑必须考虑微信、抖音等小游戏 JavaScript 运行成本。
-
-## 可选增强
-
-以下能力当前不是强制现状，需要明确实施后才能写成规则：
-
-- 用 git hook 或 CI 检查敏感路径改动是否关联 OpenSpec change。
-- 为高频 Luban 或 Prefab 任务拆独立 skill。
-- 为 Cocos 编辑器生成物增加自动校验脚本。
+- 战斗设计优先组合，先评估现有 `tyou.ecs`。
+- 高频战斗逻辑必须考虑小游戏 JavaScript 运行成本。

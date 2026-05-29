@@ -1,7 +1,7 @@
-# codex-ai-workflow Specification
+﻿# codex-ai-workflow Specification
 
 ## Purpose
-Define the mandatory Codex workflow for the Tyou Cocos Creator project, including OpenSpec supervision, Tyou-specific rule precedence, local correction loops, and token-efficient task routing over shared `.ai/rules/` content.
+Define the mandatory Codex workflow for the Tyou Cocos Creator project, including OpenSpec supervision, Tyou-specific rule precedence, local correction loops, and token-efficient task routing over `.codex/rules/` content.
 ## Requirements
 ### Requirement: Codex replies in Chinese
 The Codex workflow MUST require project-facing proposals and answers to be written in Chinese, while preserving literal code identifiers, commands, file paths, API names, and logs in their original language.
@@ -26,38 +26,38 @@ The Codex workflow MUST require OpenSpec supervision before any L2 or higher imp
 - **THEN** the workflow pauses implementation and asks the developer to confirm installation or initialization
 
 ### Requirement: Tyou project rules remain authoritative
-OpenSpec artifacts MUST follow Tyou rules from `AGENTS.md`, `.agents/skills/tyou-dev/SKILL.md`, and shared rules under `.ai/rules/`.
+OpenSpec artifacts MUST follow Tyou rules from `AGENTS.md`, `.agents/skills/tyou-dev/SKILL.md`, and Codex project rules under `.codex/rules/`.
 
 #### Scenario: OpenSpec artifact conflicts with Tyou rules
-- **WHEN** an OpenSpec artifact suggests behavior that conflicts with Tyou framework, UI, resource, Luban, prefab, or shared AI workflow constraints
+- **WHEN** an OpenSpec artifact suggests behavior that conflicts with Tyou framework, UI, resource, Luban, prefab, or Codex AI workflow constraints
 - **THEN** the Tyou rule takes precedence and the artifact is updated before implementation continues
 
 ### Requirement: Codex workflow uses Codex files
-The Codex workflow MUST use `AGENTS.md`, `.agents/skills/*`, `.ai/rules/`, `openspec/`, and `.codex/memory/`.
+The Codex workflow MUST use `AGENTS.md`, `.agents/skills/*`, `.codex/rules/`, `openspec/`, and `.codex/memory/`.
 
 #### Scenario: Codex loads project workflow
 - **WHEN** Codex reads project workflow instructions
 - **THEN** it uses `AGENTS.md` and `.agents/skills/*`
-- **AND** it may read shared `.ai/rules/` and `openspec/` files
+- **AND** it may read `.codex/rules/` and `openspec/` files as routed project context
 
 #### Scenario: Codex workflow files are updated
-- **WHEN** `AGENTS.md`, `.agents/skills/*`, `.ai/rules/`, README/Books workflow docs, or OpenSpec workflow specs are updated
+- **WHEN** `AGENTS.md`, `.agents/skills/*`, `.codex/rules/`, README/Books workflow docs, or OpenSpec workflow specs are updated
 - **THEN** the change checks Codex workflow consistency
 
 ### Requirement: Codex workflow stays concise
-The Codex workflow MUST keep entry files focused on executable constraints and route detailed topic rules to `.ai/rules/`.
+The Codex workflow MUST keep entry files focused on executable constraints and route detailed topic rules to `.codex/rules/`.
 
 #### Scenario: AI workflow task begins
 - **WHEN** Codex handles an AI workflow documentation, routing, OpenSpec, memory, or task classification change
-- **THEN** the workflow preserves Codex entrypoints and shared rules
+- **THEN** the workflow preserves Codex entrypoints and Codex project rules
 - **AND** it avoids duplicating long topic reference content in entry files
 
-### Requirement: Codex rules route to shared rules
-The Codex workflow MUST treat `.ai/rules/` as the canonical source for detailed Tyou development rules.
+### Requirement: Codex rules route to project rules
+The Codex workflow MUST treat `.codex/rules/` as the canonical source for detailed Tyou development rules.
 
 #### Scenario: Codex skill needs topic details
 - **WHEN** `.agents/skills/tyou-dev/SKILL.md` routes a task to topic details
-- **THEN** it points to the corresponding `.ai/rules/tyou-dev/*.md` file
+- **THEN** it points to the corresponding `.codex/rules/tyou-dev/*.md` file
 - **AND** it does not duplicate detailed topic rules inside the skill file
 
 ### Requirement: Workflow docs stay local and factual
@@ -72,24 +72,24 @@ The Codex workflow MUST document local correction mechanisms that actually exist
 
 #### Scenario: Code and reference conflict
 - **WHEN** source code, tools, or generated output contradict workflow/reference documentation
-- **THEN** Codex verifies the source behavior, updates shared `.ai/rules/` or Codex adapter documentation when appropriate, and records reusable pitfalls in `.codex/memory/`
+- **THEN** Codex verifies the source behavior, updates `.codex/rules/` or Codex adapter documentation when appropriate, and records reusable pitfalls in `.codex/memory/`
 
 #### Scenario: Optional enhancement is mentioned
 - **WHEN** workflow documentation mentions wiki sync, hard gates, or other unimplemented controls
 - **THEN** it labels them as optional future enhancements rather than current behavior
 
 ### Requirement: Token efficiency remains explicit
-The workflow MUST keep L1 tasks outside OpenSpec and MUST route shared rules by topic so OpenSpec does not increase token cost for trivial work.
+The workflow MUST keep L1 tasks outside OpenSpec and MUST route Codex project rules by topic so OpenSpec does not increase token cost for trivial work.
 
 #### Scenario: L1 task is requested
 - **WHEN** the task is a typo, comment, log, or single-line non-framework rename
-- **THEN** Codex may skip OpenSpec and shared-rule loading
+- **THEN** Codex may skip OpenSpec and Codex rule loading
 
 ### Requirement: Source search has a fallback
 The Codex AI workflow MUST treat `rg` as the preferred source search tool, not as a mandatory environment dependency. When `rg` is unavailable, the workflow MUST continue source or documentation lookup with an available fallback such as VS Code `grep_search` or PowerShell `Select-String`.
 
 #### Scenario: rg is unavailable during workflow investigation
-- **WHEN** Codex needs to locate source code, shared rules, or workflow documentation and the `rg` command is unavailable in the current environment
+- **WHEN** Codex needs to locate source code, Codex project rules, or workflow documentation and the `rg` command is unavailable in the current environment
 - **THEN** Codex continues the lookup with VS Code `grep_search` or PowerShell `Select-String` instead of blocking the task on `rg`
 
 #### Scenario: Workflow documentation describes source lookup

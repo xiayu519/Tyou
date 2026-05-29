@@ -1,4 +1,4 @@
-# OpenSpec 工作流
+﻿# OpenSpec 工作流
 
 OpenSpec 是本项目 AI 实现类任务的监督层。除 L1 简单任务外，任何会修改代码、资源、Prefab、配置、工作流文档或框架行为的任务，都必须先确认 OpenSpec 可用，再进入对应 change。
 
@@ -130,7 +130,7 @@ openspec status --change "<change-name>" --json
 
 - tasks 是否全部完成。
 - 代码是否已验证。
-- 共享规则是否需要同步更新。
+- Codex 规则是否需要同步更新。
 - 是否存在开发者确认过的未完成项。
 - 是否仍有与源码不一致的 AI 工作流文档。
 - 若存在 `openspec/changes/<change-name>/specs/`，归档前评估是否需要同步到 `openspec/specs/`。
@@ -138,8 +138,8 @@ openspec status --change "<change-name>" --json
 
 ## 本项目集成规则
 
-- OpenSpec 不能绕过 `AGENTS.md`、`.agents/skills/` 和 `tyou-dev` 共享规则。
-- OpenSpec 只监督目标、范围、任务和验收；具体实现仍以 Tyou 源码和 `.ai/rules/tyou-dev/` 共享规则为准。
+- OpenSpec 不能绕过 `AGENTS.md`、`.agents/skills/` 和 `tyou-dev` Codex 规则。
+- OpenSpec 只监督目标、范围、任务和验收；具体实现仍以 Tyou 源码和 `.codex/rules/tyou-dev/` Codex 规则为准。
 - 涉及 UI 时仍必须走 UI 自动生成链路。
 - 涉及资源时仍必须走资源索引和引用计数约束。
 - 涉及 Luban 时必须先检查是否导表和 Excel 原始数据，不能直接改生成脚本或二进制数据。

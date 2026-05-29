@@ -1,9 +1,4 @@
-# project-readme-ai-workflow Specification
-
-## Purpose
-Define how the project README points to the local AI workflow without restating tool-native behavior.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: README links the workflow files
 The project README MUST keep the AI workflow section short and point readers to the maintained workflow files.

@@ -1,4 +1,4 @@
----
+﻿---
 name: openspec-archive-change
 description: 把已完成实施的 OpenSpec change 归档到 openspec/changes/archive/YYYY-MM-DD-<name>/。当 tasks 全部勾选完成、用户说收尾/归档/结束变更时使用。归档前会校验 artifacts 与 tasks 完成度，并评估 specs/ delta 是否需要同步到主 specs。触发词：archive、归档、收尾、关闭变更、change 完成、结束这个 change。
 license: MIT
@@ -11,7 +11,7 @@ metadata:
 
 Archive a completed change in the experimental workflow.
 
-This is the Codex OpenSpec archive skill. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`.
+This is the Codex OpenSpec archive skill. Follow the Codex OpenSpec rule at `.codex/rules/tyou-dev/openspec-workflow.md`.
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 

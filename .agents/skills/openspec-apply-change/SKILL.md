@@ -1,4 +1,4 @@
----
+﻿---
 name: openspec-apply-change
 description: 实施一个已存在的 OpenSpec change，逐项完成 tasks.md 并勾选。当用户要开始实现、继续实现、跑任务、做 propose 后的下一步时使用。会先读 proposal/design/specs/tasks 再动手，每完成一个任务立刻把 [ ] 改为 [x]。触发词：apply、实现、开始实施、继续做、跑 tasks、完成任务、做下一步、写代码（在已有 change 上）。
 license: MIT
@@ -11,7 +11,7 @@ metadata:
 
 Implement tasks from an OpenSpec change.
 
-This is the Codex OpenSpec apply skill. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`.
+This is the Codex OpenSpec apply skill. Follow the Codex OpenSpec rule at `.codex/rules/tyou-dev/openspec-workflow.md`.
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 

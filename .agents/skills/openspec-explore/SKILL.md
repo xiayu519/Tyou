@@ -1,4 +1,4 @@
----
+﻿---
 name: openspec-explore
 description: 进入只读探索模式，作为需求/方案/排障的思考伙伴。当用户在 propose 之前需要厘清需求、对比方案、调研代码、评估风险时使用。只读不写，可读取代码、可创建/更新 OpenSpec artifacts，但不实现功能。触发词：explore、调研、研究一下、想一想、对比方案、不确定怎么做、先看看、需求不清楚。
 license: MIT
@@ -11,7 +11,7 @@ metadata:
 
 Enter explore mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
 
-This is the Codex OpenSpec explore skill. Follow the shared OpenSpec rule at `.ai/rules/tyou-dev/openspec-workflow.md`.
+This is the Codex OpenSpec explore skill. Follow the Codex OpenSpec rule at `.codex/rules/tyou-dev/openspec-workflow.md`.
 
 **IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, and investigate the codebase, but you must NEVER write code or implement features. If the user asks you to implement something, remind them to exit explore mode first and create a change proposal. You MAY create OpenSpec artifacts (proposals, designs, specs) if the user asks—that's capturing thinking, not implementing.
 
