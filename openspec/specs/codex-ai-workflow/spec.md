@@ -26,29 +26,33 @@ The Codex workflow MUST require OpenSpec supervision before any L2 or higher imp
 - **THEN** the workflow pauses implementation and asks the developer to confirm installation or initialization
 
 ### Requirement: Tyou project rules remain authoritative
-OpenSpec artifacts MUST follow Tyou rules from `AGENTS.md`, `.agents/skills/tyou-dev/SKILL.md`, and Codex project rules under `.codex/rules/`.
+OpenSpec artifacts MUST follow Tyou rules from `AGENTS.md`, applicable directory `AGENTS.override.md` files, `.agents/skills/*`, Codex project rules under `.codex/rules/`, and relevant structured memory under `.codex/memory/`.
 
 #### Scenario: OpenSpec artifact conflicts with Tyou rules
 - **WHEN** an OpenSpec artifact suggests behavior that conflicts with Tyou framework, UI, resource, Luban, prefab, or Codex AI workflow constraints
 - **THEN** the Tyou rule takes precedence and the artifact is updated before implementation continues
 
 ### Requirement: Codex workflow uses Codex files
-The Codex workflow MUST use `AGENTS.md`, `.agents/skills/*`, `.codex/rules/`, `openspec/`, and `.codex/memory/`.
+The Codex workflow MUST use `AGENTS.md`, applicable directory `AGENTS.override.md` files, `.agents/skills/*`, `.codex/rules/`, `openspec/`, and structured memory under `.codex/memory/`.
 
 #### Scenario: Codex loads project workflow
 - **WHEN** Codex reads project workflow instructions
-- **THEN** it uses `AGENTS.md` and `.agents/skills/*`
-- **AND** it may read `.codex/rules/` and `openspec/` files as routed project context
+- **THEN** it uses root `AGENTS.md`, applicable directory `AGENTS.override.md` files, and `.agents/skills/*`
+- **AND** it may read `.codex/rules/`, `.codex/memory/INDEX.md`, and `openspec/` files as routed project context
+
+#### Scenario: Codex enters a specialized directory
+- **WHEN** Codex works with current directory under `Client/extensions/` or `Client/assets/ty-framework/`
+- **THEN** the corresponding `AGENTS.override.md` provides the directory-specific constraints after the root instructions
 
 #### Scenario: Codex workflow files are updated
-- **WHEN** `AGENTS.md`, `.agents/skills/*`, `.codex/rules/`, README/Books workflow docs, or OpenSpec workflow specs are updated
+- **WHEN** `AGENTS.md`, `**/AGENTS.override.md`, `.agents/skills/*`, `.codex/rules/`, `.codex/memory/`, README/Books workflow docs, or OpenSpec workflow specs are updated
 - **THEN** the change checks Codex workflow consistency
 
 ### Requirement: Codex workflow stays concise
 The Codex workflow MUST keep entry files focused on executable constraints and route detailed topic rules to `.codex/rules/`.
 
-#### Scenario: AI workflow task begins
-- **WHEN** Codex handles an AI workflow documentation, routing, OpenSpec, memory, or task classification change
+#### Scenario: Codex workflow task begins
+- **WHEN** Codex handles a Codex workflow documentation, routing, OpenSpec, memory, or task classification change
 - **THEN** the workflow preserves Codex entrypoints and Codex project rules
 - **AND** it avoids duplicating long topic reference content in entry files
 
@@ -72,11 +76,93 @@ The Codex workflow MUST document local correction mechanisms that actually exist
 
 #### Scenario: Code and reference conflict
 - **WHEN** source code, tools, or generated output contradict workflow/reference documentation
-- **THEN** Codex verifies the source behavior, updates `.codex/rules/` or Codex adapter documentation when appropriate, and records reusable pitfalls in `.codex/memory/`
+- **THEN** Codex verifies the source behavior, updates `.codex/rules/` or Codex adapter documentation when appropriate, and records reusable pitfalls in the appropriate `.codex/memory/` category
 
 #### Scenario: Optional enhancement is mentioned
-- **WHEN** workflow documentation mentions wiki sync, hard gates, or other unimplemented controls
+- **WHEN** workflow documentation mentions hard gates or other unimplemented controls
 - **THEN** it labels them as optional future enhancements rather than current behavior
+
+### Requirement: Structured memory is indexed
+The Codex workflow MUST keep reusable memory discoverable through `.codex/memory/INDEX.md` and typed memory folders rather than relying on a single chronological log.
+
+#### Scenario: L2 or higher task starts
+- **WHEN** Codex begins an L2, L3, or L4 task
+- **THEN** it reads `.codex/memory/INDEX.md`
+- **AND** it opens only the relevant `problems/`, `decisions/`, `feedback/`, or `references/` entries needed for the task
+
+#### Scenario: New reusable memory is recorded
+- **WHEN** Codex records a reusable pitfall, decision, user feedback, or external reference
+- **THEN** it writes a typed memory entry under `.codex/memory/`
+- **AND** it updates `.codex/memory/INDEX.md`
+
+### Requirement: OpenSpec phases have hard boundaries
+The Codex OpenSpec workflow MUST keep explore read-only for implementation surfaces, apply task-driven, and archive guarded by task/artifact/spec-sync checks.
+
+#### Scenario: Explore mode is active
+- **WHEN** Codex is exploring a requirement, bug, or design
+- **THEN** it may read source and docs
+- **AND** it does not modify code, assets, Prefabs, Scene files, meta files, generated config, or workflow docs unless the user explicitly asks to capture an OpenSpec artifact
+
+#### Scenario: Apply reveals unsafe scope
+- **WHEN** implementation reveals unclear tasks, design conflicts, ty-framework changes, Prefab/Scene/meta ambiguity, or incompatible Luban changes
+- **THEN** Codex pauses and asks for confirmation or artifact updates before continuing
+
+#### Scenario: Archive is requested
+- **WHEN** Codex archives a change
+- **THEN** it checks artifact status, task completion, and any delta specs under `openspec/changes/<name>/specs/` before moving the change
+
+### Requirement: Specialized workflow skills are explicit
+The Codex workflow MUST expose specialized skills for Luban configuration, read-only Wiki/documentation query, and controlled Wiki/documentation synchronization.
+
+#### Scenario: Luban configuration work is requested
+- **WHEN** Codex handles configuration table schema, data, export, or compatibility work
+- **THEN** it routes to `luban-dev`
+
+#### Scenario: Documentation lookup is requested
+- **WHEN** Codex needs to locate or answer from project documentation without changing it
+- **THEN** it routes to `wiki-query`
+
+#### Scenario: Documentation/code drift is requested
+- **WHEN** Codex needs to scan, diff, or synchronize project documentation with implementation behavior
+- **THEN** it routes to `wiki-sync`
+
+### Requirement: Wiki synchronization is configured and guarded
+The Codex workflow MUST use `wiki-sync.yaml` and local scripts for Wiki/documentation scanning, query, reporting, and guarded write operations.
+
+#### Scenario: Wiki scan is requested
+- **WHEN** Codex scans documentation coverage or drift
+- **THEN** it uses `wiki-sync.yaml` to discover source paths, documentation includes, mappings, ignores, and conflict strategy
+
+#### Scenario: Wiki query is requested
+- **WHEN** Codex performs a local documentation query
+- **THEN** it searches the document set configured by `wiki-sync.yaml` before falling back to default paths
+
+#### Scenario: Wiki write is requested
+- **WHEN** Codex writes a Wiki sync report, TODO, or synchronized documentation output
+- **THEN** `write_enabled` or an explicit write flag is required
+- **AND** backups and sensitive-pattern handling are treated as required safeguards
+
+### Requirement: Luban work has executable helpers
+The Codex workflow MUST provide executable Luban helpers for Tyou configuration table inspection, validation, reference checks, and guarded edits.
+
+#### Scenario: Luban table inspection is requested
+- **WHEN** Codex needs table, field, row, enum, or bean information
+- **THEN** it may use `.agents/skills/luban-dev/scripts/luban_helper.py` in read-only mode
+
+#### Scenario: Luban table edit is requested
+- **WHEN** Codex edits `Design/config/#*.xlsx`
+- **THEN** the helper requires an explicit `--write` flag and the task follows OpenSpec gating
+
+#### Scenario: Luban compatibility risk exists
+- **WHEN** a field, row, type, table, enum, or bean change may break references
+- **THEN** Codex runs reference or validation checks before proposing the edit
+
+### Requirement: Skill behavior has regression examples
+The Codex workflow MUST keep Tyou skill regression examples for AI behavior checks.
+
+#### Scenario: Tyou skill behavior is reviewed
+- **WHEN** Codex workflow or Tyou rules change
+- **THEN** `.agents/skills/tyou-dev/evals/evals.json` provides expected and forbidden response patterns for core workflows
 
 ### Requirement: Token efficiency remains explicit
 The workflow MUST keep L1 tasks outside OpenSpec and MUST route Codex project rules by topic so OpenSpec does not increase token cost for trivial work.

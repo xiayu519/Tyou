@@ -49,6 +49,7 @@ Design/tools/genBin.bat
 - 修改字段要考虑旧数据兼容。
 - 删除或改名字段风险高，需要先确认引用。
 - 导表后检查生成的 `.bin`、`schema.ts` 和 Cocos meta 变化。
+- 读取、校验和安全编辑 `Design/config/#*.xlsx` 自动导入表时，优先使用 `.agents/skills/luban-dev/scripts/luban_helper.py`；写操作必须传 `--write` 并先走 OpenSpec。
 
 ## 数据错误排查顺序
 

@@ -1,10 +1,10 @@
 # Tyou
 
-> CocosCreator 3.8.7 基础框架，比较适合 Unity 初转型 CCC 的使用者。参考了 **TEngine** 等开源框架。
+> Cocos Creator 3.8.7 + TypeScript 客户端基础框架。
 
 如果对你有帮助，欢迎点个 ⭐ Star！
 
-📺 [框架 PSD→UI 工作流介绍](https://www.bilibili.com/video/BV1nhDeBoEcq/) &nbsp;|&nbsp; 问题反馈 QQ：`499793702` &nbsp;|&nbsp; TEngine 技术群：`862987645`
+📺 [框架 PSD→UI 工作流介绍](https://www.bilibili.com/video/BV1nhDeBoEcq/) &nbsp;|&nbsp; 问题反馈 QQ：`499793702`
 
 ## 特性概览
 
@@ -65,11 +65,15 @@ Unitask       // 全局异步工具（globalThis.Unitask）
 
 ---
 
-## AI 开发工作流
+## Codex 开发工作流
+
+Tyou 使用面向 Codex CLI 的开发工作流：根入口由 `AGENTS.md` 承载，`tyou-dev` skill 按主题路由到 `.codex/rules/tyou-dev/*.md`，L2+ 变更由 `openspec/` 监督。
 
 - 入口：`AGENTS.md`
+- 技能：`.agents/skills/`（`tyou-dev`、OpenSpec、`luban-dev`、`wiki-query`、`wiki-sync`）
 - 规则：`.codex/rules/tyou-dev/*.md`
-- 记忆：`.codex/memory/`
+- Wiki 配置：`wiki-sync.yaml`
+- 记忆：`.codex/memory/INDEX.md`
 - 变更：`openspec/`
 
 除 typo、注释、日志、单行无框架语义改名外，修改代码、资源、Prefab、配置、工作流文档或框架行为前，先进入 OpenSpec change。

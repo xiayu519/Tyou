@@ -7,7 +7,7 @@
 ## 规则位置
 
 - 主题规则：`.codex/rules/tyou-dev/*.md`
-- 记忆沉淀：`.codex/memory/`
+- 记忆沉淀：`.codex/memory/INDEX.md` 与分类条目
 - 变更监督：`openspec/`
 
 按任务主题读取最少规则；规则与源码冲突时，以源码为准，并修正文档。
@@ -19,7 +19,7 @@
 | L1 | typo、注释、日志、单行无框架语义改名 | 直接处理，不走 OpenSpec |
 | L2 | 单一模块局部修改、调用已知 API | 读 1 个相关规则，走轻量 OpenSpec change |
 | L3 | 新功能、跨文件、UI/资源/事件/配表逻辑 | 读 2-4 个相关规则，必须走 OpenSpec |
-| L4 | 多模块协作、框架规则、AI 工作流、重构决策 | 先探索和提案，再实施 |
+| L4 | 多模块协作、框架规则、Codex 工作流、重构决策 | 先探索和提案，再实施 |
 
 不确定等级时上调一级。
 
@@ -37,11 +37,11 @@
 1. 优先用 `rg` 定位源码；不可用时用 VS Code `grep_search` 或 PowerShell `Select-String`。
 2. 以源码和工具实际行为为准。
 3. 文档过期时同步修正。
-4. 可复发的问题记录到 `.codex/memory/problem_YYYY-MM-DD.md`。
+4. 可复发的问题记录到 `.codex/memory/` 分类条目，并更新 `INDEX.md`。
 
 ## 结束自检
 
 1. 规则是否要同步：代码与 `.codex/rules/**/*.md` 不一致时同步规则。
-2. 工作流是否一致：改动工作流时检查 `AGENTS.md`、`.agents/skills/*`、`.codex/rules/`、`README.md`、`Books/AI-Development-Workflow.md`、`openspec/specs/`。
-3. memory 是否要追加：可复发坑或非显而易见根因才记录。
+2. 工作流是否一致：改动工作流时检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/rules/`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md`、`openspec/specs/`。
+3. memory 是否要追加：可复发坑、决策、用户反馈或外部资料位置才记录，并更新 `INDEX.md`。
 4. OpenSpec 是否要推进：走了 change 就检查 tasks，全部完成则提示 archive。

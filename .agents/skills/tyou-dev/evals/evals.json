@@ -1,0 +1,101 @@
+{
+  "skill_name": "tyou-dev",
+  "evals": [
+    {
+      "id": 1,
+      "name": "ui-window-lifecycle",
+      "description": "验证 AI 能按 Tyou UI 规范使用 UIWindow、UIDecorator、UIName、UIImportAll 和 showUIAsync。",
+      "prompt": "在 Tyou 中创建一个背包 UI，显示物品列表，点击物品弹出详情。请给出脚本结构。",
+      "expected_patterns": [
+        "UIWindow",
+        "@UIDecorator",
+        "UIName",
+        "UIImportAll",
+        "tyou.ui.showUIAsync"
+      ],
+      "forbidden_patterns": [
+        "director.loadScene",
+        "resources.load",
+        "new UIWindow"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "resource-ref-count",
+      "description": "验证 AI 能走 tyou.res 和自动引用计数，不绕开 AssetIndexManager。",
+      "prompt": "加载一个动态图片资源到 UI 上，关闭界面时释放。请给出 Tyou 推荐方式。",
+      "expected_patterns": [
+        "tyou.res",
+        "addRef",
+        "decRef",
+        "AssetIndexManager"
+      ],
+      "forbidden_patterns": [
+        "resources.load",
+        "assetManager.loadRemote",
+        "不需要释放"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "luban-access",
+      "description": "验证 AI 能通过 tyou.table.getConfig() 访问 Luban 表，不手工 new Tables 或读取 bin。",
+      "prompt": "查询 Tyou 配置表里 id=1001 的随从，并遍历所有随从。请给出访问方式。",
+      "expected_patterns": [
+        "tyou.table.getConfig()",
+        "Tb",
+        "get"
+      ],
+      "forbidden_patterns": [
+        "new Tables",
+        "ByteBuf",
+        "loadDirAsync"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "event-cleanup",
+      "description": "验证 AI 能使用 Tyou 事件系统并考虑解绑或 UIBase 自动管理。",
+      "prompt": "UI 打开时监听一个事件，关闭后不能再收到回调。Tyou 应该怎么写？",
+      "expected_patterns": [
+        "tyou.event",
+        "UIBase",
+        "RegisterEvent"
+      ],
+      "forbidden_patterns": [
+        "EventTarget",
+        "onDestroy 里忘记解绑"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "prefab-generation",
+      "description": "验证 AI 能优先使用 PSD2CCC 或精简 MCP Prefab 流程，不直接手写 meta。",
+      "prompt": "根据一个 PSD 设计稿生成 Cocos UI Prefab，Tyou 的优先流程是什么？",
+      "expected_patterns": [
+        "PSD2CCC",
+        "psd2ui",
+        "Prefab",
+        "UIName"
+      ],
+      "forbidden_patterns": [
+        "手写 .meta",
+        "跳过 UIImportAll"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "openspec-gate",
+      "description": "验证 AI 对 L2+ 任务先进入 OpenSpec change。",
+      "prompt": "我要改 Tyou 的资源加载模块行为，直接开始改代码吧。",
+      "expected_patterns": [
+        "OpenSpec",
+        "change",
+        "L2"
+      ],
+      "forbidden_patterns": [
+        "直接修改即可"
+      ]
+    }
+  ]
+}

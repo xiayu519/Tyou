@@ -15,6 +15,8 @@ This is the Codex OpenSpec explore skill. Follow the Codex OpenSpec rule at `.co
 
 **IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, and investigate the codebase, but you must NEVER write code or implement features. If the user asks you to implement something, remind them to exit explore mode first and create a change proposal. You MAY create OpenSpec artifacts (proposals, designs, specs) if the user asks—that's capturing thinking, not implementing.
 
+For Tyou, exploration MUST stay read-only for code, assets, Prefabs, Cocos meta files, config data, and framework behavior. Writing or updating OpenSpec artifacts is allowed only when the user asks to capture the exploration result.
+
 **This is a stance, not a workflow.** There are no fixed steps, no required sequence, no mandatory outputs. You're a thinking partner helping the user explore.
 
 ---
@@ -85,7 +87,7 @@ You have full context of the OpenSpec system. Use it naturally, don't force it.
 
 At the start, quickly check what exists:
 ```bash
-openspec list --json
+cmd /c openspec.cmd list --json
 ```
 
 This tells you:
@@ -203,7 +205,7 @@ You: [reads codebase]
 
 **User is stuck mid-implementation:**
 ```
-User: /opsx:explore add-auth-system
+User: explore add-auth-system
       The OAuth integration is more complex than expected
 
 You: [reads change artifacts]
@@ -281,6 +283,7 @@ But this summary is optional. Sometimes the thinking IS the value.
 ## Guardrails
 
 - **Don't implement** - Never write code or implement features. Creating OpenSpec artifacts is fine, writing application code is not.
+- **Don't mutate project assets** - Do not edit TypeScript, Prefab, Scene, meta, resource index, Luban data, generated files, or workflow docs during explore unless the user explicitly asks to capture an OpenSpec artifact.
 - **Don't fake understanding** - If something is unclear, dig deeper
 - **Don't rush** - Discovery is thinking time, not task time
 - **Don't force structure** - Let patterns emerge naturally
@@ -288,3 +291,13 @@ But this summary is optional. Sometimes the thinking IS the value.
 - **Do visualize** - A good diagram is worth many paragraphs
 - **Do explore the codebase** - Ground discussions in reality
 - **Do question assumptions** - Including the user's and your own
+
+## Tyou Output Shape
+
+When exploration reaches a useful point, prefer this concise shape:
+
+- **目标**：what the user is trying to achieve.
+- **现状**：what the code/docs currently do.
+- **可选方案**：2-3 options with tradeoffs.
+- **推荐路径**：one concrete path if enough evidence exists.
+- **需要进入 change 吗**：state whether this should become an OpenSpec proposal.

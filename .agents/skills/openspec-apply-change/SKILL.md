@@ -51,6 +51,8 @@ This is the Codex OpenSpec apply skill. Follow the Codex OpenSpec rule at `.code
    - If `state: "all_done"`: congratulate, suggest archive
    - Otherwise: proceed to implementation
 
+   If `openspec instructions apply` is unavailable in the installed CLI, fall back to `openspec status --change "<name>" --json` and direct reads of the current change artifacts. State that fallback explicitly.
+
 4. **Read context files**
 
    Read every file path listed under `contextFiles` from the apply instructions output.
@@ -78,6 +80,10 @@ This is the Codex OpenSpec apply skill. Follow the Codex OpenSpec rule at `.code
    **Pause if:**
    - Task is unclear → ask for clarification
    - Implementation reveals a design issue → suggest updating artifacts
+   - A task requires modifying `Client/assets/ty-framework/` → stop and request explicit developer confirmation
+   - A task requires Cocos Prefab/Scene/meta edits without a precise workflow → stop and propose the safe workflow first
+   - A task requires Luban schema/data deletion or incompatible config changes → stop and request confirmation after reference checks
+   - The needed rule/source behavior conflicts with `.codex/rules/` or OpenSpec artifacts → update the stale artifact/rule before continuing
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
@@ -149,6 +155,8 @@ What would you like to do?
 - Update task checkbox immediately after completing each task
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
+- If a task changes docs/workflow rules, include `AGENTS.md`, `**/AGENTS.override.md`, `.agents/skills/*`, `.codex/rules/`, `README.md`, `Books/AI-Development-Workflow.md`, and `openspec/specs/` in the consistency check.
+- For each completed task, update `tasks.md` immediately in the same change.
 
 **Fluid Workflow Integration**
 

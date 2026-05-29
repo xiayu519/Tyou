@@ -1,16 +1,23 @@
 # project-readme-ai-workflow Specification
 
 ## Purpose
-Define how the project README points to the local AI workflow without restating tool-native behavior.
+Define how the project README points to the local Codex workflow without restating tool-native behavior.
 
 ## Requirements
 
-### Requirement: README links the workflow files
-The project README MUST keep the AI workflow section short and point readers to the maintained workflow files.
+### Requirement: README names the Codex workflow
+The project README MUST name the workflow as the Tyou Codex development workflow instead of a generic AI workflow.
 
-#### Scenario: Reader checks README for AI workflow
+#### Scenario: Reader checks README workflow heading
+- **WHEN** a developer reads the README workflow section
+- **THEN** the section heading and introductory sentence identify Codex as the active coding-agent workflow
+
+### Requirement: README links the workflow files
+The project README MUST keep the Codex workflow section short and point readers to the maintained workflow files.
+
+#### Scenario: Reader checks README for Codex workflow
 - **WHEN** a developer reads the README
-- **THEN** they can find `AGENTS.md`, `.codex/rules/`, `.codex/memory/`, `openspec/`, and the human-readable workflow document
+- **THEN** they can find `AGENTS.md`, `.agents/skills/`, `.codex/rules/`, `.codex/memory/INDEX.md`, `openspec/`, and the human-readable workflow document
 
 ### Requirement: README avoids duplicate mechanics
 The README MUST NOT duplicate Codex-native mechanics or long task flow details already maintained in `AGENTS.md` and `Books/AI-Development-Workflow.md`.

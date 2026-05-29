@@ -1,0 +1,64 @@
+version: "1.0"
+
+source_paths:
+  - path: "Client/assets/scripts"
+    label: "Game Scripts"
+  - path: "Client/assets/ty-framework"
+    label: "Tyou Framework"
+  - path: "Client/extensions"
+    label: "Cocos Extensions"
+  - path: "Design/config"
+    label: "Luban Config"
+  - path: ".agents/skills"
+    label: "Codex Skills"
+  - path: ".codex/rules/tyou-dev"
+    label: "Codex Rules"
+
+wiki_root: "."
+wiki_include:
+  - "README.md"
+  - "Books/**/*.md"
+  - ".codex/rules/**/*.md"
+  - "openspec/specs/**/*.md"
+  - ".agents/skills/**/SKILL.md"
+  - "AGENTS.md"
+  - "**/AGENTS.override.md"
+
+mappings:
+  - source_pattern: "Client/assets/ty-framework/**"
+    wiki_path: ".codex/rules/tyou-dev"
+  - source_pattern: "Client/assets/scripts/proto/config/**"
+    wiki_path: ".codex/rules/tyou-dev/luban-config.md"
+  - source_pattern: "Design/config/**"
+    wiki_path: ".codex/rules/tyou-dev/luban-config.md"
+  - source_pattern: "Client/extensions/**"
+    wiki_path: ".codex/rules/tyou-dev"
+  - source_pattern: ".agents/skills/**"
+    wiki_path: "Books/AI-Development-Workflow.md"
+
+ignore:
+  source:
+    - "**/*.meta"
+    - "**/node_modules/**"
+    - "**/temp/**"
+    - "**/library/**"
+  wiki:
+    - "**/.git/**"
+    - "**/archive/**"
+    - "**/.wiki-sync-backups/**"
+
+conflict_strategy: ask
+write_enabled: false
+
+backup:
+  enabled: true
+  directory: ".wiki-sync-backups"
+
+sensitive_patterns:
+  - pattern: "(api[_-]?key|secret|password|token|pwd)\\s*[:=]\\s*\\S+"
+    replacement: "<REDACTED>"
+
+report:
+  default_output: "wiki-sync-report.md"
+  include_diff_detail: true
+  include_suggestions: true

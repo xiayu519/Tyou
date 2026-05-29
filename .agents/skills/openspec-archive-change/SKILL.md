@@ -67,11 +67,13 @@ This is the Codex OpenSpec archive skill. Follow the Codex OpenSpec rule at `.co
 
    If user chooses sync, use Task tool (subagent_type: "general-purpose", prompt: "Use Skill tool to invoke openspec-sync-specs for change '<name>'. Delta spec analysis: <include the analyzed delta spec summary>"). Proceed to archive regardless of choice.
 
+   If no sync tool exists, manually compare each `openspec/changes/<name>/specs/<capability>/spec.md` with `openspec/specs/<capability>/spec.md` and report whether the main spec is already in sync. Do not silently archive unsynced workflow specs.
+
 5. **Perform the archive**
 
    Create the archive directory if it doesn't exist:
    ```bash
-   mkdir -p openspec/changes/archive
+   New-Item -ItemType Directory -Force openspec/changes/archive
    ```
 
    Generate target name using current date: `YYYY-MM-DD-<change-name>`
@@ -80,8 +82,8 @@ This is the Codex OpenSpec archive skill. Follow the Codex OpenSpec rule at `.co
    - If yes: Fail with error, suggest renaming existing archive or using different date
    - If no: Move the change directory to archive
 
-   ```bash
-   mv openspec/changes/<name> openspec/changes/archive/YYYY-MM-DD-<name>
+   ```powershell
+   Move-Item -LiteralPath "openspec/changes/<name>" -Destination "openspec/changes/archive/YYYY-MM-DD-<name>"
    ```
 
 6. **Display summary**
@@ -114,3 +116,5 @@ All artifacts complete. All tasks complete.
 - Show clear summary of what happened
 - If sync is requested, use openspec-sync-specs approach (agent-driven)
 - If delta specs exist, always run the sync assessment and show the combined summary before prompting
+- On Windows, use native PowerShell `Move-Item` with literal paths and verify the destination stays under `openspec/changes/archive/`.
+- After archive, run `cmd /c openspec.cmd list --json` or `cmd /c openspec.cmd validate --all` and report the result.

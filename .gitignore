@@ -14,6 +14,13 @@ native
 node_modules/
 
 #//////////////////////////
+# Codex generated reports
+#//////////////////////////
+.wiki-sync-backups/
+wiki-sync-report.md
+WIKI_SYNC_TODO.md
+
+#//////////////////////////
 # VSCode
 #//////////////////////////
 .vscode/

@@ -1,10 +1,14 @@
-# Tyou AI 开发工作流
+# Tyou Codex 开发工作流
+
+本文档描述 Tyou 在 Codex CLI 下的项目工作流。
 
 ## 文件
 
 - `AGENTS.md`：会话入口规则。
+- `.agents/skills/tyou-dev/SKILL.md`：Codex skill 路由和核心原则。
+- `wiki-sync.yaml`：Wiki/文档知识库同步配置，定义源码路径、文档集合、映射、写入开关、备份和脱敏规则。
 - `.codex/rules/tyou-dev/*.md`：Tyou 主题规则，按需读取。
-- `.codex/memory/`：可复发问题记录。
+- `.codex/memory/INDEX.md`：结构化 memory 索引，按 `problems/`、`decisions/`、`feedback/`、`references/` 分类。
 - `openspec/`：L2+ 变更监督。
 
 ## 等级
@@ -14,7 +18,7 @@
 | L1 | typo、注释、日志、单行无框架语义改名 | 直接处理 |
 | L2 | 单一模块局部修改、调用已知 API | 读 1 个相关规则，走轻量 change |
 | L3 | 新功能、跨文件、UI/资源/事件/配表逻辑 | 读 2-4 个相关规则，必须走 change |
-| L4 | 多模块协作、框架规则、AI 工作流、重构决策 | 先探索和提案，再实施 |
+| L4 | 多模块协作、框架规则、Codex 工作流、重构决策 | 先探索和提案，再实施 |
 
 ## OpenSpec
 
@@ -33,7 +37,38 @@ cmd /c openspec.cmd ...
 1. 用 `rg` 定位源码；不可用时用 VS Code `grep_search` 或 PowerShell `Select-String`。
 2. 以源码和工具实际行为为准。
 3. 同步修正文档。
-4. 可复发问题记到 `.codex/memory/problem_YYYY-MM-DD.md`。
+4. 可复发问题、决策、用户反馈或外部资料位置写入 `.codex/memory/` 分类条目，并更新 `INDEX.md`。
+
+## Skills
+
+| Skill | 用途 |
+| --- | --- |
+| `tyou-dev` | Tyou 框架开发总入口和主题路由 |
+| `openspec-explore` / `openspec-propose` / `openspec-apply-change` / `openspec-archive-change` | OpenSpec 四阶段 |
+| `luban-dev` | Luban 配表、导表、配置兼容性 |
+| `wiki-query` | 只读 Wiki/文档知识库检索 |
+| `wiki-sync` | Wiki/文档差异扫描和受控同步 |
+
+## 工具化入口
+
+- Wiki 查询：`powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-query/scripts/wiki-query.ps1 -Query <关键词>`
+- Wiki 扫描：`powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-sync/scripts/wiki-sync.ps1 scan`
+- Luban 扫描：`powershell -ExecutionPolicy Bypass -File .agents/skills/luban-dev/scripts/scan-luban.ps1`
+- Luban helper：`python .agents/skills/luban-dev/scripts/luban_helper.py table list`
+- Skill evals：`.agents/skills/tyou-dev/evals/evals.json`
+
+Wiki 和 Luban 写操作默认关闭：`wiki-sync.yaml` 的 `write_enabled` 默认为 `false`，`luban_helper.py` 写 Excel 必须传 `--write`，且两者都必须遵守 OpenSpec 门禁。
+
+## Memory
+
+L2+ 任务开始时先读 `.codex/memory/INDEX.md`，只打开与当前任务相关的 1-3 条记录。新记录按类型写入：
+
+- `problems/`：可复发坑和非显而易见根因。
+- `decisions/`：已确认的工作流或架构决策。
+- `feedback/`：用户对协作方式的纠偏或偏好。
+- `references/`：外部资料位置和用途。
+
+写入后必须更新 `INDEX.md`。当前项目从空 memory 开始，不写按日期滚动日志。
 
 ## 强约束
 

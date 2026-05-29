@@ -18,9 +18,9 @@ Tyou Codex workflow MUST keep project-specific development rules in `.codex/rule
 
 ### Requirement: Codex workflow file set is explicit
 
-The project MUST maintain a concise Codex workflow made of `AGENTS.md`, `.agents/skills/*`, `.codex/rules/`, `openspec/`, and `.codex/memory/`.
+The project MUST maintain a concise Codex workflow made of `AGENTS.md`, directory `AGENTS.override.md` files where specialized constraints are needed, `.agents/skills/*`, `.codex/rules/`, `openspec/`, and structured `.codex/memory/`.
 
 #### Scenario: Current AI workflow is inspected
 
 - **WHEN** a developer checks the repository workflow entrypoints
-- **THEN** the maintained workflow files are `AGENTS.md`, `.agents/skills/*`, `.codex/rules/`, `openspec/`, and `.codex/memory/`
+- **THEN** the maintained workflow files are `AGENTS.md`, applicable `AGENTS.override.md` files, `.agents/skills/*`, `.codex/rules/`, `openspec/`, and `.codex/memory/INDEX.md` with typed memory folders
