@@ -95,6 +95,52 @@ The Codex workflow MUST keep reusable memory discoverable through `.codex/memory
 - **THEN** it writes a typed memory entry under `.codex/memory/`
 - **AND** it updates `.codex/memory/INDEX.md`
 
+### Requirement: Structured memory entries use frontmatter
+The Codex workflow MUST store active memory entries with typed frontmatter so Codex can route memory without reading every full entry.
+
+#### Scenario: Memory entry is recorded
+- **WHEN** Codex records a reusable memory entry under `.codex/memory/`
+- **THEN** the entry has frontmatter fields `type`, `description`, `status`, `last_verified`, and `source`
+- **AND** `type` is one of `problem`, `decision`, `feedback`, or `reference`
+
+#### Scenario: Existing active memory is maintained
+- **WHEN** Codex updates an active memory entry
+- **THEN** it keeps the frontmatter current instead of preserving legacy untyped formats
+
+### Requirement: Memory writes exclude recoverable or unstable facts
+The Codex workflow MUST prevent memory from becoming a duplicate source of truth for code, git history, temporary task state, or unverified guesses.
+
+#### Scenario: Codex considers writing memory
+- **WHEN** Codex decides whether to write `.codex/memory/`
+- **THEN** it writes only reusable pitfalls, decisions, user feedback, or external references that cannot be reliably recovered from source search, OpenSpec artifacts, git history, or current conversation state
+
+#### Scenario: Candidate memory is recoverable elsewhere
+- **WHEN** the candidate memory is a code pattern, file path detail, recent modification, temporary task state, full log, or unverified guess
+- **THEN** Codex does not write it to memory
+
+### Requirement: Memory is verified before use when stale-prone
+The Codex workflow MUST treat memory as historical supporting context rather than current truth.
+
+#### Scenario: Memory mentions stale-prone facts
+- **WHEN** a memory entry mentions tool behavior, workflow state, external references, file paths, functions, flags, or dates
+- **THEN** Codex verifies the current source, rule, OpenSpec, or external reference before acting on that memory
+
+#### Scenario: Memory conflicts with authoritative sources
+- **WHEN** memory conflicts with source code, current tool output, OpenSpec specs, or `.codex/rules/`
+- **THEN** Codex follows the authoritative source and updates or marks the memory entry stale or superseded when appropriate
+
+### Requirement: Memory index stays compact
+The Codex workflow MUST keep `.codex/memory/INDEX.md` short enough to remain a routing index rather than a memory body.
+
+#### Scenario: Memory index is updated
+- **WHEN** Codex updates `.codex/memory/INDEX.md`
+- **THEN** each memory entry is represented by one concise line
+- **AND** long explanations stay in the typed memory entry
+
+#### Scenario: Memory index approaches size limits
+- **WHEN** `.codex/memory/INDEX.md` approaches 80 lines or 12 KB
+- **THEN** Codex consolidates, shortens, or splits entries instead of appending long summaries
+
 ### Requirement: OpenSpec phases have hard boundaries
 The Codex OpenSpec workflow MUST keep explore read-only for implementation surfaces, apply task-driven, and archive guarded by task/artifact/spec-sync checks.
 
@@ -171,6 +217,14 @@ The workflow MUST keep L1 tasks outside OpenSpec and MUST route Codex project ru
 - **WHEN** the task is a typo, comment, log, or single-line non-framework rename
 - **THEN** Codex may skip OpenSpec and Codex rule loading
 
+### Requirement: L2 OpenSpec changes stay lightweight
+The Codex workflow MUST keep L2 OpenSpec changes lightweight so small tasks do not inherit L3/L4 evidence overhead.
+
+#### Scenario: L2 change is proposed
+- **WHEN** Codex creates an L2 OpenSpec change
+- **THEN** proposal, tasks, and any spec delta stay minimal and directly tied to the single-module change
+- **AND** `run-report.md` is not required unless the developer asks for it or the task reveals reusable workflow risk
+
 ### Requirement: Source search has a fallback
 The Codex AI workflow MUST treat `rg` as the preferred source search tool, not as a mandatory environment dependency. When `rg` is unavailable, the workflow MUST continue source or documentation lookup with an available fallback such as VS Code `grep_search` or PowerShell `Select-String`.
 
@@ -200,3 +254,69 @@ The Codex AI workflow MUST require battle-related design work to prefer composit
 #### Scenario: Mini-game runtime constraints apply
 - **WHEN** Codex designs battle APIs or high-frequency runtime logic for this project
 - **THEN** the design avoids unnecessary deep inheritance, broad abstract interfaces, reflection-like dynamic dispatch, runtime code generation, and avoidable per-frame allocation
+
+### Requirement: Codex changes produce local run evidence
+The Codex workflow MUST require L3 and L4 OpenSpec changes to maintain local run evidence that summarizes agent actions, touched surfaces, validation commands, sensor results, and residual risks.
+
+#### Scenario: L3 or L4 implementation is performed
+- **WHEN** Codex applies an OpenSpec change classified as L3 or L4
+- **THEN** the change directory contains or updates `run-report.md`
+- **AND** the report records an executive summary, change name, task level, touched files or directories, completed tasks, validation commands, sensor summary, and remaining risks
+
+### Requirement: Run reports begin with an executive summary
+The Codex workflow MUST make L3/L4 run reports efficient to reread.
+
+#### Scenario: Run report is created
+- **WHEN** Codex creates `openspec/changes/<change-name>/run-report.md`
+- **THEN** it includes `## Executive Summary` before detailed scope, progress, validation, and risk sections
+- **AND** the summary states the goal, current state, validation outcome, and remaining risk in short bullets
+
+#### Scenario: L1 or L2 task is performed
+- **WHEN** Codex handles an L1 task or a lightweight L2 task
+- **THEN** the workflow does not require a run report unless the developer asks for one or the task reveals reusable workflow risk
+
+### Requirement: Codex observability uses deterministic sensors first
+The Codex workflow MUST provide local deterministic sensor entrypoints for workflow checks before relying on AI-only review.
+
+#### Scenario: Workflow sensor check runs
+- **WHEN** Codex validates a workflow change or a developer requests Codex observability checks
+- **THEN** a local script can inspect OpenSpec status, change artifacts, task progress, protected-path changes, workflow file presence, and run-report shape
+- **AND** the output distinguishes passed checks, warnings, and failures
+
+#### Scenario: Sensor cannot prove semantic correctness
+- **WHEN** a sensor only verifies file shape, presence, or local command state
+- **THEN** the workflow treats the result as supporting evidence rather than proof that the implementation is semantically correct
+
+### Requirement: Codex observability feeds local correction loops
+The Codex workflow MUST feed repeated observability findings into local Tyou correction loops instead of retaining them only in transient reports.
+
+#### Scenario: Reusable issue is found
+- **WHEN** a run report, sensor, or review exposes a recurring pitfall, confirmed workflow decision, user feedback, or useful external reference
+- **THEN** Codex records it in the appropriate `.codex/memory/` category and updates `.codex/memory/INDEX.md`
+
+#### Scenario: Documentation drift is found
+- **WHEN** observability evidence shows workflow documentation, skills, rules, README, Books, or OpenSpec specs are inconsistent
+- **THEN** Codex uses the existing OpenSpec and wiki-sync guarded workflow to update the stale documents
+
+### Requirement: Completed OpenSpec changes archive without redundant confirmation
+The Codex workflow MUST archive a clearly selected completed OpenSpec change without asking for an extra developer confirmation when all archive gates are already satisfied.
+
+#### Scenario: Completed change is ready to archive
+- **WHEN** the change name is clear, artifacts are complete, tasks are all checked, delta specs are synced to main specs, required validations pass, and no blocking risk exists
+- **THEN** Codex archives the change directly to `openspec/changes/archive/YYYY-MM-DD-<change-name>/`
+
+#### Scenario: Archive gate is not satisfied
+- **WHEN** the change is ambiguous, artifacts or tasks are incomplete, delta specs are unsynced, validation fails, the archive target already exists, or a developer-confirmed risk is required
+- **THEN** Codex pauses and asks the developer before archiving
+
+### Requirement: Codex harness remains command-based without visualization
+The Codex workflow MUST keep the retained harness focused on run reports, deterministic sensor checks, memory/rule synchronization, and OpenSpec archive gates, without requiring local dashboards or browser panels.
+
+#### Scenario: L3 or L4 change is reviewed
+- **WHEN** Codex prepares review evidence for an L3 or L4 OpenSpec change
+- **THEN** it uses `run-report.md`, `codex-observability-check.ps1`, OpenSpec status/validation, and relevant memory or rule updates
+- **AND** it does not require dashboard generation or a browser panel
+
+#### Scenario: Developer asks about workflow state
+- **WHEN** the developer asks for current Codex workflow state
+- **THEN** Codex summarizes the underlying files and command outputs directly instead of asking the developer to open a dashboard

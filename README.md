@@ -75,6 +75,8 @@ Tyou 使用面向 Codex CLI 的开发工作流：根入口由 `AGENTS.md` 承载
 - Wiki 配置：`wiki-sync.yaml`
 - 记忆：`.codex/memory/INDEX.md`
 - 变更：`openspec/`
+- 可观测性：L3/L4 change 使用带摘要区的 `run-report.md`，并通过 `codex-observability-check.ps1` 辅助 review；当前工作流不保留 dashboard、网页或 live 面板。
+- 记忆：`.codex/memory/INDEX.md` 只做短索引，正文使用 frontmatter；旧记忆使用前按 `.codex/rules/tyou-dev/memory-workflow.md` 复核。
 
 除 typo、注释、日志、单行无框架语义改名外，修改代码、资源、Prefab、配置、工作流文档或框架行为前，先进入 OpenSpec change。
 

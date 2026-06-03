@@ -30,18 +30,21 @@
 1. 检查 `openspec --version` 和 `openspec/`；PowerShell 拦截 `openspec.ps1` 时用 `cmd /c openspec.cmd ...`。
 2. 未安装或未初始化时停止实现，请开发者确认。
 3. 没有匹配 change 就先 propose；已有 change 就按 tasks apply。
-4. 完成后提示是否 archive。
+4. L3/L4 change 维护 `run-report.md`，并可运行 Codex 可观测性 sensor 辅助 review；不再要求 dashboard、网页或 live 面板。
+5. tasks 全部完成、spec 已同步、验证通过且无阻塞时直接 archive；存在未完成项、未同步 delta、验证失败或目标不明确时才询问开发者。
+
+L2 change 保持轻量：只写必要 proposal/tasks/spec delta，不要求 `run-report.md`，除非开发者要求或发现可复发工作流风险。
 
 ## 代码优先
 
 1. 优先用 `rg` 定位源码；不可用时用 VS Code `grep_search` 或 PowerShell `Select-String`。
 2. 以源码和工具实际行为为准。
 3. 文档过期时同步修正。
-4. 可复发的问题记录到 `.codex/memory/` 分类条目，并更新 `INDEX.md`。
+4. 可复发的问题记录到 `.codex/memory/` 分类条目，并更新 `INDEX.md`；memory 必须遵守 `.codex/rules/tyou-dev/memory-workflow.md` 的 frontmatter、stale 复核和不写入清单。
 
 ## 结束自检
 
 1. 规则是否要同步：代码与 `.codex/rules/**/*.md` 不一致时同步规则。
 2. 工作流是否一致：改动工作流时检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/rules/`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md`、`openspec/specs/`。
-3. memory 是否要追加：可复发坑、决策、用户反馈或外部资料位置才记录，并更新 `INDEX.md`。
-4. OpenSpec 是否要推进：走了 change 就检查 tasks，全部完成则提示 archive。
+3. memory 是否要追加：可复发坑、决策、用户反馈或外部资料位置才记录；源码可查事实、临时状态、最近改动和未验证猜测不写入。
+4. OpenSpec 是否要推进：走了 change 就检查 tasks；全绿且目标明确时直接 archive。

@@ -16,7 +16,7 @@
 | 等级 | 场景 | 处理 |
 | --- | --- | --- |
 | L1 | typo、注释、日志、单行无框架语义改名 | 直接处理 |
-| L2 | 单一模块局部修改、调用已知 API | 读 1 个相关规则，走轻量 change |
+| L2 | 单一模块局部修改、调用已知 API | 读 1 个相关规则，走轻量 change，不默认写 run-report |
 | L3 | 新功能、跨文件、UI/资源/事件/配表逻辑 | 读 2-4 个相关规则，必须走 change |
 | L4 | 多模块协作、框架规则、Codex 工作流、重构决策 | 先探索和提案，再实施 |
 
@@ -56,19 +56,30 @@ cmd /c openspec.cmd ...
 - Luban 扫描：`powershell -ExecutionPolicy Bypass -File .agents/skills/luban-dev/scripts/scan-luban.ps1`
 - Luban helper：`python .agents/skills/luban-dev/scripts/luban_helper.py table list`
 - Skill evals：`.agents/skills/tyou-dev/evals/evals.json`
+- Codex 可观测性检查：`powershell -ExecutionPolicy Bypass -File .agents/skills/tyou-dev/scripts/codex-observability-check.ps1 -Change <change-name>`
 
 Wiki 和 Luban 写操作默认关闭：`wiki-sync.yaml` 的 `write_enabled` 默认为 `false`，`luban_helper.py` 写 Excel 必须传 `--write`，且两者都必须遵守 OpenSpec 门禁。
 
+## 可观测性
+
+L3/L4 OpenSpec change 需要维护 `openspec/changes/<change-name>/run-report.md`，开头必须有 `## Executive Summary`，用于快速记录目标、状态、验证结果和剩余风险；后续详细记录触碰范围、任务进度、关键决策、验证命令、sensor 结果、剩余风险和是否需要 memory/wiki-sync。
+
+`codex-observability-check.ps1` 只做本地确定性检查，例如 OpenSpec 状态、artifact 是否存在、tasks 勾选进度、`run-report.md` 结构和受保护路径 git 改动。它提供 review 证据，不证明语义正确，也不替代 TypeScript 编译、业务验证、Prefab/Luban 安全流程或开发者确认。
+
+当前 Harness 不保留 dashboard、网页或 live 面板。Codex 需要汇报工作流状态时，直接基于 `run-report.md`、sensor 输出、OpenSpec 状态和相关 memory/rules 说明，不要求开发者打开可视化页面。
+
 ## Memory
 
-L2+ 任务开始时先读 `.codex/memory/INDEX.md`，只打开与当前任务相关的 1-3 条记录。新记录按类型写入：
+L2+ 任务开始时先读 `.codex/memory/INDEX.md`，只打开与当前任务相关的 1-3 条记录。新记录按类型写入，并遵守 `.codex/rules/tyou-dev/memory-workflow.md`：
 
 - `problems/`：可复发坑和非显而易见根因。
 - `decisions/`：已确认的工作流或架构决策。
 - `feedback/`：用户对协作方式的纠偏或偏好。
 - `references/`：外部资料位置和用途。
 
-写入后必须更新 `INDEX.md`。当前项目从空 memory 开始，不写按日期滚动日志。
+每条正文必须包含 `type`、`description`、`status`、`last_verified`、`source` frontmatter。写入后必须更新 `INDEX.md`，索引每条只占一行，目标不超过 80 行、12 KB。当前项目不保留旧 memory 格式兼容层，不写按日期滚动日志。
+
+memory 是历史上下文，不是事实源。涉及工具行为、路径、函数、flag、外部资料或日期时，使用前必须先按源码、OpenSpec、规则或当前工具输出复核。源码可查事实、最近改动、临时任务状态、完整日志和未验证猜测不写入 memory。
 
 ## 强约束
 

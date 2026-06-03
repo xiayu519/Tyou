@@ -37,19 +37,22 @@ Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。具体规则在 `.co
 | AI 创建 Prefab/MCP | `.codex/rules/tyou-dev/prefab-mcp.md` | `.codex/rules/tyou-dev/prefab-workflow.md` |
 | 命名/生成规范 | `.codex/rules/tyou-dev/naming-rules.md` | `.codex/rules/tyou-dev/ui-patterns.md` |
 | OpenSpec 工作流 | `.codex/rules/tyou-dev/openspec-workflow.md` | `Books/AI-Development-Workflow.md` |
+| Codex memory 工作流 | `.codex/rules/tyou-dev/memory-workflow.md` | `.codex/memory/INDEX.md`, `.agents/skills/tyou-dev/templates/memory-*.md` |
+| Codex 可观测性/run-report/sensors | `.codex/rules/tyou-dev/openspec-workflow.md` | `.agents/skills/tyou-dev/templates/run-report.md`, `.agents/skills/tyou-dev/scripts/codex-observability-check.ps1` |
 | 工作流容错/Wiki 文档同步 | `.agents/skills/wiki-sync/SKILL.md` | `.codex/rules/tyou-dev/workflow-recovery.md`, `wiki-query`, `wiki-sync.yaml` |
 | 排障 | `.codex/rules/tyou-dev/troubleshooting.md` | 相关源码 |
 
 ## 实施节奏
 
 1. 判断 L1-L4。
-2. 会话开始处理 L2+ 任务前，先读 `.codex/memory/INDEX.md`，再按任务类型读取相关 1-3 条 memory；没有相关条目就继续。
+2. 会话开始处理 L2+ 任务前，先读 `.codex/memory/INDEX.md`，再按任务类型读取相关 1-3 条 memory；写入或复核 memory 时读 `.codex/rules/tyou-dev/memory-workflow.md`。
 3. L2+ 先按 `.codex/rules/tyou-dev/openspec-workflow.md` 检查 OpenSpec；没有初始化就等待开发者确认。
 4. 读取最少规则主题。
 5. 优先用 `rg` 定位实际代码和调用样例；若 `rg` 不可用，改用 VS Code `grep_search` 或 PowerShell `Select-String`。
 6. 修改前说明将改哪些文件。
 7. 实施后运行能承受的校验：TypeScript 编译、相关脚本或静态搜索。
-8. 汇报改动、流程、验证结果。
+8. L2 change 保持轻量；L3/L4 OpenSpec change 维护带 `## Executive Summary` 的 `openspec/changes/<change-name>/run-report.md`，并可运行 `.agents/skills/tyou-dev/scripts/codex-observability-check.ps1` 作为 review 辅助；当前工作流不保留 dashboard、网页或 live 面板。
+9. 汇报改动、流程、验证结果。
 
 ## 任务结束自检
 
@@ -58,7 +61,7 @@ Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。具体规则在 `.co
 1. **规则是否要同步**：本次发现了代码与 `.codex/rules/**/*.md` 不一致、或实际行为与现有描述不同的场景吗？是则同步修改规则。
 2. **Codex 工作流是否一致**：本次是否修改了 Codex 工作流规则、触发、路由、OpenSpec 入口、memory、Wiki 配置或结束自检？是则检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/rules/`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md` 与 `openspec/specs/` 是否一致。
 3. **memory 是否要记一笔**：本次是不是踩了可复发坑、确认了重要决策、收到用户协作反馈、或发现外部资料位置？是则写入 `.codex/memory/<type>/` 并更新 `.codex/memory/INDEX.md`。
-4. **OpenSpec 是否要推进**：如果走了 change，对应 `tasks.md` 是否都勾选了？全部完成则提示用户是否 `$openspec-archive-change`。
+4. **OpenSpec 是否要推进**：如果走了 change，对应 `tasks.md` 是否都勾选了？全绿且目标明确时直接 archive，只有 gate 不满足时才询问开发者。
 
 在最终回复中用一句话说出这四项的结论。
 

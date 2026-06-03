@@ -13,12 +13,15 @@ source_paths:
     label: "Codex Skills"
   - path: ".codex/rules/tyou-dev"
     label: "Codex Rules"
+  - path: ".codex/memory"
+    label: "Codex Memory"
 
 wiki_root: "."
 wiki_include:
   - "README.md"
   - "Books/**/*.md"
   - ".codex/rules/**/*.md"
+  - ".codex/memory/**/*.md"
   - "openspec/specs/**/*.md"
   - ".agents/skills/**/SKILL.md"
   - "AGENTS.md"

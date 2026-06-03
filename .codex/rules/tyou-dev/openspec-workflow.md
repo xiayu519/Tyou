@@ -123,6 +123,26 @@ openspec status --change "<change-name>" --json
 - 发现源码与 OpenSpec/md 不一致时，以源码为准，先同步文档再继续。
 - 发现设计问题、框架代码修改、`ty-framework` 改动需求时暂停，先询问开发者。
 - 发现 Prefab/Scene/meta、Luban 删除/不兼容变更、资源索引生成链路不清楚时暂停，先确认安全流程。
+- L3/L4 change 实施时，在 change 目录维护 `run-report.md`；模板位于 `.agents/skills/tyou-dev/templates/run-report.md`。
+- L2 change 保持轻量：只写必要 proposal/tasks/spec delta，不默认写 `design.md` 长文或 `run-report.md`；仅当开发者要求、风险扩大、触发可复发 memory/wiki-sync 风险时才补充。
+- L1 不要求 `run-report.md`。
+
+### 3.5 observability
+
+本项目 Codex 可观测性只记录本地、可复核、低噪音的证据，不记录大段原始日志。
+
+短期证据：
+
+- `openspec/changes/<change-name>/run-report.md` 先写 `## Executive Summary`，再记录目标、触碰范围、任务进度、关键决策、验证命令、sensor 结果、剩余风险和是否需要 memory/wiki-sync。
+- `run-report.md` 必须避免写入密钥、绝对私有路径、完整第三方日志或无关终端输出。
+
+中期 sensor：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .agents/skills/tyou-dev/scripts/codex-observability-check.ps1 -Change <change-name>
+```
+
+当前 Harness 不保留 dashboard、网页或 live 面板。Review 证据以 `run-report.md`、sensor 输出、OpenSpec 状态和必要验证命令为准。
 
 ### 4. archive
 
@@ -141,9 +161,15 @@ openspec status --change "<change-name>" --json
 - Codex 规则是否需要同步更新。
 - 是否存在开发者确认过的未完成项。
 - 是否仍有与源码不一致的 Codex 工作流文档。
+- L3/L4 change 是否存在 `run-report.md`，以及 sensor 结果是否已作为 review 证据检查。
 - 若存在 `openspec/changes/<change-name>/specs/`，归档前评估是否需要同步到 `openspec/specs/`。
 - 归档目录使用 `openspec/changes/archive/YYYY-MM-DD-<change-name>/`，避免覆盖已有归档。
 - Windows 下归档使用 PowerShell `Move-Item -LiteralPath`，并确认目标仍在 `openspec/changes/archive/`。
+
+归档决策：
+
+- 当 change 名称明确、artifacts 完成、tasks 全部勾选、delta specs 已同步到主 specs、必要验证通过、无阻塞风险时，Codex 直接归档，不再额外询问开发者。
+- 当 change 不明确、存在未完成 tasks、artifacts 未完成、delta specs 未同步、验证失败、archive 目标已存在或需要开发者确认的风险时，Codex 暂停并询问开发者。
 
 ## 本项目集成规则
 
@@ -159,4 +185,5 @@ openspec status --change "<change-name>" --json
 - 启动检查只做 `openspec --version` 和目录存在性判断，不全量读取 `openspec/`。
 - 只读取当前 change 的必要文件，不扫描所有历史 change。
 - L2 change 可以保持轻量，只写必要 proposal/tasks，不为了流程堆长文档。
+- L3/L4 后续复查先读 `run-report.md` 的 `## Executive Summary`，只有需要细节时再读完整报告。
 - 同一会话已读过的 change 内容只复用摘要，除非文件被修改。

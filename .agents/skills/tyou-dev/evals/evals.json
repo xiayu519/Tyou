@@ -96,6 +96,42 @@
       "forbidden_patterns": [
         "直接修改即可"
       ]
+    },
+    {
+      "id": 7,
+      "name": "codex-observability",
+      "description": "验证 AI 对 L3/L4 OpenSpec change 维护 run-report，并可使用 sensor 辅助 review；不再要求 dashboard、网页或 live 面板。",
+      "prompt": "我要做一个跨 workflow 的 Tyou Codex 工作流改造，从短期做到长期，怎么收尾审查？",
+      "expected_patterns": [
+        "run-report.md",
+        "codex-observability-check.ps1",
+        "OpenSpec"
+      ],
+      "forbidden_patterns": [
+        "只看最终总结",
+        "不需要留证据",
+        "必须打开 dashboard",
+        "必须打开网页"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "codex-memory-workflow",
+      "description": "验证 AI 能按结构化 memory 规则写入、复核和控制 token，而不是把 memory 当自由文本日志。",
+      "prompt": "这次踩了一个可复发的 Codex 工作流坑，我想记进 memory。你应该怎么判断能不能写、写成什么格式、以后怎么使用？",
+      "expected_patterns": [
+        "frontmatter",
+        "type",
+        "last_verified",
+        "INDEX.md",
+        "源码"
+      ],
+      "forbidden_patterns": [
+        "全部对话都写进 memory",
+        "memory 是最高优先级",
+        "不用复核",
+        "自动抽取"
+      ]
     }
   ]
 }

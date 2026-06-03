@@ -17,14 +17,18 @@ This is the Codex OpenSpec archive skill. Follow the Codex OpenSpec rule at `.co
 
 **Steps**
 
-1. **If no change name provided, prompt for selection**
+1. **Select the change**
 
-   Run `openspec list --json` to get available changes. Use the **AskUserQuestion tool** to let the user select.
+   If a change name is explicit, use it.
+
+   If no change name is provided, run `openspec list --json` to get available changes.
+   - If exactly one active change exists and the current conversation context clearly refers to it, use that change.
+   - If multiple active changes exist or context is ambiguous, ask the developer to select.
 
    Show only active changes (not already archived).
    Include the schema used for each change if available.
 
-   **IMPORTANT**: Do NOT guess or auto-select a change. Always let the user choose.
+   **IMPORTANT**: Do not guess among multiple possible changes.
 
 2. **Check artifact completion status**
 
@@ -61,13 +65,15 @@ This is the Codex OpenSpec archive skill. Follow the Codex OpenSpec rule at `.co
    - Determine what changes would be applied (adds, modifications, removals, renames)
    - Show a combined summary before prompting
 
-   **Prompt options:**
-   - If changes needed: "Sync now (recommended)", "Archive without syncing"
-   - If already synced: "Archive now", "Sync anyway", "Cancel"
+   **Decision options:**
+   - If changes are needed: sync before archiving; ask only if sync cannot be performed or the developer explicitly asked to skip sync.
+   - If already synced: archive without another confirmation.
 
    If user chooses sync, use Task tool (subagent_type: "general-purpose", prompt: "Use Skill tool to invoke openspec-sync-specs for change '<name>'. Delta spec analysis: <include the analyzed delta spec summary>"). Proceed to archive regardless of choice.
 
    If no sync tool exists, manually compare each `openspec/changes/<name>/specs/<capability>/spec.md` with `openspec/specs/<capability>/spec.md` and report whether the main spec is already in sync. Do not silently archive unsynced workflow specs.
+
+   When the change name is clear, artifacts are done, tasks are complete, delta specs are synced, validations pass, and no blocking risk is present, archive directly without asking for an extra developer confirmation.
 
 5. **Perform the archive**
 
