@@ -1,6 +1,6 @@
 ---
 name: luban-dev
-description: Tyou Luban 配表开发专用指导。涉及新增/修改/删除配置表、Excel/Defines、Luban schema、导表、生成二进制配置、配置访问封装、配置字段兼容性、配置数据校验时必须使用。触发词：Luban、配表、配置表、Excel、Defines、genBin、导表、Tb、Config、配置数据、字段、枚举、Bean。
+description: Tyou Luban 配表开发专用指导。涉及新增/修改/删除配置表、Excel/Defines、Luban schema、导表、生成二进制配置、配置访问封装、字段变更安全、配置数据校验时必须使用。触发词：Luban、配表、配置表、Excel、Defines、genBin、导表、Tb、Config、配置数据、字段、枚举、Bean。
 ---
 
 # Tyou Luban 配表指导
@@ -75,7 +75,7 @@ python .agents/skills/luban-dev/scripts/luban_helper.py ref TableFollower
 ## 操作红线
 
 - 不直接修改 Luban 生成代码和二进制产物，除非明确是重新导表生成结果。
-- 删除字段、改字段名、改主键、改类型属于不兼容变更，必须先查引用并请求确认。
+- 删除字段、改字段名、改主键、改类型属于破坏性变更，必须先查引用并请求确认。
 - 写入配置数据前先读取现有表结构和引用关系；无法确认引用时停止。
 - 导表优先使用项目现有脚本，不手拼新的 Luban 命令。
 

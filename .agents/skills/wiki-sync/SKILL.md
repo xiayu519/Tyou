@@ -72,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-sync/scripts/wiki-s
 ## 安全约束
 
 - 不自动改业务代码；发现代码和文档冲突时，以源码为准，先报告再修文档。
-- 不把外部项目规则写入 Tyou 文档；只迁移已确认适合 Tyou 的机制。
+- 不把外部项目规则写入 Tyou 文档；只写入已确认适合 Tyou 的机制。
 - 不写敏感信息、绝对私有路径或临时日志进 README/Books。
 - 写入报告或待办前必须确认 `write_enabled` / `-Write`，并使用 `.wiki-sync-backups` 作为备份目录。
 - 可复发坑写入结构化 `.codex/memory/`。

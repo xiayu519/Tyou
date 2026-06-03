@@ -122,10 +122,10 @@ openspec status --change "<change-name>" --json
 - 完成一项马上把 `- [ ]` 改成 `- [x]`。
 - 发现源码与 OpenSpec/md 不一致时，以源码为准，先同步文档再继续。
 - 发现设计问题、框架代码修改、`ty-framework` 改动需求时暂停，先询问开发者。
-- 发现 Prefab/Scene/meta、Luban 删除/不兼容变更、资源索引生成链路不清楚时暂停，先确认安全流程。
+- 发现 Prefab/Scene/meta、Luban 破坏性变更、资源索引生成链路不清楚时暂停，先确认安全流程。
 - L3/L4 change 实施时，在 change 目录维护 `run-report.md`；模板位于 `.agents/skills/tyou-dev/templates/run-report.md`。
-- L2 change 保持轻量：只写必要 proposal/tasks/spec delta，不默认写 `design.md` 长文或 `run-report.md`；仅当开发者要求、风险扩大、触发可复发 memory/wiki-sync 风险时才补充。
-- L1 不要求 `run-report.md`。
+- L2 change 保持轻量：只写必要 proposal/tasks/spec delta；`design.md` 长文或 `run-report.md` 仅用于开发者要求、风险扩大、触发可复发 memory/wiki-sync 风险的场景。
+- L1 使用直接处理流程。
 
 ### 3.5 observability
 
@@ -142,7 +142,7 @@ openspec status --change "<change-name>" --json
 powershell -ExecutionPolicy Bypass -File .agents/skills/tyou-dev/scripts/codex-observability-check.ps1 -Change <change-name>
 ```
 
-当前 Harness 不保留 dashboard、网页或 live 面板。Review 证据以 `run-report.md`、sensor 输出、OpenSpec 状态和必要验证命令为准。
+Review 证据以 `run-report.md`、sensor 输出、OpenSpec 状态和必要验证命令为准。
 
 ### 4. archive
 
@@ -168,7 +168,7 @@ openspec status --change "<change-name>" --json
 
 归档决策：
 
-- 当 change 名称明确、artifacts 完成、tasks 全部勾选、delta specs 已同步到主 specs、必要验证通过、无阻塞风险时，Codex 直接归档，不再额外询问开发者。
+- 当 change 名称明确、artifacts 完成、tasks 全部勾选、delta specs 已同步到主 specs、必要验证通过、无阻塞风险时，Codex 直接归档。
 - 当 change 不明确、存在未完成 tasks、artifacts 未完成、delta specs 未同步、验证失败、archive 目标已存在或需要开发者确认的风险时，Codex 暂停并询问开发者。
 
 ## 本项目集成规则

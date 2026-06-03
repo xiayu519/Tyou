@@ -65,18 +65,26 @@ The Codex workflow MUST treat `.codex/rules/` as the canonical source for detail
 - **AND** it does not duplicate detailed topic rules inside the skill file
 
 ### Requirement: Workflow docs stay local and factual
-The workflow documentation MUST describe Tyou's current Codex adapter behavior directly and MUST NOT keep external project comparison sections or unrelated external engine concepts.
+The workflow documentation MUST describe Tyou's current Codex behavior directly and exclude external project comparison sections or unrelated external engine concepts.
 
 #### Scenario: Updating Tyou workflow docs
 - **WHEN** workflow documentation is updated
-- **THEN** it states the local Tyou/Codex adapter behavior directly and excludes external project comparison language
+- **THEN** it states the local Tyou/Codex behavior directly and excludes external project comparison language
+
+### Requirement: Workflow documentation uses current Codex wording
+The Codex workflow MUST describe the current Codex entrypoints and execution path directly.
+
+#### Scenario: Active workflow docs are updated
+- **WHEN** active workflow documentation is edited
+- **THEN** it states the current Codex entrypoints and rules directly
+- **AND** it avoids obsolete history or reverse descriptions of removed paths
 
 ### Requirement: Workflow correction loop remains local and factual
 The Codex workflow MUST document local correction mechanisms that actually exist, and MUST mark unimplemented mechanisms as optional enhancements.
 
 #### Scenario: Code and reference conflict
 - **WHEN** source code, tools, or generated output contradict workflow/reference documentation
-- **THEN** Codex verifies the source behavior, updates `.codex/rules/` or Codex adapter documentation when appropriate, and records reusable pitfalls in the appropriate `.codex/memory/` category
+- **THEN** Codex verifies the source behavior, updates `.codex/rules/` or Codex workflow documentation when appropriate, and records reusable pitfalls in the appropriate `.codex/memory/` category
 
 #### Scenario: Optional enhancement is mentioned
 - **WHEN** workflow documentation mentions hard gates or other unimplemented controls
@@ -105,7 +113,7 @@ The Codex workflow MUST store active memory entries with typed frontmatter so Co
 
 #### Scenario: Existing active memory is maintained
 - **WHEN** Codex updates an active memory entry
-- **THEN** it keeps the frontmatter current instead of preserving legacy untyped formats
+- **THEN** it keeps the frontmatter current
 
 ### Requirement: Memory writes exclude recoverable or unstable facts
 The Codex workflow MUST prevent memory from becoming a duplicate source of truth for code, git history, temporary task state, or unverified guesses.
@@ -161,7 +169,7 @@ The Codex OpenSpec workflow MUST keep explore read-only for implementation surfa
 The Codex workflow MUST expose specialized skills for Luban configuration, read-only Wiki/documentation query, and controlled Wiki/documentation synchronization.
 
 #### Scenario: Luban configuration work is requested
-- **WHEN** Codex handles configuration table schema, data, export, or compatibility work
+- **WHEN** Codex handles configuration table schema, data, export, or breaking-change safety work
 - **THEN** it routes to `luban-dev`
 
 #### Scenario: Documentation lookup is requested
@@ -199,7 +207,7 @@ The Codex workflow MUST provide executable Luban helpers for Tyou configuration 
 - **WHEN** Codex edits `Design/config/#*.xlsx`
 - **THEN** the helper requires an explicit `--write` flag and the task follows OpenSpec gating
 
-#### Scenario: Luban compatibility risk exists
+#### Scenario: Luban breaking-change risk exists
 - **WHEN** a field, row, type, table, enum, or bean change may break references
 - **THEN** Codex runs reference or validation checks before proposing the edit
 
@@ -309,14 +317,20 @@ The Codex workflow MUST archive a clearly selected completed OpenSpec change wit
 - **WHEN** the change is ambiguous, artifacts or tasks are incomplete, delta specs are unsynced, validation fails, the archive target already exists, or a developer-confirmed risk is required
 - **THEN** Codex pauses and asks the developer before archiving
 
-### Requirement: Codex harness remains command-based without visualization
-The Codex workflow MUST keep the retained harness focused on run reports, deterministic sensor checks, memory/rule synchronization, and OpenSpec archive gates, without requiring local dashboards or browser panels.
+### Requirement: Workflow archive records may be pruned
+The Codex workflow MUST allow outdated workflow archive records to be removed when their rules have been superseded by current authoritative docs and specs.
+
+#### Scenario: Obsolete workflow archive records remain
+- **WHEN** archived workflow records duplicate outdated guidance
+- **THEN** Codex may delete those archive records after preserving the current authoritative behavior in active specs, rules, docs, and templates
+
+### Requirement: Codex harness uses command evidence
+The Codex workflow MUST keep the harness focused on run reports, deterministic sensor checks, memory/rule synchronization, and OpenSpec archive gates.
 
 #### Scenario: L3 or L4 change is reviewed
 - **WHEN** Codex prepares review evidence for an L3 or L4 OpenSpec change
 - **THEN** it uses `run-report.md`, `codex-observability-check.ps1`, OpenSpec status/validation, and relevant memory or rule updates
-- **AND** it does not require dashboard generation or a browser panel
 
 #### Scenario: Developer asks about workflow state
 - **WHEN** the developer asks for current Codex workflow state
-- **THEN** Codex summarizes the underlying files and command outputs directly instead of asking the developer to open a dashboard
+- **THEN** Codex summarizes the underlying files and command outputs directly

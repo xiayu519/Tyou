@@ -30,10 +30,10 @@
 1. 检查 `openspec --version` 和 `openspec/`；PowerShell 拦截 `openspec.ps1` 时用 `cmd /c openspec.cmd ...`。
 2. 未安装或未初始化时停止实现，请开发者确认。
 3. 没有匹配 change 就先 propose；已有 change 就按 tasks apply。
-4. L3/L4 change 维护 `run-report.md`，并可运行 Codex 可观测性 sensor 辅助 review；不再要求 dashboard、网页或 live 面板。
+4. L3/L4 change 维护 `run-report.md`，并运行 Codex 可观测性 sensor 辅助 review。
 5. tasks 全部完成、spec 已同步、验证通过且无阻塞时直接 archive；存在未完成项、未同步 delta、验证失败或目标不明确时才询问开发者。
 
-L2 change 保持轻量：只写必要 proposal/tasks/spec delta，不要求 `run-report.md`，除非开发者要求或发现可复发工作流风险。
+L2 change 保持轻量：只写必要 proposal/tasks/spec delta；`run-report.md` 仅用于开发者要求或发现可复发工作流风险的场景。
 
 ## 代码优先
 

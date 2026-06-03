@@ -51,7 +51,7 @@ Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。具体规则在 `.co
 5. 优先用 `rg` 定位实际代码和调用样例；若 `rg` 不可用，改用 VS Code `grep_search` 或 PowerShell `Select-String`。
 6. 修改前说明将改哪些文件。
 7. 实施后运行能承受的校验：TypeScript 编译、相关脚本或静态搜索。
-8. L2 change 保持轻量；L3/L4 OpenSpec change 维护带 `## Executive Summary` 的 `openspec/changes/<change-name>/run-report.md`，并可运行 `.agents/skills/tyou-dev/scripts/codex-observability-check.ps1` 作为 review 辅助；当前工作流不保留 dashboard、网页或 live 面板。
+8. L2 change 保持轻量；L3/L4 OpenSpec change 维护带 `## Executive Summary` 的 `openspec/changes/<change-name>/run-report.md`，并运行 `.agents/skills/tyou-dev/scripts/codex-observability-check.ps1` 作为 review 辅助。
 9. 汇报改动、流程、验证结果。
 
 ## 任务结束自检

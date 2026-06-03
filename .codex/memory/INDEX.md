@@ -1,6 +1,6 @@
 # Codex Memory Index
 
-优先读本索引，再按任务类型读取对应条目。当前框架项目不保留旧 memory 格式兼容层，只记录后续真正可复用的信息。
+优先读本索引，再按任务类型读取对应条目。只记录真正可复用的信息。
 
 索引约束：每条 memory 只占一行，长解释写在正文；目标不超过 80 行、12 KB。正文必须有 `type`、`description`、`status`、`last_verified`、`source` frontmatter。
 

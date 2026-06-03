@@ -2,7 +2,6 @@
 name: openspec-propose
 description: 创建 OpenSpec 变更提案。当用户要新增功能、修改框架行为、跨文件改动、UI/资源/配表协作、L2 及以上任务且当前没有匹配的 change 时使用。一步生成 proposal/design/specs/tasks 四件套，准备好之后交给 openspec-apply-change 实施。触发词：propose、新提案、新建变更、openspec change、规范驱动、新增功能、立项、做一个 X、想加 X 功能。
 license: MIT
-compatibility: Requires openspec CLI.
 metadata:
   author: openspec
   version: "1.0"

@@ -45,7 +45,7 @@ cmd /c openspec.cmd ...
 | --- | --- |
 | `tyou-dev` | Tyou 框架开发总入口和主题路由 |
 | `openspec-explore` / `openspec-propose` / `openspec-apply-change` / `openspec-archive-change` | OpenSpec 四阶段 |
-| `luban-dev` | Luban 配表、导表、配置兼容性 |
+| `luban-dev` | Luban 配表、导表、配置变更安全 |
 | `wiki-query` | 只读 Wiki/文档知识库检索 |
 | `wiki-sync` | Wiki/文档差异扫描和受控同步 |
 
@@ -66,7 +66,7 @@ L3/L4 OpenSpec change 需要维护 `openspec/changes/<change-name>/run-report.md
 
 `codex-observability-check.ps1` 只做本地确定性检查，例如 OpenSpec 状态、artifact 是否存在、tasks 勾选进度、`run-report.md` 结构和受保护路径 git 改动。它提供 review 证据，不证明语义正确，也不替代 TypeScript 编译、业务验证、Prefab/Luban 安全流程或开发者确认。
 
-当前 Harness 不保留 dashboard、网页或 live 面板。Codex 需要汇报工作流状态时，直接基于 `run-report.md`、sensor 输出、OpenSpec 状态和相关 memory/rules 说明，不要求开发者打开可视化页面。
+Codex 汇报工作流状态时，直接基于 `run-report.md`、sensor 输出、OpenSpec 状态和相关 memory/rules 说明。
 
 ## Memory
 
@@ -77,7 +77,7 @@ L2+ 任务开始时先读 `.codex/memory/INDEX.md`，只打开与当前任务相
 - `feedback/`：用户对协作方式的纠偏或偏好。
 - `references/`：外部资料位置和用途。
 
-每条正文必须包含 `type`、`description`、`status`、`last_verified`、`source` frontmatter。写入后必须更新 `INDEX.md`，索引每条只占一行，目标不超过 80 行、12 KB。当前项目不保留旧 memory 格式兼容层，不写按日期滚动日志。
+每条正文必须包含 `type`、`description`、`status`、`last_verified`、`source` frontmatter。写入后必须更新 `INDEX.md`，索引每条只占一行，目标不超过 80 行、12 KB。按日期滚动日志不进入 memory。
 
 memory 是历史上下文，不是事实源。涉及工具行为、路径、函数、flag、外部资料或日期时，使用前必须先按源码、OpenSpec、规则或当前工具输出复核。源码可查事实、最近改动、临时任务状态、完整日志和未验证猜测不写入 memory。
 

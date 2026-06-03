@@ -9,10 +9,10 @@
 3. **apply**：逐项完成 `tasks.md`，每完成一项立刻把 `- [ ]` 改成 `- [x]`，可调用 `$openspec-apply-change`。
 4. **archive**：完成后移动到 `changes/archive/YYYY-MM-DD-<name>/`，可调用 `$openspec-archive-change`。
 
-禁止：
+约束：
 - 未走 propose 直接新建 change 子目录；
 - 跳过未完成 tasks 直接 archive；
-- 手工编辑 `archive/` 下已归档的 change。
+- `archive/` 清理必须通过明确的 OpenSpec change 记录原因和验证结果。
 
 推荐 CLI 校验：
 

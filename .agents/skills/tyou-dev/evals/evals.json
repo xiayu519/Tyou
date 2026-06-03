@@ -100,7 +100,7 @@
     {
       "id": 7,
       "name": "codex-observability",
-      "description": "验证 AI 对 L3/L4 OpenSpec change 维护 run-report，并可使用 sensor 辅助 review；不再要求 dashboard、网页或 live 面板。",
+      "description": "验证 AI 对 L3/L4 OpenSpec change 维护 run-report，并使用 sensor 辅助 review。",
       "prompt": "我要做一个跨 workflow 的 Tyou Codex 工作流改造，从短期做到长期，怎么收尾审查？",
       "expected_patterns": [
         "run-report.md",
@@ -109,9 +109,7 @@
       ],
       "forbidden_patterns": [
         "只看最终总结",
-        "不需要留证据",
-        "必须打开 dashboard",
-        "必须打开网页"
+        "不需要留证据"
       ]
     },
     {
