@@ -1,6 +1,6 @@
 # Codex Memory 工作流
 
-本项目 memory 只记录跨会话可复用、源码和 OpenSpec 不能稳定推导的信息。
+本项目 memory 是正式启用的本地 Codex 记忆系统，只记录跨会话可复用、源码和 OpenSpec 不能稳定推导的信息。符合写入条件时直接归档，不走临时开关。
 
 ## 读取顺序
 
@@ -15,6 +15,17 @@
 3. `AGENTS.md`、`.agents/skills/*`、`.codex/rules/`。
 4. `.codex/memory/`。
 5. 历史总结、归档 change、对话摘要。
+
+## 写入时机
+
+符合以下任一条件且不在“不写入”清单内时，直接写入对应分类 memory，并更新 `.codex/memory/INDEX.md`：
+
+- 踩到可复发坑、非显而易见根因或容易误判的工具行为。
+- 确认了跨会话有效的工作流、架构或协作决策。
+- 收到开发者明确纠偏、偏好或协作规则反馈。
+- 发现后续任务会复用的参考资料位置和本项目取舍结论。
+
+写入 memory 不是记录过程流水；它只归档下次能减少误判或重复沟通的信息。
 
 ## Frontmatter
 
@@ -58,7 +69,7 @@ source: user-confirmed|codex-observed|reference-material
 
 ## Stale 复核
 
-memory 不是当前事实，而是历史快照。以下情况使用前必须复核：
+memory 不是当前事实，而是历史快照；active memory 按当前上下文使用。只有以下 stale-prone 情况在使用前必须复核：
 
 - 涉及工具行为、命令输出、参考材料、依赖版本、规则状态。
 - 涉及文件路径、函数名、配置项、flag、端口或日期。

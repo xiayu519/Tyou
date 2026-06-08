@@ -25,6 +25,11 @@
 const tables = tyou.table.getConfig();
 ```
 
+框架文本能力：
+
+- 多语言表由 Luban 生成，运行时通过 `tyou.i18n` 访问，不走手写字典作为主路径。
+- `TableModule.onCreate()` 完成 `Tables` 构建后会重载 `tyou.i18n`。
+
 ## 导表
 
 优先使用现有脚本：

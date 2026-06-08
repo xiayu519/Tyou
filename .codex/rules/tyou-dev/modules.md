@@ -18,6 +18,7 @@
 | HTTP | HTTP 请求、query 参数编码 | `tyou.http` |
 | 存储 | 本地持久化 | `tyou.storage` |
 | 配表 | Luban 二进制表 | `tyou.table` |
+| 多语言 | Luban 文本表、切语言、格式化文本 | `tyou.i18n` |
 | Update | Update 回调管理 | `tyou.update` |
 | 世界 | 服务器时间等全局状态 | `tyou.game` |
 
@@ -31,7 +32,7 @@ onUpdate(dt: number): void
 onDestroy(): void
 ```
 
-新增模块时保持与 `Module` 基类风格一致，并在 `Tyou.ts` 的 `onCreate/onUpdate/onDestroy` 中接入。
+新增模块时保持与 `Module` 基类风格一致，并在 `Tyou.ts` 的 `onCreate/onUpdate/onDestroy` 中接入。依赖 Luban 表的模块不要把解析逻辑塞进 `TableModule`；`TableModule.onCreate()` 完成后可触发对应模块重载。
 
 启动场景约定：
 
@@ -48,6 +49,7 @@ tyou.event.emit("EventName", arg0, arg1);
 const args = await tyou.event.waitFor("EventName", 5000);
 await tyou.scene.loadSceneAsync(SceneEnum.Login);
 tyou.audio.playBGM("BGM_Main");
+tyou.i18n.get("common_ok");
 ```
 
 ## 框架模块变更

@@ -69,7 +69,8 @@ this.hide();
 - 新 UI 必须添加 `@UIDecorator`。
 - UI 预制体对应的 UI 脚本原则上不允许手写创建，必须优先走 `uitscreate` 代码生成工具，让工具同步生成/更新 `UIName.ts` 和 `UIImportAll.ts`。
 - 按钮事件在 `registerEvent()` 中必须用 `onRegisterEvent` 注册，不要直接 `node.on("click", ...)`。
-- UI 内加载图片优先用 `getSprite()`、`getSpriteFromAtlas()`，或加载后调用 `addAutoReleaseAsset()`，交给关闭流程统一释放。
+- UI 内加载图片优先用 `getSprite()`、`getSpriteFromAtlas()`、`setSpriteAsync()`；列表复用或头像图标异步切换时优先用 `setSpriteAsync()`，成功后交给关闭流程统一释放。
 - `UIBase.onRelease()` 会清理按钮监听、动态资源和 `tyou.event.targetOff(this)`；新增 UI 逻辑要让清理路径能覆盖到。
 - UI 内事件监听优先绑定到当前 UI 实例，依赖 `targetOff(this)` 清理；若使用其他 target 或手动监听，必须明确注销点。
+- 多语言 Label 可挂 `LocalizeLabel` 组件，运行时通过 `tyou.i18n.switchLanguage()` 触发刷新；手写 UI 也可以直接调用 `tyou.i18n.get(key, ...args)`。
 - 当 `this.get("xxx")` 找不到节点，先检查命名是否符合自动生成前缀、是否走过前缀组件检查、预制体内是否有重名节点、脚本是否由生成器同步。

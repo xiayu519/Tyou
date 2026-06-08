@@ -45,7 +45,7 @@ Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。具体规则在 `.co
 ## 实施节奏
 
 1. 判断 L1-L4。
-2. 会话开始处理 L2+ 任务前，先读 `.codex/memory/INDEX.md`，再按任务类型读取相关 1-3 条 memory；写入或复核 memory 时读 `.codex/rules/tyou-dev/memory-workflow.md`。
+2. 会话开始处理 L2+ 任务前，先读 `.codex/memory/INDEX.md`，再按任务类型读取相关 1-3 条 memory；遇到符合条件的可复用信息时按 `.codex/rules/tyou-dev/memory-workflow.md` 直接归档。
 3. L2+ 先按 `.codex/rules/tyou-dev/openspec-workflow.md` 检查 OpenSpec；没有初始化就等待开发者确认。
 4. 读取最少规则主题。
 5. 优先用 `rg` 定位实际代码和调用样例；若 `rg` 不可用，改用 VS Code `grep_search` 或 PowerShell `Select-String`。
@@ -60,7 +60,7 @@ Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。具体规则在 `.co
 
 1. **规则是否要同步**：本次发现了代码与 `.codex/rules/**/*.md` 不一致、或实际行为与现有描述不同的场景吗？是则同步修改规则。
 2. **Codex 工作流是否一致**：本次是否修改了 Codex 工作流规则、触发、路由、OpenSpec 入口、memory、Wiki 配置或结束自检？是则检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/rules/`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md` 与 `openspec/specs/` 是否一致。
-3. **memory 是否要记一笔**：本次是不是踩了可复发坑、确认了重要决策、收到用户协作反馈、或发现参考资料位置？是则写入 `.codex/memory/<type>/` 并更新 `.codex/memory/INDEX.md`。
+3. **memory 归档是否完成**：本次符合写入条件的可复用信息是否已写入 `.codex/memory/<type>/` 并更新 `.codex/memory/INDEX.md`？无符合条件信息则不写。
 4. **OpenSpec 是否要推进**：如果走了 change，对应 `tasks.md` 是否都勾选了？全绿且目标明确时直接 archive，只有 gate 不满足时才询问开发者。
 
 在最终回复中用一句话说出这四项的结论。

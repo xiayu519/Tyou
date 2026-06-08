@@ -4,6 +4,7 @@ import {AudioModule} from "./module/audio/AudioModule";
 import {EventModule} from "./module/event/EventModule";
 import {FSMModule} from "./module/fsm/FSMModule";
 import {HttpModule} from "./module/http/HttpModule";
+import {LocalizationModule} from "./module/localization/LocalizationModule";
 import {ResourceModule} from "./module/loader/ResourceModule";
 import {PoolModule} from "./module/pool/PoolModule";
 import {SceneModule} from "./module/scene/SceneModule";
@@ -25,6 +26,7 @@ class Tyou {
     fsm: FSMModule = new FSMModule();
     storage: StorageModule = new StorageModule();
     http: HttpModule = new HttpModule();
+    i18n: LocalizationModule = new LocalizationModule();
     ecs: ECSRootSystem = new ecs.RootSystem();
     //除非用到component里面的特性 只需要一个update话 没必要继承它
     update: UpdateModule = new UpdateModule();
@@ -80,6 +82,7 @@ class Tyou {
         this.fsm.onDestroy();
         this.ui.onDestroy();
         this.storage.onDestroy();
+        this.i18n.onDestroy();
         this.table.onDestroy();
         this.update.onDestroy();
     }

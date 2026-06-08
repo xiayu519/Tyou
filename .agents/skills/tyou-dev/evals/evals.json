@@ -116,8 +116,8 @@
     {
       "id": 8,
       "name": "codex-memory-workflow",
-      "description": "验证 AI 能按结构化 memory 规则写入、复核和控制 token，而不是把 memory 当自由文本日志。",
-      "prompt": "这次踩了一个可复发的 Codex 工作流坑，我想记进 memory。你应该怎么判断能不能写、写成什么格式、以后怎么使用？",
+      "description": "验证 AI 能按正式本地 memory 流程写入、复核和控制 token，而不是把 memory 当自由文本日志。",
+      "prompt": "这次踩了一个可复发的 Codex 工作流坑，我想记进 memory。你应该如何按正式 memory 流程归档、写成什么格式、以后怎么使用？",
       "expected_patterns": [
         "frontmatter",
         "type",
@@ -129,7 +129,8 @@
         "全部对话都写进 memory",
         "memory 是最高优先级",
         "不用复核",
-        "自动抽取"
+        "自动抽取",
+        "把 memory 当临时开关"
       ]
     }
   ]

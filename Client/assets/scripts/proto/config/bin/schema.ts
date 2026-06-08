@@ -57,8 +57,6 @@ export class float2 {
 
 
     resolve(tables:Tables) {
-        
-        
     }
 }
 
@@ -85,9 +83,6 @@ export class float3 {
 
 
     resolve(tables:Tables) {
-        
-        
-        
     }
 }
 
@@ -118,10 +113,6 @@ export class float4 {
 
 
     resolve(tables:Tables) {
-        
-        
-        
-        
     }
 }
 
@@ -144,8 +135,6 @@ export class int2 {
 
 
     resolve(tables:Tables) {
-        
-        
     }
 }
 
@@ -172,9 +161,6 @@ export class int3 {
 
 
     resolve(tables:Tables) {
-        
-        
-        
     }
 }
 
@@ -205,10 +191,6 @@ export class int4 {
 
 
     resolve(tables:Tables) {
-        
-        
-        
-        
     }
 }
 
@@ -398,31 +380,48 @@ export class TableFollower {
 
 
     resolve(tables:Tables) {
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+    }
+}
+
+
+
+
+
+export class TableLocalizationText {
+
+    constructor(_buf_: ByteBuf) {
+        this.id = _buf_.readInt()
+        this.key = _buf_.readString()
+        this.zhCn = _buf_.readString()
+        this.enUs = _buf_.readString()
+    }
+
+    /**
+     * 文本ID
+     */
+    readonly id: number
+
+
+    /**
+     * 文本键
+     */
+    readonly key: string
+
+
+    /**
+     * 简体中文
+     */
+    readonly zhCn: string
+
+
+    /**
+     * 英文
+     */
+    readonly enUs: string
+
+
+
+    resolve(tables:Tables) {
     }
 }
 
@@ -449,7 +448,40 @@ export class TbTableFollower {
     getDataList(): TableFollower[] { return this._dataList; }
 
     get(key: number): TableFollower | undefined {
-        return this._dataMap.get(key); 
+        return this._dataMap.get(key);
+    }
+
+    resolve(tables:Tables) {
+        for(let  data of this._dataList)
+        {
+            data.resolve(tables)
+        }
+    }
+
+}
+
+
+
+
+export class TbTableLocalizationText {
+    private _dataMap: Map<number, TableLocalizationText>
+    private _dataList: TableLocalizationText[]
+    constructor(_buf_: ByteBuf) {
+        this._dataMap = new Map<number, TableLocalizationText>()
+        this._dataList = []
+        for(let n = _buf_.readInt(); n > 0; n--) {
+            let _v: TableLocalizationText
+            _v = new TableLocalizationText(_buf_)
+            this._dataList.push(_v)
+            this._dataMap.set(_v.id, _v)
+        }
+    }
+
+    getDataMap(): Map<number, TableLocalizationText> { return this._dataMap; }
+    getDataList(): TableLocalizationText[] { return this._dataList; }
+
+    get(key: number): TableLocalizationText | undefined {
+        return this._dataMap.get(key);
     }
 
     resolve(tables:Tables) {
@@ -469,17 +501,22 @@ type ByteBufLoader = (file: string) => ByteBuf
 export class Tables {
     private _TbTableFollower: TbTableFollower
     get TbTableFollower(): TbTableFollower  { return this._TbTableFollower;}
+    private _TbTableLocalizationText: TbTableLocalizationText
+    get TbTableLocalizationText(): TbTableLocalizationText  { return this._TbTableLocalizationText;}
 
     static getTableNames(): string[] {
         let names: string[] = [];
         names.push('tbtablefollower');
+        names.push('tbtablelocalizationtext');
         return names;
     }
 
     constructor(loader: ByteBufLoader) {
         this._TbTableFollower = new TbTableFollower(loader('tbtablefollower'))
+        this._TbTableLocalizationText = new TbTableLocalizationText(loader('tbtablelocalizationtext'))
 
         this._TbTableFollower.resolve(this)
+        this._TbTableLocalizationText.resolve(this)
     }
 }
 

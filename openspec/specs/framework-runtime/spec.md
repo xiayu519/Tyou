@@ -2,9 +2,7 @@
 
 ## Purpose
 Define Tyou runtime framework module composition and lifecycle expectations after removing the built-in debug panel module.
-
 ## Requirements
-
 ### Requirement: Runtime excludes built-in debug module
 The Tyou runtime framework MUST NOT expose or instantiate the removed built-in debug module.
 
@@ -35,11 +33,15 @@ Framework documentation and AI reference material MUST NOT list debug as an acti
 - **THEN** the framework module list does not include `debug`
 
 ### Requirement: Runtime documentation reflects current module tree
-Framework runtime documentation MUST describe the current `tyou.*` global module tree using the implementation in `Client/assets/ty-framework/Tyou.ts` as the source of truth.
+Framework runtime documentation MUST describe the current `tyou.*` global module tree using the implementation in `Client/assets/ty-framework/Tyou.ts` as the source of truth, including localization when it is exposed.
 
 #### Scenario: Runtime modules are documented
 - **WHEN** framework runtime modules are listed in README, Books, Codex rules, or OpenSpec specs
 - **THEN** the list matches the modules exposed by the current Tyou entry implementation
+
+#### Scenario: Text runtime modules are documented
+- **WHEN** `tyou.i18n` is exposed by `Tyou.ts`
+- **THEN** framework documentation lists it as a supported runtime API
 
 ### Requirement: Runtime documentation states required startup scene nodes
 Framework runtime documentation MUST state required startup scene-node contracts when current source code treats missing nodes as startup errors.

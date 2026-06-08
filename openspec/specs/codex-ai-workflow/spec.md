@@ -106,7 +106,7 @@ The Codex workflow MUST document local correction mechanisms that actually exist
 - **THEN** it labels them as optional future enhancements rather than current behavior
 
 ### Requirement: Structured memory is indexed
-The Codex workflow MUST keep reusable memory discoverable through `.codex/memory/INDEX.md` and typed memory folders rather than relying on a single chronological log.
+The Codex workflow MUST treat `.codex/memory/` as the normal local memory system for L2 and higher Tyou tasks, keeping reusable memory discoverable through `.codex/memory/INDEX.md` and typed memory folders rather than relying on a single chronological log.
 
 #### Scenario: L2 or higher task starts
 - **WHEN** Codex begins an L2, L3, or L4 task
@@ -114,7 +114,7 @@ The Codex workflow MUST keep reusable memory discoverable through `.codex/memory
 - **AND** it opens only the relevant `problems/`, `decisions/`, `feedback/`, or `references/` entries needed for the task
 
 #### Scenario: New reusable memory is recorded
-- **WHEN** Codex records a reusable pitfall, decision, user feedback, or reference material
+- **WHEN** Codex observes a reusable pitfall, confirms a durable decision, receives reusable user feedback, or locates reusable reference material
 - **THEN** it writes a typed memory entry under `.codex/memory/`
 - **AND** it updates `.codex/memory/INDEX.md`
 
@@ -133,9 +133,9 @@ The Codex workflow MUST store active memory entries with typed frontmatter so Co
 ### Requirement: Memory writes exclude recoverable or unstable facts
 The Codex workflow MUST prevent memory from becoming a duplicate source of truth for code, git history, temporary task state, or unverified guesses.
 
-#### Scenario: Codex considers writing memory
-- **WHEN** Codex decides whether to write `.codex/memory/`
-- **THEN** it writes only reusable pitfalls, decisions, user feedback, or reference material that cannot be reliably recovered from source search, OpenSpec artifacts, git history, or current conversation state
+#### Scenario: Reusable memory criteria are met
+- **WHEN** Codex has a reusable pitfall, decision, user feedback, or reference material that cannot be reliably recovered from source search, OpenSpec specs, git history, or current conversation state
+- **THEN** Codex records it in the appropriate `.codex/memory/` category as part of the normal workflow
 
 #### Scenario: Candidate memory is recoverable elsewhere
 - **WHEN** the candidate memory is a code pattern, file path detail, recent modification, temporary task state, full log, or unverified guess

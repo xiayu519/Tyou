@@ -1,4 +1,4 @@
-import {_decorator, Asset, Button, Component, isValid, Node, SpriteFrame, UITransform} from "cc";
+import {_decorator, Asset, Button, Component, isValid, Node, Sprite, SpriteFrame, UITransform} from "cc";
 import Dictionary from "../../core/collections/Dictionary";
 import {ViewUtil} from "../../core/util/ViewUtil";
 
@@ -62,6 +62,30 @@ export class UIBase {
             return null;
         }
         this.addAutoReleaseAsset(atlas);
+        return spriteFrame;
+    }
+
+    async setSpriteAsync(target: Sprite | Node, name: string) {
+        const sprite = target instanceof Sprite ? target : target?.getComponent(Sprite);
+        if (!sprite) {
+            return null;
+        }
+        const spriteFrame = await tyou.res.setSpriteAsync({target: sprite, path: name});
+        if (spriteFrame) {
+            this.addAutoReleaseAsset(spriteFrame);
+        }
+        return spriteFrame;
+    }
+
+    async setRemoteSpriteAsync(target: Sprite | Node, url: string, ext: string = ".png") {
+        const sprite = target instanceof Sprite ? target : target?.getComponent(Sprite);
+        if (!sprite) {
+            return null;
+        }
+        const spriteFrame = await tyou.res.setSpriteAsync({target: sprite, url, ext});
+        if (spriteFrame) {
+            this.addAutoReleaseAsset(spriteFrame);
+        }
         return spriteFrame;
     }
 

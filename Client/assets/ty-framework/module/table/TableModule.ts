@@ -20,6 +20,7 @@ export class TableModule extends Module {
             tyou.res.decRef(cfg);
         })
         this._tables = new Tables((file_name: string) => new ByteBuf(this._dataMap.get(file_name)));
+        tyou.i18n?.onCreate();
     }
 
     public getConfig() {

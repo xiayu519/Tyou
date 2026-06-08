@@ -6,7 +6,7 @@
 
 ## Problems
 
-- 暂无。
+- `.codex/memory/problems/luban-xlsx-serial-writes.md`：修改 Luban 源 Excel 表时，同一 `.xlsx` 写入必须串行执行。
 
 ## Decisions
 
@@ -14,7 +14,7 @@
 
 ## Feedback
 
-- 暂无。
+- `.codex/memory/feedback/local-memory-formal-workflow.md`：本地 memory 按正式 Codex 工作流启用，符合条件时直接归档。
 
 ## References
 

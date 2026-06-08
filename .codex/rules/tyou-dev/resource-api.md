@@ -35,6 +35,7 @@ SpriteFrame 会自动补 `/spriteFrame`。
 await tyou.res.loadAssetAsync("AssetName");
 await tyou.res.loadGameObjectAsync("PrefabName", parent);
 await tyou.res.loadSprite("SpriteName");
+await tyou.res.setSpriteAsync({ target: sprite, path: "SpriteName" });
 await tyou.res.loadAtlas("AtlasName");
 await tyou.res.loadSpriteFromAtlas("AtlasName", "spriteName");
 tyou.res.preload("AssetName");
@@ -80,6 +81,7 @@ await tyou.res.loadAssetAsync({
 - 少调用 `decRef` 会让资源长期保留，导致内存泄漏。
 - 资源崩溃、贴图丢失、内存一直不卸载时，优先检查 `addRef/decRef` 是否配对，再看业务逻辑。
 - UI 动态资源优先交给 `UIBase.addAutoReleaseAsset()`，不要分散手动 `decRef`。
+- 列表 item、头像、图标等会复用节点的异步设图优先用 `tyou.res.setSpriteAsync()` 或 `UIBase.setSpriteAsync()`，让旧请求完成后不覆盖最新 Sprite。
 
 ## 常见错误
 

@@ -45,7 +45,7 @@ L2 分流规则：
 1. 用 `rg` 定位源码；不可用时用 VS Code `grep_search` 或 PowerShell `Select-String`。
 2. 以源码和工具实际行为为准。
 3. 同步修正文档。
-4. 可复发问题、决策、用户反馈或参考资料位置写入 `.codex/memory/` 分类条目，并更新 `INDEX.md`。
+4. 符合归档条件的可复发问题、决策、用户反馈或参考资料位置，直接写入 `.codex/memory/` 分类条目，并更新 `INDEX.md`。
 
 ## Skills
 
@@ -78,7 +78,7 @@ Codex 汇报工作流状态时，直接基于 `run-report.md`、sensor 输出、
 
 ## Memory
 
-L2+ 任务开始时先读 `.codex/memory/INDEX.md`，只打开与当前任务相关的 1-3 条记录。新记录按类型写入，并遵守 `.codex/rules/tyou-dev/memory-workflow.md`：
+L2+ 任务开始时先读 `.codex/memory/INDEX.md`，只打开与当前任务相关的 1-3 条记录。符合写入条件的可复用信息直接按类型归档，并遵守 `.codex/rules/tyou-dev/memory-workflow.md`：
 
 - `problems/`：可复发坑和非显而易见根因。
 - `decisions/`：已确认的工作流或架构决策。
@@ -87,7 +87,7 @@ L2+ 任务开始时先读 `.codex/memory/INDEX.md`，只打开与当前任务相
 
 每条正文必须包含 `type`、`description`、`status`、`last_verified`、`source` frontmatter。写入后必须更新 `INDEX.md`，索引每条只占一行，目标不超过 80 行、12 KB。按日期滚动日志不进入 memory。
 
-memory 是历史上下文，不是事实源。涉及工具行为、路径、函数、flag、参考资料或日期时，使用前必须先按源码、OpenSpec、规则或当前工具输出复核。源码可查事实、最近改动、临时任务状态、完整日志和未验证猜测不写入 memory。
+memory 是历史上下文，不是事实源；active memory 按当前上下文使用。涉及工具行为、路径、函数、flag、参考资料或日期时，使用前必须先按源码、OpenSpec、规则或当前工具输出复核。源码可查事实、最近改动、临时任务状态、完整日志和未验证猜测不写入 memory。
 
 ## 强约束
 

@@ -11,6 +11,9 @@ import {
     Prefab,
     SceneAsset,
     sp,
+    ImageAsset,
+    isValid,
+    Sprite,
     SpriteAtlas,
     SpriteFrame,
     TextAsset
@@ -27,10 +30,22 @@ interface PendingReleaseInfo {
     markTime: number; // 加入队列的时间
 }
 
+export interface SetSpriteAsyncParams {
+    target: Sprite;
+    path?: string;
+    url?: string;
+    ext?: string;
+    version?: string;
+    onProgress?: (finish: number, total: number, item: AssetManager.RequestItem) => void;
+    onComplete?: (success: boolean, spriteFrame?: SpriteFrame | null) => void;
+}
+
 export class ResourceModule extends Module {
     private _typeMap: Map<string, typeof Asset> = new Map();
     loader: LoaderManager = new LoaderManager();
     private _loader;
+    private _spriteRequestId: number = 0;
+    private _spriteRequestMap: WeakMap<Sprite, number> = new WeakMap();
 
     // 延迟释放相关配置
     /** 检查释放的时间间隔（秒），在onCreate中通过setReleaseConfig设置 */
@@ -351,6 +366,39 @@ export class ResourceModule extends Module {
             console.warn("loadSpriteFromAtlas: spriteFrame not found", atlasName, spriteFrameName);
             return null;
         }
+        return spriteFrame;
+    }
+
+    async setSpriteAsync(params: SetSpriteAsyncParams): Promise<SpriteFrame | null> {
+        if (!params || !params.target) {
+            params?.onComplete?.(false, null);
+            return null;
+        }
+
+        const requestId = ++this._spriteRequestId;
+        this._spriteRequestMap.set(params.target, requestId);
+
+        let spriteFrame: SpriteFrame | null = null;
+        if (params.url) {
+            const imageAsset = await this.loadRemoteAsync({url: params.url, ext: params.ext});
+            if (imageAsset instanceof ImageAsset) {
+                spriteFrame = SpriteFrame.createWithImage(imageAsset);
+            }
+        } else if (params.path) {
+            spriteFrame = await this.loadSprite(params.path, params.version, params.onProgress);
+        }
+
+        if (this._spriteRequestMap.get(params.target) !== requestId) {
+            return null;
+        }
+
+        if (!spriteFrame || !isValid(params.target)) {
+            params.onComplete?.(false, spriteFrame);
+            return null;
+        }
+
+        params.target.spriteFrame = spriteFrame;
+        params.onComplete?.(true, spriteFrame);
         return spriteFrame;
     }
 

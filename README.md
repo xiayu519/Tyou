@@ -18,6 +18,8 @@ Tyou 是面向 Cocos Creator 3.8.7 的 TypeScript 客户端框架，围绕 Cocos
 - **全局单例架构** — 所有模块通过 `tyou.*` 全局访问，无需频繁 `getComponent`
 - **UI 模块** — 栈式管理 + 层级系统 + 模糊背景 + 右键一键生成 UI 代码
 - **资源模块** — 资源索引 + 自动引用计数 + 延迟释放 + Bundle 自动发现 + 索引缺失诊断
+- **安全设图** — Sprite 异步设图带请求保护，防止列表复用时旧请求覆盖新图片
+- **多语言** — 基于 Luban 文本表的 `tyou.i18n`，支持切语言、格式化和 Label 自动刷新
 - **对象池** — Node 池 & Class 池，内置 Vec3/Vec2/Color 等常用类型池，支持等待队列诊断
 - **事件系统** — 完全自实现优先级事件（不依赖 Cocos EventTarget）、`async/await` 等待事件、批量绑定
 - **日志系统** — 分类日志（Net/Model/Business/View/Config/Trace）、颜色区分、位运算开关
@@ -58,6 +60,7 @@ tyou.ecs      // ECS系统
 tyou.http     // HTTP模块
 tyou.storage  // 持久化存储
 tyou.table    // 配置表模块
+tyou.i18n     // 多语言模块
 tyou.update   // Update回调管理
 tyou.game     // GameWorld（服务器时间同步等）
 ```
@@ -657,6 +660,9 @@ const node = await tyou.res.loadGameObjectAsync("TestUI", parentNode);
 
 // 加载精灵帧
 const sprite = await tyou.res.loadSprite("icon_gold");
+
+// 复用节点异步设图，旧请求完成后不会覆盖最新 Sprite
+await tyou.res.setSpriteAsync({ target: iconSprite, path: "icon_gold" });
 
 // 加载图集
 const atlas = await tyou.res.loadAtlas("common_atlas");
@@ -1304,6 +1310,18 @@ tables.TbItem.getDataList().forEach(item => {
 });
 ```
 
+### 多语言
+
+多语言文本来自 Luban 配表，导表后由 `tyou.table.onCreate()` 自动加载，再重载 `tyou.i18n`。
+
+```typescript
+tyou.i18n.get("common_ok");
+tyou.i18n.switchLanguage("en_us");
+tyou.i18n.get("common_cancel");
+```
+
+UI 文本可挂 `LocalizeLabel` 组件并填写 key，也可以在 UI 脚本中直接调用 `tyou.i18n.get(key, ...args)`。
+
 ---
 
 ## Update 回调管理模块
@@ -1421,11 +1439,13 @@ Log.setTags(LogType.Net | LogType.Model | LogType.Business | LogType.View | LogT
 ### 初始化阶段
 
 ```
-Tyou 构造函数 → 创建 res, event, timer, fsm, storage, http, ecs, update
+Tyou 构造函数 → 创建 res, event, timer, fsm, storage, http, i18n, ecs, update
     ↓
 onLoad() → 创建 pool, audio, scene, ui, table; 挂载 GameWorld 组件
     ↓
 onCreate() → 依次调用 pool, res, audio, scene, storage, ui 的 onCreate()
+    ↓
+appStart() → table.onCreate() 加载 Luban 配表并重载 i18n
 ```
 
 ### 启动节点契约
@@ -1469,6 +1489,7 @@ Client/
 │   │   │   ├── http/              # HTTP 模块
 │   │   │   ├── storage/           # 存储模块
 │   │   │   ├── table/             # 配置表模块
+│   │   │   ├── localization/      # 多语言模块
 │   │   │   ├── update/            # Update 管理
 │   │   │   └── world/             # GameWorld
 │   │   └── Tyou.ts                # 框架入口 & 全局单例
