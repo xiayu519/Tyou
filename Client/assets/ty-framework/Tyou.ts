@@ -43,7 +43,11 @@ class Tyou {
         this.scene = new SceneModule();
         this.ui = new UIModule();
         this.table = new TableModule();
-        this.game = find("GameRoot").addComponent(GameWorld);
+        const gameRoot = find("GameRoot");
+        if (!gameRoot) {
+            throw new Error('[Tyou] Missing required scene node: GameRoot');
+        }
+        this.game = gameRoot.addComponent(GameWorld);
     }
 
     public async onCreate() {

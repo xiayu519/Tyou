@@ -225,10 +225,10 @@ export class NetNode {
                 }
             }
         }
-        var self = this;
         if (sys.isNative) {
             var a = new Uint8Array(msg)
             let packet: Object = JSON.parse(this.Utf8ArrayToStr(a))
+            callback(packet);
         } else {
             const uint8Arr: any = new Uint8Array(msg);
             const encodedString: any = String.fromCharCode.apply(null, uint8Arr);

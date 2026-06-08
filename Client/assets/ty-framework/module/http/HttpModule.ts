@@ -116,18 +116,31 @@ export class HttpModule {
      * 获得字符串形式的参数
      */
     private getParamString(params: any) {
-        var result = "";
+        const pairs: string[] = [];
+        const append = (key: string, value: any) => {
+            const encodedKey = encodeURIComponent(key);
+            const encodedValue = encodeURIComponent(value == null ? "" : String(value));
+            pairs.push(`${encodedKey}=${encodedValue}`);
+        };
+
         for (var name in params) {
+            if (!Object.prototype.hasOwnProperty.call(params, name)) {
+                continue;
+            }
+
             let data = params[name];
-            if (data instanceof Object) {
-                for (var key in data)
-                    result += `${key}=${data[key]}&`;
+            if (data !== null && typeof data === "object") {
+                for (var key in data) {
+                    if (Object.prototype.hasOwnProperty.call(data, key)) {
+                        append(key, data[key]);
+                    }
+                }
             } else {
-                result += `${name}=${data}&`;
+                append(name, data);
             }
         }
 
-        return result.substr(0, result.length - 1);
+        return pairs.join("&");
     }
 
     /**

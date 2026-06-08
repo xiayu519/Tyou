@@ -64,12 +64,15 @@ export class NodePool {
     private readonly _pendingGetRequests: Array<{
         resolve: (node: Node) => void;
         reject: (error: any) => void;
+        requestTime: number;
+        timeoutId?: any;
     }> = [];
 
     // 状态管理
     private _state: PoolState = PoolState.Uninitialized;
     private _initializationPromise: Promise<void> | null = null;
     private _preloadPromise: Promise<void> | null = null;
+    private readonly _pendingWarningThreshold: number = 10;
 
     // 节点信息映射（避免在Node上直接添加属性）
     private readonly _nodeInfoMap: WeakMap<Node, {
@@ -83,8 +86,8 @@ export class NodePool {
         this._maxCapacity = config.maxCapacity || 200;
         //game时间是ms
         this._expireTime = (config.expireTime || 10) * 1000;
-        this._maxInstancesPerFrame = config.maxInstancesPerFrame;
-        const preloadCount = config.preloadCount || 0;
+        this._maxInstancesPerFrame = Math.max(1, config.maxInstancesPerFrame ?? 10);
+        const preloadCount = Math.max(0, config.preloadCount ?? 0);
         this._minReserveCount = config.minReserveCount ?? preloadCount;
     }
 
@@ -195,7 +198,7 @@ export class NodePool {
     /**
      * 异步获取节点 - 核心方法
      */
-    public async getAsync(): Promise<Node> {
+    public async getAsync(timeoutMs: number = 0): Promise<Node> {
         if (this._state === PoolState.Disposed) {
             throw new Error("节点池已销毁");
         }
@@ -229,7 +232,27 @@ export class NodePool {
 
         // 3. 如果池已满，等待节点释放
         return new Promise<Node>((resolve, reject) => {
-            this._pendingGetRequests.push({resolve, reject});
+            const request = {
+                resolve,
+                reject,
+                requestTime: this._getGameTotalTime(),
+                timeoutId: undefined as any
+            };
+
+            if (timeoutMs > 0) {
+                request.timeoutId = setTimeout(() => {
+                    const index = this._pendingGetRequests.indexOf(request);
+                    if (index >= 0) {
+                        this._pendingGetRequests.splice(index, 1);
+                        reject(new Error(`获取节点超时: ${this._assetPath}, timeout=${timeoutMs}ms`));
+                    }
+                }, timeoutMs);
+            }
+
+            this._pendingGetRequests.push(request);
+            if (this._pendingGetRequests.length >= this._pendingWarningThreshold) {
+                console.warn(`节点池等待队列过长: ${this._assetPath}, pending=${this._pendingGetRequests.length}`);
+            }
         });
     }
 
@@ -289,6 +312,9 @@ export class NodePool {
             const request = this._pendingGetRequests.shift()!;
             const availableNode = this._tryGetFromAvailable();
             if (availableNode) {
+                if (request.timeoutId) {
+                    clearTimeout(request.timeoutId);
+                }
                 request.resolve(availableNode);
             } else {
                 // 如果没有可用节点，将请求放回队列
@@ -425,6 +451,9 @@ export class NodePool {
 
         // 清理所有等待中的请求
         for (const request of this._pendingGetRequests) {
+            if (request.timeoutId) {
+                clearTimeout(request.timeoutId);
+            }
             request.reject(new Error("对象池已销毁"));
         }
         this._pendingGetRequests.length = 0;
@@ -470,6 +499,7 @@ export class NodePool {
             prefabRefCount: this._prefabRefCount,
             instantiateQueueLength: this._instantiateQueue.length,
             pendingRequests: this._pendingGetRequests.length,
+            oldestPendingWaitTime: this._getOldestPendingWaitTime(),
         };
     }
 
@@ -484,6 +514,21 @@ export class NodePool {
             this._prefab = null;
             this._prefabRefCount = 0;
         }
+    }
+
+    private _getOldestPendingWaitTime(): number {
+        if (this._pendingGetRequests.length === 0) {
+            return 0;
+        }
+
+        const now = this._getGameTotalTime();
+        let oldest = now;
+        for (const request of this._pendingGetRequests) {
+            if (request.requestTime < oldest) {
+                oldest = request.requestTime;
+            }
+        }
+        return now - oldest;
     }
 
     /**

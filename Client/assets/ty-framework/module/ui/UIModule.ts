@@ -39,7 +39,21 @@ export class UIModule extends Module {
 
         // 初始化层级节点（如果需要在启动时创建）
         this._uiRoot = find("UICanvas");
-        this._uiCamera = find("UICamera", this._uiRoot).getComponent(Camera);
+        if (!this._uiRoot) {
+            throw new Error('[UIModule] Missing required scene node: UICanvas');
+        }
+
+        const uiCameraNode = find("UICamera", this._uiRoot);
+        if (!uiCameraNode) {
+            throw new Error('[UIModule] Missing required scene node: UICanvas/UICamera');
+        }
+
+        const uiCamera = uiCameraNode.getComponent(Camera);
+        if (!uiCamera) {
+            throw new Error('[UIModule] UICanvas/UICamera missing Camera component');
+        }
+
+        this._uiCamera = uiCamera;
         this.createUILayers();
         this._tipManager = new TipManager();
         await this._tipManager.onCreate();

@@ -9,13 +9,13 @@
 | 资源 | 资源加载、bundle、引用计数 | `tyou.res` |
 | UI | 窗口栈、层级、模糊背景、Tip | `tyou.ui` |
 | 事件 | 优先级事件、once、waitFor、批量绑定 | `tyou.event` |
-| 计时器 | 定时任务 | `tyou.timer` |
+| 计时器 | 绝对时间 + 最小堆定时任务 | `tyou.timer` |
 | 音频 | BGM/音效 | `tyou.audio` |
 | 场景 | 场景注册和切换 | `tyou.scene` |
-| 对象池 | Node/Class 池 | `tyou.pool` |
+| 对象池 | Node/Class 池、等待队列诊断 | `tyou.pool` |
 | FSM | 状态机 | `tyou.fsm` |
 | ECS | ECS 根系统 | `tyou.ecs` |
-| HTTP | HTTP 请求 | `tyou.http` |
+| HTTP | HTTP 请求、query 参数编码 | `tyou.http` |
 | 存储 | 本地持久化 | `tyou.storage` |
 | 配表 | Luban 二进制表 | `tyou.table` |
 | Update | Update 回调管理 | `tyou.update` |
@@ -32,6 +32,12 @@ onDestroy(): void
 ```
 
 新增模块时保持与 `Module` 基类风格一致，并在 `Tyou.ts` 的 `onCreate/onUpdate/onDestroy` 中接入。
+
+启动场景约定：
+
+- `GameRoot` 用于挂载 `GameWorld`。
+- `UICanvas` 是 UI 根节点。
+- `UICanvas/UICamera` 必须带 `Camera` 组件。
 
 ## 常见模式
 

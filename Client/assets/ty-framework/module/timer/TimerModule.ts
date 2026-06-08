@@ -77,6 +77,7 @@ class TimerHeap {
             this._siftDown(0);
         }
 
+        this._heap.length = this._size;
         return result;
     }
 
@@ -100,6 +101,7 @@ class TimerHeap {
 
         if (index === this._size) {
             // 移除的是最后一个，直接返回
+            this._heap.length = this._size;
             return true;
         }
 
@@ -111,6 +113,7 @@ class TimerHeap {
         // 调整堆
         this._siftUp(index);
         this._siftDown(last.heapIndex);
+        this._heap.length = this._size;
 
         return true;
     }
@@ -121,6 +124,7 @@ class TimerHeap {
             this._heap[i].heapIndex = -1;
         }
         this._size = 0;
+        this._heap.length = 0;
     }
 
     /** 遍历所有定时器 */
@@ -189,6 +193,8 @@ export class TimerModule extends Module {
     private _timerMap: Map<number, Timer> = new Map(); // id -> Timer 快速查找
     private _timerPool: Timer[] = []; // Timer对象池
     private _pendingRemove: Timer[] = []; // 待删除列表
+    private _elapsedSeconds: number = 0;
+    private _dispatchingTimerId: number = 0;
 
     /** 从对象池获取或创建Timer */
     private _createTimer(): Timer {
@@ -212,8 +218,8 @@ export class TimerModule extends Module {
     public addTimer(callback: TimerHandler, time: number, isLoop: boolean = false, ...args: any[]): number {
         const timer = this._createTimer();
         timer.id = ++this._currentTimerId;
-        timer.currentTime = time;
-        timer.totalTime = time;
+        timer.currentTime = this._elapsedSeconds + Math.max(0, time);
+        timer.totalTime = Math.max(0, time);
         timer.handler = callback;
         timer.isLoop = isLoop;
         timer.args = args;
@@ -232,8 +238,12 @@ export class TimerModule extends Module {
      */
     public stop(timerId: number): void {
         const timer = this._timerMap.get(timerId);
-        if (timer) {
+        if (timer && timer.isRunning) {
+            timer.currentTime = Math.max(0, timer.currentTime - this._elapsedSeconds);
             timer.isRunning = false;
+            if (timer.id !== this._dispatchingTimerId) {
+                this._timerHeap.remove(timer);
+            }
         }
     }
 
@@ -243,8 +253,8 @@ export class TimerModule extends Module {
      */
     public resume(timerId: number): void {
         const timer = this._timerMap.get(timerId);
-        if (timer) {
-            timer.isRunning = true;
+        if (timer && !timer.isRunning && !timer.isNeedRemove) {
+            this._scheduleTimer(timer, timer.currentTime);
         }
     }
 
@@ -265,7 +275,8 @@ export class TimerModule extends Module {
      */
     public getLeftTime(timerId: number): number {
         const timer = this._timerMap.get(timerId);
-        return timer ? timer.currentTime : 0;
+        if (!timer) return 0;
+        return timer.isRunning ? Math.max(0, timer.currentTime - this._elapsedSeconds) : Math.max(0, timer.currentTime);
     }
 
     /**
@@ -275,9 +286,8 @@ export class TimerModule extends Module {
     public restart(timerId: number): void {
         const timer = this._timerMap.get(timerId);
         if (timer) {
-            timer.currentTime = timer.totalTime;
-            timer.isRunning = true;
-            this._timerHeap.update(timer);
+            timer.isNeedRemove = false;
+            this._scheduleTimer(timer, timer.totalTime);
         }
     }
 
@@ -291,12 +301,11 @@ export class TimerModule extends Module {
     public resetTimer(timerId: number, callback: TimerHandler, time: number, isLoop: boolean = false): void {
         const timer = this._timerMap.get(timerId);
         if (timer) {
-            timer.currentTime = time;
-            timer.totalTime = time;
+            timer.totalTime = Math.max(0, time);
             timer.handler = callback;
             timer.isLoop = isLoop;
             timer.isNeedRemove = false;
-            this._timerHeap.update(timer);
+            this._scheduleTimer(timer, timer.totalTime);
         }
     }
 
@@ -309,11 +318,10 @@ export class TimerModule extends Module {
     public resetTimerEx(timerId: number, time: number, isLoop: boolean): void {
         const timer = this._timerMap.get(timerId);
         if (timer) {
-            timer.currentTime = time;
-            timer.totalTime = time;
+            timer.totalTime = Math.max(0, time);
             timer.isLoop = isLoop;
             timer.isNeedRemove = false;
-            this._timerHeap.update(timer);
+            this._scheduleTimer(timer, timer.totalTime);
         }
     }
 
@@ -325,6 +333,9 @@ export class TimerModule extends Module {
         const timer = this._timerMap.get(timerId);
         if (timer) {
             timer.isNeedRemove = true;
+            if (timer.id !== this._dispatchingTimerId) {
+                this._removeTimer(timer);
+            }
         }
     }
 
@@ -332,12 +343,17 @@ export class TimerModule extends Module {
      * 移除所有计时器
      */
     public removeAllTimer(): void {
-        this._timerHeap.forEach(timer => {
+        for (const timer of this._timerMap.values()) {
+            if (timer.id === this._dispatchingTimerId) {
+                timer.isNeedRemove = true;
+                continue;
+            }
             this._recycleTimer(timer);
-        });
+        }
         this._timerHeap.clear();
         this._timerMap.clear();
         this._pendingRemove.length = 0;
+        this._dispatchingTimerId = 0;
     }
 
     /**
@@ -360,20 +376,9 @@ export class TimerModule extends Module {
      * @param elapsedSeconds 经过的秒数
      */
     private _updateTimer(elapsedSeconds: number): void {
+        this._elapsedSeconds += Math.max(0, elapsedSeconds);
         // 清空待删除列表
         this._pendingRemove.length = 0;
-
-        // 更新所有定时器的时间
-        this._timerHeap.forEach(timer => {
-            if (timer.isNeedRemove) {
-                this._pendingRemove.push(timer);
-                return;
-            }
-
-            if (timer.isRunning) {
-                timer.currentTime -= elapsedSeconds;
-            }
-        });
 
         // 处理所有到期的定时器
         // 使用迭代而非递归，防止栈溢出
@@ -382,45 +387,76 @@ export class TimerModule extends Module {
 
         while (iterations < maxIterations) {
             const top = this._timerHeap.peek();
-            if (!top || top.currentTime > 0 || top.isNeedRemove || !top.isRunning) {
+            if (!top) {
                 break;
             }
 
-            iterations++;
+            if (top.isNeedRemove) {
+                this._removeTimer(top);
+                continue;
+            }
+
+            if (!top.isRunning) {
+                this._timerHeap.remove(top);
+                continue;
+            }
+
+            if (top.currentTime > this._elapsedSeconds) {
+                break;
+            }
 
             // 执行回调
             if (top.handler) {
                 try {
+                    this._dispatchingTimerId = top.id;
                     top.handler(top.args);
                 } catch (e) {
                     console.error('[TimerModule] Timer callback error:', e);
+                } finally {
+                    this._dispatchingTimerId = 0;
                 }
             }
 
-            if (top.isLoop && !top.isNeedRemove) {
-                // 循环定时器：重置时间并调整堆位置
-                top.currentTime += top.totalTime;
-                // 确保时间不会是负数（处理坏帧情况）
-                if (top.currentTime <= 0) {
-                    top.currentTime = top.totalTime;
+            iterations++;
+
+            if (top.isNeedRemove) {
+                this._removeTimer(top);
+            } else if (top.isLoop && top.isRunning) {
+                if (top.totalTime <= 0) {
+                    console.warn('[TimerModule] Loop timer interval must be greater than 0');
+                    this._removeTimer(top);
+                    continue;
                 }
+                top.currentTime = this._elapsedSeconds + top.totalTime;
                 this._timerHeap.update(top);
+            } else if (!top.isRunning) {
+                this._timerHeap.remove(top);
             } else {
-                // 单次定时器或已标记删除：加入待删除列表
-                this._pendingRemove.push(top);
+                this._removeTimer(top);
             }
         }
 
         if (iterations >= maxIterations) {
             console.warn('[TimerModule] Too many timer callbacks in one frame, possible infinite loop');
         }
+    }
 
-        // 批量删除待删除的定时器
-        for (const timer of this._pendingRemove) {
-            this._timerHeap.remove(timer);
-            this._timerMap.delete(timer.id);
-            this._recycleTimer(timer);
+    private _scheduleTimer(timer: Timer, delay: number): void {
+        timer.currentTime = this._elapsedSeconds + Math.max(0, delay);
+        timer.isRunning = true;
+        if (timer.heapIndex >= 0) {
+            this._timerHeap.update(timer);
+        } else {
+            this._timerHeap.push(timer);
         }
+    }
+
+    private _removeTimer(timer: Timer): void {
+        if (timer.heapIndex >= 0) {
+            this._timerHeap.remove(timer);
+        }
+        this._timerMap.delete(timer.id);
+        this._recycleTimer(timer);
     }
 }
 

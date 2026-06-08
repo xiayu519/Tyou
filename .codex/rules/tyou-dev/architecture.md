@@ -1,5 +1,7 @@
 # 架构与启动
 
+
+
 ## 目录
 
 - `Client/`：Cocos Creator 3.8.7 项目。
@@ -30,6 +32,8 @@
 - 初始化全局 `globalThis.tyou = new Tyou()`。
 - 基础模块先实例化：`res/event/timer/fsm/storage/http/ecs/update`。
 - 依赖其他模块的后加载模块在 `onLoad()` 创建：`pool/audio/scene/ui/table/game`。
+- `onLoad()` 要求场景中存在 `GameRoot`，缺失时抛出明确错误。
+- `UIModule.onCreate()` 要求存在 `UICanvas`、`UICanvas/UICamera`，且 `UICamera` 节点带 `Camera` 组件。
 
 ## 依赖方向
 

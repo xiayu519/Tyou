@@ -65,11 +65,11 @@ The Codex workflow MUST treat `.codex/rules/` as the canonical source for detail
 - **AND** it does not duplicate detailed topic rules inside the skill file
 
 ### Requirement: Workflow docs stay local and factual
-The workflow documentation MUST describe Tyou's current Codex behavior directly and exclude external project comparison sections or unrelated external engine concepts.
+The workflow documentation MUST describe Tyou's current Codex behavior directly and exclude source-comparison sections or unrelated engine lineage concepts.
 
 #### Scenario: Updating Tyou workflow docs
 - **WHEN** workflow documentation is updated
-- **THEN** it states the local Tyou/Codex behavior directly and excludes external project comparison language
+- **THEN** it states the local Tyou/Codex behavior directly and excludes source-comparison language
 
 ### Requirement: Workflow documentation uses current Codex wording
 The Codex workflow MUST describe the current Codex entrypoints and execution path directly.
@@ -99,7 +99,7 @@ The Codex workflow MUST keep reusable memory discoverable through `.codex/memory
 - **AND** it opens only the relevant `problems/`, `decisions/`, `feedback/`, or `references/` entries needed for the task
 
 #### Scenario: New reusable memory is recorded
-- **WHEN** Codex records a reusable pitfall, decision, user feedback, or external reference
+- **WHEN** Codex records a reusable pitfall, decision, user feedback, or reference material
 - **THEN** it writes a typed memory entry under `.codex/memory/`
 - **AND** it updates `.codex/memory/INDEX.md`
 
@@ -120,7 +120,7 @@ The Codex workflow MUST prevent memory from becoming a duplicate source of truth
 
 #### Scenario: Codex considers writing memory
 - **WHEN** Codex decides whether to write `.codex/memory/`
-- **THEN** it writes only reusable pitfalls, decisions, user feedback, or external references that cannot be reliably recovered from source search, OpenSpec artifacts, git history, or current conversation state
+- **THEN** it writes only reusable pitfalls, decisions, user feedback, or reference material that cannot be reliably recovered from source search, OpenSpec artifacts, git history, or current conversation state
 
 #### Scenario: Candidate memory is recoverable elsewhere
 - **WHEN** the candidate memory is a code pattern, file path detail, recent modification, temporary task state, full log, or unverified guess
@@ -130,8 +130,8 @@ The Codex workflow MUST prevent memory from becoming a duplicate source of truth
 The Codex workflow MUST treat memory as historical supporting context rather than current truth.
 
 #### Scenario: Memory mentions stale-prone facts
-- **WHEN** a memory entry mentions tool behavior, workflow state, external references, file paths, functions, flags, or dates
-- **THEN** Codex verifies the current source, rule, OpenSpec, or external reference before acting on that memory
+- **WHEN** a memory entry mentions tool behavior, workflow state, reference material, file paths, functions, flags, or dates
+- **THEN** Codex verifies the current source, rule, OpenSpec, or referenced material before acting on that memory
 
 #### Scenario: Memory conflicts with authoritative sources
 - **WHEN** memory conflicts with source code, current tool output, OpenSpec specs, or `.codex/rules/`
@@ -299,7 +299,7 @@ The Codex workflow MUST provide local deterministic sensor entrypoints for workf
 The Codex workflow MUST feed repeated observability findings into local Tyou correction loops instead of retaining them only in transient reports.
 
 #### Scenario: Reusable issue is found
-- **WHEN** a run report, sensor, or review exposes a recurring pitfall, confirmed workflow decision, user feedback, or useful external reference
+- **WHEN** a run report, sensor, or review exposes a recurring pitfall, confirmed workflow decision, user feedback, or useful reference material
 - **THEN** Codex records it in the appropriate `.codex/memory/` category and updates `.codex/memory/INDEX.md`
 
 #### Scenario: Documentation drift is found
@@ -334,3 +334,14 @@ The Codex workflow MUST keep the harness focused on run reports, deterministic s
 #### Scenario: Developer asks about workflow state
 - **WHEN** the developer asks for current Codex workflow state
 - **THEN** Codex summarizes the underlying files and command outputs directly
+
+### Requirement: Reference material is verified before synchronization
+The Codex workflow MUST treat non-source reference material as input that requires local verification before it changes Tyou documentation, rules, OpenSpec specs, or memory.
+
+#### Scenario: Codex uses non-source reference material
+- **WHEN** Codex reads material that is not current Tyou source code, current tool output, current workspace diff, or existing OpenSpec specs for a documentation or workflow update
+- **THEN** Codex verifies the relevant claims against current source code, current workspace diff, local tools, or existing OpenSpec specs before writing project documentation
+
+#### Scenario: Reference claim cannot be verified locally
+- **WHEN** a reference claim cannot be verified from Tyou source code, tools, current workspace changes, or existing project documentation
+- **THEN** Codex does not write that claim as an authoritative project fact

@@ -37,8 +37,8 @@ export class PoolModule extends Module {
         return await this._nodePool.getOrCreatePool(config);
     }
 
-    async instantiateAsync(assetPath: string, parent?: Node, pos?: Vec3) {
-        const node = await this._nodePool.getAsync(assetPath);
+    async instantiateAsync(assetPath: string, parent?: Node, pos?: Vec3, timeoutMs: number = 0) {
+        const node = await this._nodePool.getAsync(assetPath, undefined, timeoutMs);
         if (parent) {
             node.setParent(parent);
             if (pos) {

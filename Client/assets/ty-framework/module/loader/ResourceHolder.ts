@@ -4,13 +4,18 @@ const {ccclass, property} = _decorator;
 
 @ccclass('ResourceHolder')
 export class ResourceHolder extends Component {
-    private asset: Asset;
+    private asset: Asset | null = null;
 
-    public init(asset: Asset): void {
+    public init(asset: Asset | null): void {
+        if (this.asset && this.asset !== asset) {
+            tyou.res.decRef(this.asset);
+        }
         this.asset = asset;
     }
     override onDestroy() {
-        tyou.res.decRef(this.asset);
+        if (this.asset) {
+            tyou.res.decRef(this.asset);
+        }
         this.asset = null;
     }
 }

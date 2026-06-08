@@ -47,6 +47,7 @@ export class ResourceModule extends Module {
     async onCreate() {
         this._typeMap.set("Prefab", Prefab);
         this._typeMap.set("SpriteFrame", SpriteFrame);
+        this._typeMap.set("cc.SpriteFrame", SpriteFrame);
         this._typeMap.set("SpriteAtlas", SpriteAtlas);
         this._typeMap.set("cc.SpriteAtlas", SpriteAtlas);
         this._typeMap.set("AudioClip", AudioClip);
@@ -364,15 +365,30 @@ export class ResourceModule extends Module {
         if (typeof args[0] === 'string') {
             const name = args[0];
             const info = AssetIndexManager.instance.getAssetInfo(name);
-            let path = info.path;
-            const bundle = info.bundle;
-            const type = this._typeMap.get(info.type);
-            if (type === SpriteFrame) {
-                path += "/spriteFrame";
-            }
             const version = args[1];
             const onProgress = args[2];
             const onComplete = args[3];
+
+            if (!info) {
+                console.error(`[ResourceModule] Asset index missing: ${name}`);
+                return {
+                    path: name,
+                    version: version,
+                    type: Asset as T,
+                    onProgress: onProgress,
+                    onComplete: onComplete,
+                };
+            }
+
+            let path = info.path || name;
+            const bundle = info.bundle;
+            const type = this._typeMap.get(info.type) || Asset;
+            if (type === SpriteFrame) {
+                path += "/spriteFrame";
+            }
+            if (!this._typeMap.has(info.type)) {
+                console.warn(`[ResourceModule] Unknown asset type "${info.type}" for ${name}, fallback to Asset`);
+            }
             return {
                 path: path,
                 bundle: bundle,

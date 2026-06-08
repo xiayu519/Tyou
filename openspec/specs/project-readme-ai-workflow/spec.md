@@ -32,3 +32,11 @@ The README MUST state that non-L1 modifications enter OpenSpec before implementa
 #### Scenario: Reader evaluates workflow guarantees
 - **WHEN** a developer reads the workflow section
 - **THEN** they understand typo/comment/log/single-line non-framework renames can skip OpenSpec and other modifications enter a change first
+
+### Requirement: README separates project overview from Codex workflow
+The README MUST keep project positioning/runtime overview content separate from the concise Codex workflow section so readers can distinguish framework facts from coding-agent process.
+
+#### Scenario: Reader checks README sections
+- **WHEN** a reader opens README
+- **THEN** the project overview describes Tyou runtime and tooling facts
+- **AND** the Codex workflow section remains a short entrypoint map and OpenSpec boundary statement

@@ -21,6 +21,8 @@ const info = AssetIndexManager.instance.getAssetInfo(name);
 
 SpriteFrame 会自动补 `/spriteFrame`。
 
+当前实现中，如果逻辑名没有命中索引，会输出 `[ResourceModule] Asset index missing: <name>`，并按传入名称兜底加载；如果索引类型不在 `_typeMap` 中，会输出 warning 并降级为 `Asset`。这只是容错诊断，不代表可以绕过资源索引流程。
+
 资源必须避免同名。生成器内部用 `logicalNameSet` 检测重复名，重复时会追加 `_1` 等后缀，这会让业务侧逻辑名不稳定。发现同名资源时优先改资源名，而不是在代码里适配后缀。
 
 ## 红线
@@ -66,7 +68,7 @@ await tyou.res.loadAssetAsync({
 4. 图片资源默认只收录 `l_` 前缀。
 5. 输出到 `assets/asset-raw/asset-catalog/asset-index.json`。
 
-加载资源找不到时，第一优先级是确认是否执行过 `assetool` 自动索引生成；不要手动编辑 `asset-index.json` 作为常规修复。
+加载资源找不到或出现 `[ResourceModule] Asset index missing` 时，第一优先级是确认是否执行过 `assetool` 自动索引生成；不要手动编辑 `asset-index.json` 作为常规修复。
 
 ## 引用计数配对
 
@@ -83,4 +85,4 @@ await tyou.res.loadAssetAsync({
 
 - 新资源未进入索引：检查 bundle、扩展名、图片前缀、排除列表。
 - 逻辑名重复：不要接受重复名，优先重命名资源并重新生成索引。
-- 直接传不存在的逻辑名：`getAssetInfo` 返回空会导致后续异常，先查索引或使用 `AssetIndexManager.hasAsset`。
+- 直接传不存在的逻辑名：当前会报错并按原名兜底加载，但业务仍应先查索引或使用 `AssetIndexManager.hasAsset`，不要把兜底当正常路径。

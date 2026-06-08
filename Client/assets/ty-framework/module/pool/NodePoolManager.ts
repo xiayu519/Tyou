@@ -36,11 +36,13 @@ export class NodePoolManager {
             return pool!;
         }
 
+        const preloadCount = Math.max(0, config.preloadCount ?? 1);
+
         // 创建池配置（确保有每帧实例化数量）
         const poolConfig: IPoolConfig = {
             ...config,
-            preloadCount: config.preloadCount || this._maxInstancesPerFrame,
-            maxInstancesPerFrame: config.maxInstancesPerFrame || this._maxInstancesPerFrame,
+            preloadCount: preloadCount,
+            maxInstancesPerFrame: Math.max(1, config.maxInstancesPerFrame ?? this._maxInstancesPerFrame),
             poolName: poolName
         };
 
@@ -50,7 +52,6 @@ export class NodePoolManager {
 
         // 初始化池（加载预制体）
         await pool.initializeAsync();
-        const preloadCount = config.preloadCount || 1;
         // 执行预加载
         await pool.preloadAsync(preloadCount);
         return pool;
@@ -93,7 +94,7 @@ export class NodePoolManager {
     /**
      * 异步获取节点
      */
-    public async getAsync(assetPath: string, config?: IPoolConfig): Promise<Node> {
+    public async getAsync(assetPath: string, config?: IPoolConfig, timeoutMs: number = 0): Promise<Node> {
 
         // 先尝试通过资源路径查找池 这里要求 assetPath和poolname一样才可以 一般都是一样的 
         let pool = this.getPool(assetPath);
@@ -106,7 +107,7 @@ export class NodePoolManager {
                 pool = await this.createPool({assetPath: assetPath});
             }
         }
-        const node = await pool.getAsync();
+        const node = await pool.getAsync(timeoutMs);
         this._nodeToPoolMap.set(node, assetPath);
         return node;
     }

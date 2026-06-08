@@ -42,6 +42,7 @@
 5. 资源类型是否在 `resourceTypeMap` 中。
 6. SpriteFrame 是否需要 `/spriteFrame`，不要手动重复拼。
 7. 图片是否因缺少 `l_` 前缀未被索引收录。
+8. 日志是否出现 `[ResourceModule] Asset index missing` 或未知类型 fallback warning；出现时优先重新生成索引或修正资源类型配置。
 
 ## 资源崩溃或内存不释放
 

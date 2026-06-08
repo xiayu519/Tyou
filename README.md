@@ -6,16 +6,22 @@
 
 📺 [框架 PSD→UI 工作流介绍](https://www.bilibili.com/video/BV1nhDeBoEcq/) &nbsp;|&nbsp; 问题反馈 QQ：`499793702`
 
+## 项目定位
+
+Tyou 是面向 Cocos Creator 3.8.7 的 TypeScript 客户端框架，围绕 Cocos 的场景节点、Bundle、引用计数、编辑器扩展和 PSD→UI 产线组织运行时与工具链。
+
+运行时通过全局 `tyou.*` 暴露模块，编辑器侧提供 PSD 还原、UI 脚本生成、资源索引生成和 Luban 配表接入，适合需要快速搭建小游戏/手游客户端框架并重视 UI 生产效率的项目。
+
 ## 特性概览
 
 - **PSD → UI 全流程** — PSD 切图导出 → 生成节点树 → 前缀命名 → 自动检查组件 → 一键生成代码
 - **全局单例架构** — 所有模块通过 `tyou.*` 全局访问，无需频繁 `getComponent`
 - **UI 模块** — 栈式管理 + 层级系统 + 模糊背景 + 右键一键生成 UI 代码
-- **资源模块** — 资源索引 + 自动引用计数 + 延迟释放 + Bundle 自动发现
-- **对象池** — Node 池 & Class 池，内置 Vec3/Vec2/Color 等常用类型池
+- **资源模块** — 资源索引 + 自动引用计数 + 延迟释放 + Bundle 自动发现 + 索引缺失诊断
+- **对象池** — Node 池 & Class 池，内置 Vec3/Vec2/Color 等常用类型池，支持等待队列诊断
 - **事件系统** — 完全自实现优先级事件（不依赖 Cocos EventTarget）、`async/await` 等待事件、批量绑定
 - **日志系统** — 分类日志（Net/Model/Business/View/Config/Trace）、颜色区分、位运算开关
-- **计时器** — 基于最小堆的高性能计时器
+- **计时器** — 基于绝对时间 + 最小堆的计时器，支持暂停、恢复、坏帧回调上限
 - **有限状态机** — 支持异步状态切换
 - **ECS** — 经典 Entity-Component-System，bitmask 匹配 + 对象池回收
 - **网络模块** — 多通道 WebSocket，心跳、断线重连、Protobuf/JSON/Pako 协议
@@ -62,6 +68,12 @@ tyou.game     // GameWorld（服务器时间同步等）
 Log           // 全局日志（globalThis.Log）
 Unitask       // 全局异步工具（globalThis.Unitask）
 ```
+
+启动场景需要保留框架约定节点：
+
+- `GameRoot`：`Tyou.onLoad()` 会在该节点挂载 `GameWorld`。
+- `UICanvas`：UI 根节点。
+- `UICanvas/UICamera`：UI 相机节点，必须带 `Camera` 组件。
 
 ---
 
@@ -521,10 +533,10 @@ this.close();
 // 在窗口内部隐藏自身（进入 hideTimeToClose 倒计时）
 this.hide();
 
-// 从外部关闭指定窗口
+// 通过 UI 管理器关闭指定窗口
 tyou.ui.closeWindow(UIName.TestUI);
 
-// 从外部隐藏指定窗口
+// 通过 UI 管理器隐藏指定窗口
 tyou.ui.hideWindow(UIName.TestUI);
 
 // 关闭所有窗口
@@ -652,6 +664,7 @@ tyou.ui.select({ title: "提示", content: "是否确定退出？" });
 - **Bundle 自动发现**：自动扫描 `.meta` 文件发现所有 Bundle，无需手动配置扫描目录
 - **特殊标记**：通过 `specialMarks` 配置自动标记资源（如 preload）
 - **目录索引**：自动记录 Bundle 目录结构
+- **缺失诊断**：逻辑名未命中索引时输出错误，并按传入名称兜底加载；未知资源类型会降级为 `Asset` 并输出警告
 
 ### 资源加载
 
@@ -753,7 +766,7 @@ tyou.event.getListenerCount("LEVEL_UP");
 
 ## 计时器模块
 
-基于 **最小堆（Min-Heap）** 实现的高性能计时器。插入/移除 O(log n)，获取最近到期 O(1)。内部使用 **对象池** 复用 Timer 实例，避免 GC 压力。
+基于 **绝对时间戳 + 最小堆（Min-Heap）** 实现的计时器。插入/移除 O(log n)，获取最近到期 O(1)。暂停的计时器会从堆中移出，恢复时按剩余时间重新入堆，避免暂停或待删除的堆顶阻塞后续已到期计时器。
 
 每帧批量处理到期计时器，设有安全上限（1000 次/帧）防止死循环。支持暂停、恢复、重启、剩余时间查询。
 
@@ -802,12 +815,15 @@ tyou.timer.getTimerCount();    // 活跃计时器数量
 
 ### Node 池
 
-基于 `WeakMap` 跟踪节点归属。支持 `maxInstancesPerFrame` 避免帧峰值、`expireTime` 自动回收空闲节点、`minReserveCount` 保留最低缓存。
+基于 `WeakMap` 跟踪节点归属。支持 `maxInstancesPerFrame` 避免帧峰值、`expireTime` 自动回收空闲节点、`minReserveCount` 保留最低缓存。池满时获取请求进入等待队列，可通过超时参数避免长期悬挂，并能在状态查询中看到等待队列长度和最久等待时间。
 
 ```typescript
 // 自动创建池 + 实例化（设置父节点和位置）
 const node = await tyou.pool.instantiateAsync("bullet_prefab", parentNode, new Vec3(0, 0, 0));
 tyou.pool.releaseNode(node); // 回收到池
+
+// 池满时最多等待 3000ms
+const nodeWithTimeout = await tyou.pool.instantiateAsync("bullet_prefab", parentNode, undefined, 3000);
 
 // 手动配置池
 await tyou.pool.getOrCreateNodePool({
@@ -1161,6 +1177,7 @@ ecs.getEntityByEid(entityId);
 - **自动重连**：可配置最大重试次数（-1 为无限重连）
 - **服务器时间同步**：收到消息时自动同步到 `tyou.game`
 - **网络提示**：`INetworkTips` 接口支持自定义 UI 提示（连接中/重连中/请求中）
+- **统一消息处理**：Web 与 Native 收到二进制消息后都会解析为 packet 并进入同一回调处理链
 
 ### API
 
@@ -1200,7 +1217,7 @@ NetManager.getInstance().close(1000, "normal", "main");
 
 ## HTTP 模块
 
-轻量级 HTTP 请求封装，支持 **GET/POST**、**请求去重**（同一 URL 不会重复发起）、**超时控制**、**arraybuffer 响应**。
+轻量级 HTTP 请求封装，支持 **GET/POST**、**请求去重**（同一 URL+参数不会重复发起）、**超时控制**、**arraybuffer 响应**。GET query 参数通过 `encodeURIComponent` 序列化，避免中文、空格和特殊字符破坏 URL。
 
 ### API
 
@@ -1429,6 +1446,12 @@ onLoad() → 创建 pool, audio, scene, ui, table; 挂载 GameWorld 组件
     ↓
 onCreate() → 依次调用 pool, res, audio, scene, storage, ui 的 onCreate()
 ```
+
+### 启动节点契约
+
+- `GameRoot` 必须存在；缺失时 `Tyou.onLoad()` 会抛出明确错误。
+- `UICanvas` 必须存在；缺失时 `UIModule.onCreate()` 会抛出明确错误。
+- `UICanvas/UICamera` 必须存在并挂载 `Camera` 组件；缺失时 UI 初始化会抛出明确错误。
 
 ### 每帧更新顺序
 

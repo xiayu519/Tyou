@@ -1,9 +1,9 @@
 ---
 type: reference
-description: <what this external reference is useful for>
+description: <what this reference is useful for>
 status: active
 last_verified: YYYY-MM-DD
-source: external-reference
+source: reference-material
 ---
 
 # <Reference Title>
