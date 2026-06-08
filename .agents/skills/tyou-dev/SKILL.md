@@ -51,7 +51,7 @@ Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。具体规则在 `.co
 5. 优先用 `rg` 定位实际代码和调用样例；若 `rg` 不可用，改用 VS Code `grep_search` 或 PowerShell `Select-String`。
 6. 修改前说明将改哪些文件。
 7. 实施后运行能承受的校验：TypeScript 编译、相关脚本或静态搜索。
-8. L2 change 保持轻量；L3/L4 OpenSpec change 维护带 `## Executive Summary` 的 `openspec/changes/<change-name>/run-report.md`，并运行 `.agents/skills/tyou-dev/scripts/codex-observability-check.ps1` 作为 review 辅助。
+8. L2 先判轻量/重量：轻量 L2 只写最小 schema 兼容 artifact，重量 L2 保持当前保护；不确定或风险扩大时升级。L3/L4 OpenSpec change 维护带 `## Executive Summary` 的 `openspec/changes/<change-name>/run-report.md`，只记录验证结论、关键决策和风险，并运行 `.agents/skills/tyou-dev/scripts/codex-observability-check.ps1` 作为 review 辅助。
 9. 汇报改动、流程、验证结果。
 
 ## 任务结束自检
@@ -60,7 +60,7 @@ Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。具体规则在 `.co
 
 1. **规则是否要同步**：本次发现了代码与 `.codex/rules/**/*.md` 不一致、或实际行为与现有描述不同的场景吗？是则同步修改规则。
 2. **Codex 工作流是否一致**：本次是否修改了 Codex 工作流规则、触发、路由、OpenSpec 入口、memory、Wiki 配置或结束自检？是则检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/rules/`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md` 与 `openspec/specs/` 是否一致。
-3. **memory 是否要记一笔**：本次是不是踩了可复发坑、确认了重要决策、收到用户协作反馈、或发现外部资料位置？是则写入 `.codex/memory/<type>/` 并更新 `.codex/memory/INDEX.md`。
+3. **memory 是否要记一笔**：本次是不是踩了可复发坑、确认了重要决策、收到用户协作反馈、或发现参考资料位置？是则写入 `.codex/memory/<type>/` 并更新 `.codex/memory/INDEX.md`。
 4. **OpenSpec 是否要推进**：如果走了 change，对应 `tasks.md` 是否都勾选了？全绿且目标明确时直接 archive，只有 gate 不满足时才询问开发者。
 
 在最终回复中用一句话说出这四项的结论。

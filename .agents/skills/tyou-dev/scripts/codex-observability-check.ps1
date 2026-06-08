@@ -81,8 +81,6 @@ if (Test-RelativePathExists $runReportPath) {
     $requiredHeadings = @(
         "## Executive Summary",
         "## Change",
-        "## Scope",
-        "## Task Progress",
         "## Decisions",
         "## Validation",
         "## Sensors",

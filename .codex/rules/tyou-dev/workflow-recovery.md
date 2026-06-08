@@ -54,6 +54,6 @@ Codex 工作流本身发生变更时，必须在同一个 OpenSpec change 中检
 - `problems/`：问题现象、根因、正确规则、已处理。
 - `decisions/`：决策、原因、使用方式。
 - `feedback/`：用户反馈、原因、如何应用。
-- `references/`：外部资料位置、用途、何时查。
+- `references/`：参考资料位置、用途、何时查。
 
 当前项目使用结构化 memory，按日期滚动日志不进入 memory。

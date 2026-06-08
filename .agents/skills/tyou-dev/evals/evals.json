@@ -86,12 +86,13 @@
     {
       "id": 6,
       "name": "openspec-gate",
-      "description": "验证 AI 对 L2+ 任务先进入 OpenSpec change。",
+      "description": "验证 AI 对 L2+ 任务先进入 OpenSpec change，并能区分轻量 L2 / 重量 L2。",
       "prompt": "我要改 Tyou 的资源加载模块行为，直接开始改代码吧。",
       "expected_patterns": [
         "OpenSpec",
         "change",
-        "L2"
+        "L2",
+        "重量"
       ],
       "forbidden_patterns": [
         "直接修改即可"

@@ -77,25 +77,6 @@ Unitask       // 全局异步工具（globalThis.Unitask）
 
 ---
 
-## Codex 开发工作流
-
-Tyou 使用面向 Codex CLI 的开发工作流：根入口由 `AGENTS.md` 承载，`tyou-dev` skill 按主题路由到 `.codex/rules/tyou-dev/*.md`，L2+ 变更由 `openspec/` 监督。
-
-- 入口：`AGENTS.md`
-- 技能：`.agents/skills/`（`tyou-dev`、OpenSpec、`luban-dev`、`wiki-query`、`wiki-sync`）
-- 规则：`.codex/rules/tyou-dev/*.md`
-- Wiki 配置：`wiki-sync.yaml`
-- 记忆：`.codex/memory/INDEX.md`
-- 变更：`openspec/`
-- 可观测性：L3/L4 change 使用带摘要区的 `run-report.md`，并通过 `codex-observability-check.ps1` 辅助 review。
-- 记忆：`.codex/memory/INDEX.md` 只做短索引，正文使用 frontmatter；旧记忆使用前按 `.codex/rules/tyou-dev/memory-workflow.md` 复核。
-
-除 typo、注释、日志、单行无框架语义改名外，修改代码、资源、Prefab、配置、工作流文档或框架行为前，先进入 OpenSpec change。
-
-详细说明见：[Books/AI-Development-Workflow.md](Books/AI-Development-Workflow.md)。
-
----
-
 ## PSD → UI 全流程产线 
 
 为了防止美术和策划再因为psd工作流增加多余工作量而扯皮，框架提供了一套完整的仅供程序使用的减轻拼UI工作量的 **从 PSD 设计稿到可运行 UI 代码** 的自动化流水线，中间只需人工介入“调键点/改前缀”一步：

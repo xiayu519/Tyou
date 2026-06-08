@@ -17,7 +17,8 @@
 | 等级 | 判断标准 | 处理 |
 | --- | --- | --- |
 | L1 | typo、注释、日志、单行无框架语义改名 | 直接处理，不走 OpenSpec |
-| L2 | 单一模块局部修改、调用已知 API | 读 1 个相关规则，走轻量 OpenSpec change |
+| L2 轻量 | 单一文件或单一小模块内修改；调用已知 API；不改变公共契约、运行时行为、资源/UI/Luban/Prefab/工作流规则；验证直接明确 | 读 1 个相关规则，走最小 OpenSpec change |
+| L2 重量 | 单一模块内但会改变公共 API 语义、错误处理、资源引用计数、UI 生命周期、异步运行时、工作流文档、OpenSpec specs、memory 或可复发风险处理 | 读 1-2 个相关规则，走当前 L2 保护流程 |
 | L3 | 新功能、跨文件、UI/资源/事件/配表逻辑 | 读 2-4 个相关规则，必须走 OpenSpec |
 | L4 | 多模块协作、框架规则、Codex 工作流、重构决策 | 先探索和提案，再实施 |
 
@@ -33,7 +34,7 @@
 4. L3/L4 change 维护 `run-report.md`，并运行 Codex 可观测性 sensor 辅助 review。
 5. tasks 全部完成、spec 已同步、验证通过且无阻塞时直接 archive；存在未完成项、未同步 delta、验证失败或目标不明确时才询问开发者。
 
-L2 change 保持轻量：只写必要 proposal/tasks/spec delta；`run-report.md` 仅用于开发者要求或发现可复发工作流风险的场景。
+L2 先判轻量/重量；不确定时按 L2 重量。轻量 L2 只减少文档负担，不跳过 OpenSpec 门禁；如果当前 OpenSpec schema 要求额外 artifact，就写最小 schema 兼容内容，不扩展长期规范。重量 L2 保持当前 L2 保护；`run-report.md` 仅用于开发者要求、风险扩大或发现可复发工作流风险的场景。
 
 ## 代码优先
 
@@ -46,5 +47,5 @@ L2 change 保持轻量：只写必要 proposal/tasks/spec delta；`run-report.md
 
 1. 规则是否要同步：代码与 `.codex/rules/**/*.md` 不一致时同步规则。
 2. 工作流是否一致：改动工作流时检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/rules/`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md`、`openspec/specs/`。
-3. memory 是否要追加：可复发坑、决策、用户反馈或外部资料位置才记录；源码可查事实、临时状态、最近改动和未验证猜测不写入。
+3. memory 是否要追加：可复发坑、决策、用户反馈或参考资料位置才记录；源码可查事实、临时状态、最近改动和未验证猜测不写入。
 4. OpenSpec 是否要推进：走了 change 就检查 tasks；全绿且目标明确时直接 archive。

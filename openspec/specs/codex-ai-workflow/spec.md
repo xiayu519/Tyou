@@ -79,6 +79,21 @@ The Codex workflow MUST describe the current Codex entrypoints and execution pat
 - **THEN** it states the current Codex entrypoints and rules directly
 - **AND** it avoids obsolete history or reverse descriptions of removed paths
 
+### Requirement: Workflow documents keep clear responsibilities
+The Codex workflow MUST keep README, Codex rules, and OpenSpec specs focused on their own responsibilities.
+
+#### Scenario: Project documentation is updated
+- **WHEN** README is updated
+- **THEN** it describes project usage and user-facing project facts
+
+#### Scenario: Codex rules are updated
+- **WHEN** `.codex/rules/` or `AGENTS.md` are updated
+- **THEN** they describe how Codex should work in this project
+
+#### Scenario: OpenSpec specs are updated
+- **WHEN** `openspec/specs/` are updated
+- **THEN** they describe long-term workflow behavior rather than short-lived implementation details
+
 ### Requirement: Workflow correction loop remains local and factual
 The Codex workflow MUST document local correction mechanisms that actually exist, and MUST mark unimplemented mechanisms as optional enhancements.
 
@@ -225,13 +240,38 @@ The workflow MUST keep L1 tasks outside OpenSpec and MUST route Codex project ru
 - **WHEN** the task is a typo, comment, log, or single-line non-framework rename
 - **THEN** Codex may skip OpenSpec and Codex rule loading
 
-### Requirement: L2 OpenSpec changes stay lightweight
-The Codex workflow MUST keep L2 OpenSpec changes lightweight so small tasks do not inherit L3/L4 evidence overhead.
+### Requirement: L2 tasks are split by risk
+The Codex workflow MUST split L2 tasks into light L2 and heavy L2 so low-risk local edits can avoid unnecessary documentation overhead while risky local edits keep the existing protection level.
 
-#### Scenario: L2 change is proposed
-- **WHEN** Codex creates an L2 OpenSpec change
-- **THEN** proposal, tasks, and any spec delta stay minimal and directly tied to the single-module change
-- **AND** `run-report.md` is not required unless the developer asks for it or the task reveals reusable workflow risk
+#### Scenario: Light L2 is selected
+- **WHEN** an L2 task is local, low-risk, does not change public contracts or long-term behavior, and has direct validation
+- **THEN** Codex may use the light L2 path
+- **AND** OpenSpec availability and repository initialization are still checked before implementation
+
+#### Scenario: Heavy L2 is selected
+- **WHEN** an L2 task changes public API semantics, runtime behavior, resource/UI lifecycle behavior, workflow documentation, OpenSpec specs, memory, or reusable risk handling
+- **THEN** Codex uses the heavy L2 path with the current L2 protection level
+
+#### Scenario: L2 classification is unclear
+- **WHEN** Codex cannot confidently classify an L2 task as light
+- **THEN** Codex treats it as heavy L2
+
+#### Scenario: Light L2 risk expands
+- **WHEN** a light L2 task reveals broader risk during implementation
+- **THEN** Codex upgrades it to heavy L2 or L3 before continuing
+
+### Requirement: Light L2 keeps artifacts minimal and schema-compatible
+The Codex workflow MUST keep light L2 OpenSpec artifacts minimal while still satisfying the active OpenSpec schema.
+
+#### Scenario: Light L2 artifacts are created
+- **WHEN** Codex creates artifacts for a light L2 task
+- **THEN** proposal and tasks stay directly tied to the local change
+- **AND** design, run-report, and long-term spec deltas are not created unless requested, required by the active schema, or needed because risk expands
+
+#### Scenario: Active schema requires extra artifacts
+- **WHEN** the active OpenSpec schema requires an artifact for a light L2 task
+- **THEN** Codex creates the minimal schema-compatible artifact
+- **AND** it does not add long-term behavior requirements unless the task actually changes long-term behavior
 
 ### Requirement: Source search has a fallback
 The Codex AI workflow MUST treat `rg` as the preferred source search tool, not as a mandatory environment dependency. When `rg` is unavailable, the workflow MUST continue source or documentation lookup with an available fallback such as VS Code `grep_search` or PowerShell `Select-String`.
@@ -264,20 +304,25 @@ The Codex AI workflow MUST require battle-related design work to prefer composit
 - **THEN** the design avoids unnecessary deep inheritance, broad abstract interfaces, reflection-like dynamic dispatch, runtime code generation, and avoidable per-frame allocation
 
 ### Requirement: Codex changes produce local run evidence
-The Codex workflow MUST require L3 and L4 OpenSpec changes to maintain local run evidence that summarizes agent actions, touched surfaces, validation commands, sensor results, and residual risks.
+The Codex workflow MUST require L3 and L4 OpenSpec changes to maintain concise local run evidence that records validation conclusions, key decisions when needed, sensor results, and residual risks.
 
 #### Scenario: L3 or L4 implementation is performed
 - **WHEN** Codex applies an OpenSpec change classified as L3 or L4
 - **THEN** the change directory contains or updates `run-report.md`
-- **AND** the report records an executive summary, change name, task level, touched files or directories, completed tasks, validation commands, sensor summary, and remaining risks
+- **AND** the report records concise review evidence rather than a process transcript
 
-### Requirement: Run reports begin with an executive summary
-The Codex workflow MUST make L3/L4 run reports efficient to reread.
+### Requirement: Run reports stay concise
+The Codex workflow MUST make L3/L4 run reports efficient to reread and focused on review evidence.
 
 #### Scenario: Run report is created
 - **WHEN** Codex creates `openspec/changes/<change-name>/run-report.md`
-- **THEN** it includes `## Executive Summary` before detailed scope, progress, validation, and risk sections
+- **THEN** it includes `## Executive Summary` before any supporting sections
 - **AND** the summary states the goal, current state, validation outcome, and remaining risk in short bullets
+
+#### Scenario: Run report is updated
+- **WHEN** Codex writes or updates `run-report.md`
+- **THEN** it records concise validation outcomes, sensor results, key decisions when needed, and remaining risks
+- **AND** it excludes long command logs, step-by-step narration, and unrelated process history
 
 #### Scenario: L1 or L2 task is performed
 - **WHEN** Codex handles an L1 task or a lightweight L2 task
@@ -318,11 +363,11 @@ The Codex workflow MUST archive a clearly selected completed OpenSpec change wit
 - **THEN** Codex pauses and asks the developer before archiving
 
 ### Requirement: Workflow archive records may be pruned
-The Codex workflow MUST allow outdated workflow archive records to be removed when their rules have been superseded by current authoritative docs and specs.
+The Codex workflow MUST allow historical OpenSpec archive records to be removed from a fresh framework delivery after their current authoritative behavior is preserved in active specs, rules, docs, and templates.
 
-#### Scenario: Obsolete workflow archive records remain
-- **WHEN** archived workflow records duplicate outdated guidance
-- **THEN** Codex may delete those archive records after preserving the current authoritative behavior in active specs, rules, docs, and templates
+#### Scenario: Fresh framework delivery is prepared
+- **WHEN** archived workflow records duplicate outdated or historical guidance
+- **THEN** Codex may delete those archive records while preserving the `openspec/changes/archive/` directory for future changes
 
 ### Requirement: Codex harness uses command evidence
 The Codex workflow MUST keep the harness focused on run reports, deterministic sensor checks, memory/rule synchronization, and OpenSpec archive gates.

@@ -12,35 +12,16 @@
 - Change: `<openspec-change-name>`
 - Task level: `L3|L4`
 - Date: `YYYY-MM-DD`
-- Operator: `Codex`
-
-## Scope
-
-- Goal:
-- Non-goals:
-- Touched files/directories:
-  - `<path>`
-- Protected surfaces checked:
-  - `Client/assets/ty-framework/`: `unchanged|confirmed`
-  - Prefab/Scene/meta: `unchanged|confirmed`
-  - Luban/generated config: `unchanged|confirmed`
-
-## Task Progress
-
-- Completed tasks:
-  - `[x] <task>`
-- Deferred tasks:
-  - `[ ] <task or none>`
 
 ## Decisions
 
-- `<decision>`: `<reason>`
+- `<decision or none>`: `<short reason>`
 
 ## Validation
 
-| Command | Result | Notes |
+| Check | Result | Conclusion |
 | --- | --- | --- |
-| `<command>` | `pass|warn|fail|skipped` | `<short notes>` |
+| `<command or validation area>` | `pass|warn|fail|skipped` | `<short conclusion>` |
 
 ## Sensors
 

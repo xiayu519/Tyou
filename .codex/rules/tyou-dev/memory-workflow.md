@@ -26,7 +26,7 @@ type: problem|decision|feedback|reference
 description: 一句话说明这条 memory 何时相关
 status: active|stale|superseded
 last_verified: YYYY-MM-DD
-source: user-confirmed|codex-observed|external-reference
+source: user-confirmed|codex-observed|reference-material
 ---
 ```
 
@@ -36,14 +36,14 @@ source: user-confirmed|codex-observed|external-reference
 - `description`：给索引和路由使用，保持一行。
 - `status`：`active` 可直接参考；`stale` 或 `superseded` 只能作为历史线索。
 - `last_verified`：最近一次确认仍适用的日期，使用绝对日期。
-- `source`：用户确认、Codex 观察、外部资料三选一。
+- `source`：用户确认、Codex 观察、参考资料三选一。
 
 ## 分类
 
 - `problems/`：可复发坑、非显而易见根因、容易误判的工具行为。
 - `decisions/`：已经确认的工作流、架构或协作决策。
 - `feedback/`：开发者明确纠偏、偏好、协作规则。
-- `references/`：外部资料位置和本项目取舍结论。
+- `references/`：参考资料位置和本项目取舍结论。
 
 ## 不写入
 
@@ -60,7 +60,7 @@ source: user-confirmed|codex-observed|external-reference
 
 memory 不是当前事实，而是历史快照。以下情况使用前必须复核：
 
-- 涉及工具行为、命令输出、外部文章、依赖版本、规则状态。
+- 涉及工具行为、命令输出、参考材料、依赖版本、规则状态。
 - 涉及文件路径、函数名、配置项、flag、端口或日期。
 - `last_verified` 明显早于相关规则或源码变更。
 - memory 与源码、OpenSpec spec、`.codex/rules/` 或工具输出冲突。
