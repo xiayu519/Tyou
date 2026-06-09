@@ -6,6 +6,7 @@ const DEFAULT_WINDOW_ATTRIBUTE: Required<Omit<IWindowAttribute, 'path'>> = {
     layer: UILayer.UI,
     fullScreen: true,
     bgClose: false,
+    blurBackground: true,
     hideTimeToClose: 3,
 };
 
@@ -14,7 +15,7 @@ const DEFAULT_WINDOW_ATTRIBUTE: Required<Omit<IWindowAttribute, 'path'>> = {
  *
  * 通过装饰器同时完成：
  *  1) UI类自动注册到 UIRegistry（防止循环依赖 + 防 Tree Shaking）
- *  2) 窗口属性配置（layer, fullScreen, bgClose 等）
+ *  2) 窗口属性配置（layer, fullScreen, bgClose, blurBackground 等）
  *
  * @example
  * ```typescript

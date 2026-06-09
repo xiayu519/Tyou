@@ -17,6 +17,7 @@
     layer: UILayer.UI,
     fullScreen: true,
     bgClose: false,
+    blurBackground: true,
     hideTimeToClose: 3,
 })
 export class TestUI extends UIWindow {
@@ -74,3 +75,4 @@ this.hide();
 - UI 内事件监听优先绑定到当前 UI 实例，依赖 `targetOff(this)` 清理；若使用其他 target 或手动监听，必须明确注销点。
 - 多语言 Label 可挂 `LocalizeLabel` 组件，运行时通过 `tyou.i18n.switchLanguage()` 触发刷新；手写 UI 也可以直接调用 `tyou.i18n.get(key, ...args)`。
 - 当 `this.get("xxx")` 找不到节点，先检查命名是否符合自动生成前缀、是否走过前缀组件检查、预制体内是否有重名节点、脚本是否由生成器同步。
+- 非全屏弹窗默认会显示共享模糊背景；需要“仍是弹窗但不模糊背景”时，在 `@UIDecorator` 中配置 `fullScreen: false, blurBackground: false`。该窗口不会使用共享模糊背景承接点击关闭；如仍需要点外部关闭，应在 Prefab 内提供自己的遮罩或按钮节点。

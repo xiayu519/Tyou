@@ -11,6 +11,7 @@ export class UIWindow extends UIBase {
     public assetName: string = '';
     public fullScreen: boolean = false;
     public bgClose: boolean = false;
+    public blurBackground: boolean = true;
     public hideTimeToClose: number = 0;
     public hideTimerId: number = 0;
 
@@ -56,11 +57,12 @@ export class UIWindow extends UIBase {
     }
 
     /** 初始化窗口 */
-    public init(name: string, layer: number, fullScreen: boolean, bgClose: boolean, assetName: string, hideTimeToClose: number): void {
+    public init(name: string, layer: number, fullScreen: boolean, bgClose: boolean, blurBackground: boolean, assetName: string, hideTimeToClose: number): void {
         this.windowName = name;
         this.windowLayer = layer;
         this.fullScreen = fullScreen;
         this.bgClose = bgClose;
+        this.blurBackground = blurBackground;
         this.assetName = assetName;
         this.hideTimeToClose = hideTimeToClose;
     }

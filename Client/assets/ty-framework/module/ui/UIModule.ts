@@ -31,6 +31,7 @@ export class UIModule extends Module {
         layer: UILayer.UI,
         fullScreen: false,
         bgClose: false,
+        blurBackground: true,
         hideTimeToClose: 0
     };
 
@@ -147,6 +148,7 @@ export class UIModule extends Module {
             window.customAttribute.layer,
             window.customAttribute.fullScreen,
             window.customAttribute.bgClose,
+            window.customAttribute.blurBackground ?? this._defaultWindowConfig.blurBackground,
             window.customAttribute.path,
             window.customAttribute.hideTimeToClose,
         );
@@ -396,7 +398,7 @@ export class UIModule extends Module {
         }
         let top: UIWindow | null = null;
         this._uiStack.forEachReverse((w) => {
-            if (w && !w.isHide && w.isPrepare && !w.fullScreen && w.node && w.node.isValid) {
+            if (w && !w.isHide && w.isPrepare && !w.fullScreen && w.blurBackground && w.node && w.node.isValid) {
                 top = w;
                 return false;
             }
