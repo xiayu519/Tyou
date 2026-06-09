@@ -1,7 +1,7 @@
 ﻿# codex-ai-workflow Specification
 
 ## Purpose
-Define the mandatory Codex workflow for the Tyou Cocos Creator project, including OpenSpec supervision, Tyou-specific rule precedence, local correction loops, and token-efficient task routing over `.codex/rules/` content.
+Define the mandatory Codex workflow for the Tyou Cocos Creator project, including OpenSpec supervision, Tyou-specific reference precedence, local correction loops, and token-efficient task routing over skill-owned topic references.
 ## Requirements
 ### Requirement: Codex replies in Chinese
 The Codex workflow MUST require project-facing proposals and answers to be written in Chinese, while preserving literal code identifiers, commands, file paths, API names, and logs in their original language.
@@ -25,44 +25,49 @@ The Codex workflow MUST require OpenSpec supervision before any L2 or higher imp
 - **WHEN** the OpenSpec CLI or repository initialization is missing
 - **THEN** the workflow pauses implementation and asks the developer to confirm installation or initialization
 
-### Requirement: Tyou project rules remain authoritative
-OpenSpec artifacts MUST follow Tyou rules from `AGENTS.md`, applicable directory `AGENTS.override.md` files, `.agents/skills/*`, Codex project rules under `.codex/rules/`, and relevant structured memory under `.codex/memory/`.
+### Requirement: Tyou project references remain authoritative
+OpenSpec artifacts MUST follow Tyou references from `AGENTS.md`, applicable directory `AGENTS.override.md` files, `.agents/skills/*`, skill-owned topic references, and relevant structured memory under `.codex/memory/`.
 
-#### Scenario: OpenSpec artifact conflicts with Tyou rules
+#### Scenario: OpenSpec artifact conflicts with Tyou references
 - **WHEN** an OpenSpec artifact suggests behavior that conflicts with Tyou framework, UI, resource, Luban, prefab, or Codex AI workflow constraints
-- **THEN** the Tyou rule takes precedence and the artifact is updated before implementation continues
+- **THEN** the Tyou reference takes precedence and the artifact is updated before implementation continues
 
 ### Requirement: Codex workflow uses Codex files
-The Codex workflow MUST use `AGENTS.md`, applicable directory `AGENTS.override.md` files, `.agents/skills/*`, `.codex/rules/`, `openspec/`, and structured memory under `.codex/memory/`.
+The Codex workflow MUST use `AGENTS.md`, applicable directory `AGENTS.override.md` files, `.agents/skills/*`, `openspec/`, and structured project memory under `.codex/memory/`.
 
 #### Scenario: Codex loads project workflow
 - **WHEN** Codex reads project workflow instructions
 - **THEN** it uses root `AGENTS.md`, applicable directory `AGENTS.override.md` files, and `.agents/skills/*`
-- **AND** it may read `.codex/rules/`, `.codex/memory/INDEX.md`, and `openspec/` files as routed project context
+- **AND** it may read `.agents/skills/tyou-dev/references/`, `.codex/memory/INDEX.md`, and `openspec/` files as routed project context
 
 #### Scenario: Codex enters a specialized directory
 - **WHEN** Codex works with current directory under `Client/extensions/` or `Client/assets/ty-framework/`
 - **THEN** the corresponding `AGENTS.override.md` provides the directory-specific constraints after the root instructions
 
 #### Scenario: Codex workflow files are updated
-- **WHEN** `AGENTS.md`, `**/AGENTS.override.md`, `.agents/skills/*`, `.codex/rules/`, `.codex/memory/`, README/Books workflow docs, or OpenSpec workflow specs are updated
+- **WHEN** `AGENTS.md`, `**/AGENTS.override.md`, `.agents/skills/*`, `.codex/memory/`, README/Books workflow docs, or OpenSpec workflow specs are updated
 - **THEN** the change checks Codex workflow consistency
 
 ### Requirement: Codex workflow stays concise
-The Codex workflow MUST keep entry files focused on executable constraints and route detailed topic rules to `.codex/rules/`.
+The Codex workflow MUST keep entry files focused on executable constraints and route detailed topic references to skill-owned references.
 
 #### Scenario: Codex workflow task begins
 - **WHEN** Codex handles a Codex workflow documentation, routing, OpenSpec, memory, or task classification change
-- **THEN** the workflow preserves Codex entrypoints and Codex project rules
+- **THEN** the workflow preserves Codex entrypoints and Tyou project references
 - **AND** it avoids duplicating long topic reference content in entry files
 
-### Requirement: Codex rules route to project rules
-The Codex workflow MUST treat `.codex/rules/` as the canonical source for detailed Tyou development rules.
+#### Scenario: Skill entrypoint is updated
+- **WHEN** `.agents/skills/tyou-dev/SKILL.md` is updated
+- **THEN** it remains a concise router for Tyou-specific topics and specialized skills
+- **AND** detailed execution steps stay in `.agents/skills/tyou-dev/references/` or the specialized skill documents
+
+### Requirement: Codex topic references are skill-owned
+The Codex workflow MUST treat `.agents/skills/tyou-dev/references/` as the canonical source for detailed Tyou development topic guidance.
 
 #### Scenario: Codex skill needs topic details
 - **WHEN** `.agents/skills/tyou-dev/SKILL.md` routes a task to topic details
-- **THEN** it points to the corresponding `.codex/rules/tyou-dev/*.md` file
-- **AND** it does not duplicate detailed topic rules inside the skill file
+- **THEN** it points to the corresponding `.agents/skills/tyou-dev/references/*.md` file
+- **AND** it does not duplicate detailed topic guidance inside the skill file
 
 ### Requirement: Workflow docs stay local and factual
 The workflow documentation MUST describe Tyou's current Codex behavior directly and exclude source-comparison sections or unrelated engine lineage concepts.
@@ -76,18 +81,18 @@ The Codex workflow MUST describe the current Codex entrypoints and execution pat
 
 #### Scenario: Active workflow docs are updated
 - **WHEN** active workflow documentation is edited
-- **THEN** it states the current Codex entrypoints and rules directly
+- **THEN** it states the current Codex entrypoints and references directly
 - **AND** it avoids obsolete history or reverse descriptions of removed paths
 
 ### Requirement: Workflow documents keep clear responsibilities
-The Codex workflow MUST keep README, Codex rules, and OpenSpec specs focused on their own responsibilities.
+The Codex workflow MUST keep README, Tyou topic references, and OpenSpec specs focused on their own responsibilities.
 
 #### Scenario: Project documentation is updated
 - **WHEN** README is updated
 - **THEN** it describes project usage and user-facing project facts
 
-#### Scenario: Codex rules are updated
-- **WHEN** `.codex/rules/` or `AGENTS.md` are updated
+#### Scenario: Tyou topic references are updated
+- **WHEN** `.agents/skills/tyou-dev/references/` or `AGENTS.md` are updated
 - **THEN** they describe how Codex should work in this project
 
 #### Scenario: OpenSpec specs are updated
@@ -99,21 +104,21 @@ The Codex workflow MUST document local correction mechanisms that actually exist
 
 #### Scenario: Code and reference conflict
 - **WHEN** source code, tools, or generated output contradict workflow/reference documentation
-- **THEN** Codex verifies the source behavior, updates `.codex/rules/` or Codex workflow documentation when appropriate, and records reusable pitfalls in the appropriate `.codex/memory/` category
+- **THEN** Codex verifies the source behavior, updates skill-owned topic references or Codex workflow documentation when appropriate, and records reusable pitfalls in the appropriate `.codex/memory/` category
 
 #### Scenario: Optional enhancement is mentioned
 - **WHEN** workflow documentation mentions hard gates or other unimplemented controls
 - **THEN** it labels them as optional future enhancements rather than current behavior
 
 ### Requirement: Structured memory is indexed
-The Codex workflow MUST treat `.codex/memory/` as the normal local memory system for L2 and higher Tyou tasks, keeping reusable memory discoverable through `.codex/memory/INDEX.md` and typed memory folders rather than relying on a single chronological log.
+The Codex workflow MUST treat `.codex/memory/` as Tyou's checked-in structured project memory for L2 and higher Tyou tasks, keeping reusable memory discoverable through `.codex/memory/INDEX.md` and typed memory folders rather than relying on a single chronological log or official generated Codex user memories under the Codex home directory.
 
 #### Scenario: L2 or higher task starts
-- **WHEN** Codex begins an L2, L3, or L4 task
+- **WHEN** Codex begins an L2, L3, or L4 Tyou task
 - **THEN** it reads `.codex/memory/INDEX.md`
 - **AND** it opens only the relevant `problems/`, `decisions/`, `feedback/`, or `references/` entries needed for the task
 
-#### Scenario: New reusable memory is recorded
+#### Scenario: New reusable project memory is recorded
 - **WHEN** Codex observes a reusable pitfall, confirms a durable decision, receives reusable user feedback, or locates reusable reference material
 - **THEN** it writes a typed memory entry under `.codex/memory/`
 - **AND** it updates `.codex/memory/INDEX.md`
@@ -146,10 +151,10 @@ The Codex workflow MUST treat memory as historical supporting context rather tha
 
 #### Scenario: Memory mentions stale-prone facts
 - **WHEN** a memory entry mentions tool behavior, workflow state, reference material, file paths, functions, flags, or dates
-- **THEN** Codex verifies the current source, rule, OpenSpec, or referenced material before acting on that memory
+- **THEN** Codex verifies the current source, topic reference, OpenSpec, or referenced material before acting on that memory
 
 #### Scenario: Memory conflicts with authoritative sources
-- **WHEN** memory conflicts with source code, current tool output, OpenSpec specs, or `.codex/rules/`
+- **WHEN** memory conflicts with source code, current tool output, OpenSpec specs, or Tyou topic references
 - **THEN** Codex follows the authoritative source and updates or marks the memory entry stale or superseded when appropriate
 
 ### Requirement: Memory index stays compact
@@ -181,7 +186,7 @@ The Codex OpenSpec workflow MUST keep explore read-only for implementation surfa
 - **THEN** it checks artifact status, task completion, and any delta specs under `openspec/changes/<name>/specs/` before moving the change
 
 ### Requirement: Specialized workflow skills are explicit
-The Codex workflow MUST expose specialized skills for Luban configuration, Cocos source asset parsing, read-only Wiki/documentation query, and controlled Wiki/documentation synchronization.
+The Codex workflow MUST expose specialized skills for Luban configuration, Cocos source asset parsing, Tyou 2D shader/effect development, read-only Wiki/documentation query, and controlled Wiki/documentation synchronization.
 
 #### Scenario: Luban configuration work is requested
 - **WHEN** Codex handles configuration table schema, data, export, or breaking-change safety work
@@ -192,6 +197,11 @@ The Codex workflow MUST expose specialized skills for Luban configuration, Cocos
 - **THEN** it routes to `cocos-asset-json`
 - **AND** it uses read-only parser helpers when they cover the task
 
+#### Scenario: Tyou 2D shader work is requested
+- **WHEN** Codex implements, migrates, reviews, or optimizes Cocos shader/effect work for UI, Sprite, Spine, or sequence-frame images
+- **THEN** it routes to `tyou-shader-dev`
+- **AND** it applies Cocos Creator 3.8.7 and minigame performance constraints before proposing code
+
 #### Scenario: Documentation lookup is requested
 - **WHEN** Codex needs to locate or answer from project documentation without changing it
 - **THEN** it routes to `wiki-query`
@@ -201,11 +211,11 @@ The Codex workflow MUST expose specialized skills for Luban configuration, Cocos
 - **THEN** it routes to `wiki-sync`
 
 ### Requirement: Prefab source JSON edits are permitted under bounded workflow
-The Codex workflow MUST allow Codex to create, read, update, and delete project source `.prefab` assets and necessary matching `.prefab.meta` files when the task is supervised by OpenSpec and follows the Prefab-specific Tyou rule.
+The Codex workflow MUST allow Codex to create, read, update, and delete project source `.prefab` assets and necessary matching `.prefab.meta` files when the task is supervised by OpenSpec and follows the Prefab-specific Tyou reference.
 
 #### Scenario: Prefab source asset edit is requested
 - **WHEN** Codex is asked to create, inspect, modify, rename, or delete a Cocos Prefab source asset
-- **THEN** Codex uses `.codex/rules/tyou-dev/prefab-workflow.md` as the Prefab-specific workflow
+- **THEN** Codex uses `.agents/skills/tyou-dev/references/prefab-workflow.md` as the Prefab-specific workflow
 - **AND** it treats submitted source `.prefab` files as structured Cocos JSON object arrays rather than opaque binary files
 
 #### Scenario: Prefab generated cache is encountered
@@ -214,11 +224,11 @@ The Codex workflow MUST allow Codex to create, read, update, and delete project 
 - **AND** it updates the source `.prefab` or asks for a tool/editor path instead
 
 ### Requirement: Scene source JSON edits are permitted under bounded workflow
-The Codex workflow MUST allow Codex to create, read, update, and delete project source `.scene` assets and necessary matching `.scene.meta` files when the task is supervised by OpenSpec and follows the Scene-specific Tyou rule.
+The Codex workflow MUST allow Codex to create, read, update, and delete project source `.scene` assets and necessary matching `.scene.meta` files when the task is supervised by OpenSpec and follows the Scene-specific Tyou reference.
 
 #### Scenario: Scene source asset edit is requested
 - **WHEN** Codex is asked to create, inspect, modify, rename, or delete a Cocos Scene source asset
-- **THEN** Codex uses `.codex/rules/tyou-dev/scene-workflow.md` as the Scene-specific workflow
+- **THEN** Codex uses `.agents/skills/tyou-dev/references/scene-workflow.md` as the Scene-specific workflow
 - **AND** it treats submitted source `.scene` files as structured Cocos JSON object arrays rather than opaque binary files
 
 #### Scenario: Scene edit may affect runtime startup contracts
@@ -226,7 +236,7 @@ The Codex workflow MUST allow Codex to create, read, update, and delete project 
 - **THEN** Codex verifies the relevant references and synchronizes affected workflow or runtime documentation when needed
 
 ### Requirement: Prefab and Scene workflows stay separate
-The Codex workflow MUST keep Prefab and Scene asset editing guidance in separate topic rules so Codex can load the minimum relevant context for each task.
+The Codex workflow MUST keep Prefab and Scene asset editing guidance in separate topic references so Codex can load the minimum relevant context for each task.
 
 #### Scenario: Prefab work begins
 - **WHEN** Codex handles a Prefab task that does not require Scene semantics
@@ -242,6 +252,7 @@ The Codex workflow MUST use `wiki-sync.yaml` and local scripts for Wiki/document
 #### Scenario: Wiki scan is requested
 - **WHEN** Codex scans documentation coverage or drift
 - **THEN** it uses `wiki-sync.yaml` to discover source paths, documentation includes, mappings, ignores, and conflict strategy
+- **AND** generated caches are excluded when they are not durable source or documentation inputs
 
 #### Scenario: Wiki query is requested
 - **WHEN** Codex performs a local documentation query
@@ -294,21 +305,59 @@ The Codex workflow MUST keep reusable Cocos asset parser helpers read-only unles
 
 #### Scenario: Asset edit is needed after inspection
 - **WHEN** parser output indicates a Prefab, Scene, Atlas, meta, or asset-index edit is needed
-- **THEN** Codex follows the corresponding Tyou workflow rule and OpenSpec gate before editing source assets
+- **THEN** Codex follows the corresponding Tyou workflow reference and OpenSpec gate before editing source assets
+
+### Requirement: Tyou 2D shader skill is available
+The Codex workflow MUST provide a localized Tyou shader skill for Cocos Creator 3.8.7 2D, UI/Sprite, Spine, and sequence-frame shader/effect work under minigame constraints.
+
+#### Scenario: 2D shader work is requested
+- **WHEN** Codex is asked to implement, migrate, review, or optimize a Cocos shader/effect for UI, Sprite, Spine, or sequence-frame images
+- **THEN** Codex routes to `.agents/skills/tyou-shader-dev/`
+- **AND** it applies Cocos Creator 3.8.7 and minigame performance constraints before proposing code
+
+#### Scenario: Unity or ShaderToy shader reference is provided
+- **WHEN** Codex receives Unity Built-in, Unity URP, ShaderToy, or GLSL shader material as reference for a Tyou 2D/Spine/sequence-frame effect
+- **THEN** it preserves reusable math and effect intent
+- **AND** it rewrites host integration, uniforms, texture binding, and validation for Cocos Effect/Material rather than copying Unity or ShaderToy host code
+
+#### Scenario: Unsupported shader scope is requested
+- **WHEN** the request is for 3D shader, PBR, water, volume rendering, path tracing, object-space raymarching, URP RendererFeature, RenderGraph, RTHandle, or Compute workflows
+- **THEN** `tyou-shader-dev` does not treat that scope as supported by default
+- **AND** Codex must explicitly confirm a separate plan or future skill expansion before implementing
+
+### Requirement: Tyou shader routing remains precise and token-efficient
+The Codex workflow MUST route Cocos shader work to `tyou-shader-dev` using shader-specific cues and MUST avoid treating unrelated generic `effect` mentions as shader work by default.
+
+#### Scenario: Shader-specific effect work is requested
+- **WHEN** Codex is asked about Cocos Effect, `.effect`, Material, Sprite/UI shader, Spine shader, sequence-frame shader, or flipbook shader work
+- **THEN** Codex routes to `tyou-shader-dev`
+- **AND** it loads only the shader references relevant to the target carrier
+
+#### Scenario: Generic gameplay effect work is requested
+- **WHEN** Codex is asked about an `effect` without Cocos shader, `.effect`, Material, Sprite/UI, Spine, or sequence-frame shader context
+- **THEN** Codex does not load `tyou-shader-dev` solely because of the word `effect`
+
+### Requirement: Verified Cocos shader samples stay on-demand
+The Codex workflow MUST keep verified Cocos Effect/Material samples discoverable from `tyou-shader-dev` while keeping detailed sample structure outside broad entry files.
+
+#### Scenario: Cocos shader material binding needs a concrete example
+- **WHEN** Codex implements, reviews, or debugs a Cocos Effect/Material binding for UI, Sprite, Spine, or sequence-frame work
+- **THEN** Codex can load the dedicated sample reference from `tyou-shader-dev/references/`
+- **AND** Codex treats external reference project paths as examples that must be verified against the current Tyou project before editing assets
 
 ### Requirement: Skill behavior has regression examples
 The Codex workflow MUST keep Tyou skill regression examples for AI behavior checks.
 
 #### Scenario: Tyou skill behavior is reviewed
-- **WHEN** Codex workflow or Tyou rules change
+- **WHEN** Codex workflow or Tyou references change
 - **THEN** `.agents/skills/tyou-dev/evals/evals.json` provides expected and forbidden response patterns for core workflows
 
 ### Requirement: Token efficiency remains explicit
-The workflow MUST keep L1 tasks outside OpenSpec and MUST route Codex project rules by topic so OpenSpec does not increase token cost for trivial work.
+The workflow MUST keep L1 tasks outside OpenSpec and MUST route Tyou project references by topic so OpenSpec does not increase token cost for trivial work.
 
 #### Scenario: L1 task is requested
 - **WHEN** the task is a typo, comment, log, or single-line non-framework rename
-- **THEN** Codex may skip OpenSpec and Codex rule loading
+- **THEN** Codex may skip OpenSpec and Tyou topic reference loading
 
 ### Requirement: L2 tasks are split by risk
 The Codex workflow MUST split L2 tasks into light L2 and heavy L2 so low-risk local edits can avoid unnecessary documentation overhead while risky local edits keep the existing protection level.
@@ -347,7 +396,7 @@ The Codex workflow MUST keep light L2 OpenSpec artifacts minimal while still sat
 The Codex AI workflow MUST treat `rg` as the preferred source search tool, not as a mandatory environment dependency. When `rg` is unavailable, the workflow MUST continue source or documentation lookup with an available fallback such as VS Code `grep_search` or PowerShell `Select-String`.
 
 #### Scenario: rg is unavailable during workflow investigation
-- **WHEN** Codex needs to locate source code, Codex project rules, or workflow documentation and the `rg` command is unavailable in the current environment
+- **WHEN** Codex needs to locate source code, Tyou project references, or workflow documentation and the `rg` command is unavailable in the current environment
 - **THEN** Codex continues the lookup with VS Code `grep_search` or PowerShell `Select-String` instead of blocking the task on `rg`
 
 #### Scenario: Workflow documentation describes source lookup
@@ -418,7 +467,7 @@ The Codex workflow MUST feed repeated observability findings into local Tyou cor
 - **THEN** Codex records it in the appropriate `.codex/memory/` category and updates `.codex/memory/INDEX.md`
 
 #### Scenario: Documentation drift is found
-- **WHEN** observability evidence shows workflow documentation, skills, rules, README, Books, or OpenSpec specs are inconsistent
+- **WHEN** observability evidence shows workflow documentation, skills, topic references, README, Books, or OpenSpec specs are inconsistent
 - **THEN** Codex uses the existing OpenSpec and wiki-sync guarded workflow to update the stale documents
 
 ### Requirement: Completed OpenSpec changes archive without redundant confirmation
@@ -433,25 +482,25 @@ The Codex workflow MUST archive a clearly selected completed OpenSpec change wit
 - **THEN** Codex pauses and asks the developer before archiving
 
 ### Requirement: Workflow archive records may be pruned
-The Codex workflow MUST allow historical OpenSpec archive records to be removed from a fresh framework delivery after their current authoritative behavior is preserved in active specs, rules, docs, and templates.
+The Codex workflow MUST allow historical OpenSpec archive records to be removed from a fresh framework delivery after their current authoritative behavior is preserved in active specs, topic references, docs, and templates.
 
 #### Scenario: Fresh framework delivery is prepared
 - **WHEN** archived workflow records duplicate outdated or historical guidance
 - **THEN** Codex may delete those archive records while preserving the `openspec/changes/archive/` directory for future changes
 
 ### Requirement: Codex harness uses command evidence
-The Codex workflow MUST keep the harness focused on run reports, deterministic sensor checks, memory/rule synchronization, and OpenSpec archive gates.
+The Codex workflow MUST keep the harness focused on run reports, deterministic sensor checks, memory/reference synchronization, and OpenSpec archive gates.
 
 #### Scenario: L3 or L4 change is reviewed
 - **WHEN** Codex prepares review evidence for an L3 or L4 OpenSpec change
-- **THEN** it uses `run-report.md`, `codex-observability-check.ps1`, OpenSpec status/validation, and relevant memory or rule updates
+- **THEN** it uses `run-report.md`, `codex-observability-check.ps1`, OpenSpec status/validation, and relevant memory or reference updates
 
 #### Scenario: Developer asks about workflow state
 - **WHEN** the developer asks for current Codex workflow state
 - **THEN** Codex summarizes the underlying files and command outputs directly
 
 ### Requirement: Reference material is verified before synchronization
-The Codex workflow MUST treat non-source reference material as input that requires local verification before it changes Tyou documentation, rules, OpenSpec specs, or memory.
+The Codex workflow MUST treat non-source reference material as input that requires local verification before it changes Tyou documentation, topic references, OpenSpec specs, or memory.
 
 #### Scenario: Codex uses non-source reference material
 - **WHEN** Codex reads material that is not current Tyou source code, current tool output, current workspace diff, or existing OpenSpec specs for a documentation or workflow update
@@ -460,3 +509,11 @@ The Codex workflow MUST treat non-source reference material as input that requir
 #### Scenario: Reference claim cannot be verified locally
 - **WHEN** a reference claim cannot be verified from Tyou source code, tools, current workspace changes, or existing project documentation
 - **THEN** Codex does not write that claim as an authoritative project fact
+
+### Requirement: Codex command rules keep official meaning
+The Codex workflow MUST reserve `.codex/rules/*.rules` terminology for official Codex command approval policy and MUST NOT use `.codex/rules/` as the project Markdown topic-rule store.
+
+#### Scenario: Command policy is needed
+- **WHEN** Tyou needs project-local command approval policy
+- **THEN** it uses official `.rules` files under a trusted `.codex/rules/` config layer
+- **AND** Markdown topic references remain under skill-owned references

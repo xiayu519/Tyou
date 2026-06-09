@@ -1,12 +1,12 @@
 ﻿# 工作流容错与文档同步
 
-`.codex/rules/` Codex 规则是为了省 token 的精炼规则，不是最终真相。源码和实际工具行为永远优先。
+`tyou-dev/references/` 主题参考是为了省 token 的精炼项目知识，不是最终真相。源码和实际工具行为永远优先。
 
 ## 触发条件
 
 遇到以下任一情况，必须进入容错流程：
 
-- `.codex/rules/` 或其他 md 描述与源码 API 不一致。
+- `tyou-dev/references/` 或其他 md 描述与源码 API 不一致。
 - 按 md 执行后代码编译或运行失败。
 - 开发者指出 Codex 工作流规则不符合当前项目。
 - 自动生成工具行为与文档描述不同。
@@ -17,7 +17,7 @@
 2. 优先用 `rg` 定位源码或工具实现；若 `rg` 不可用，改用 VS Code `grep_search` 或 PowerShell `Select-String`。
 3. 读取最小相关源码，确认真实行为。
 4. 以源码和工具实际行为为准修正方案。
-5. 修改对应 Codex 规则或 md，让后续会话读取正确规则。
+5. 修改对应主题参考或 md，让后续会话读取正确内容。
 6. 在最终回复说明：冲突点、源码依据、已修正文档。
 
 ## 修改范围
@@ -29,7 +29,7 @@
 - `.agents/skills/tyou-dev/SKILL.md`：只修正 Codex skill 路由和核心原则。
 - `.agents/skills/wiki-query/SKILL.md` 与 `.agents/skills/wiki-sync/SKILL.md`：修正 Wiki/文档知识库检索和同步入口。
 - `wiki-sync.yaml`：修正 Wiki/文档知识库的扫描路径、映射、写入开关、备份和脱敏策略。
-- `.codex/rules/tyou-dev/*.md`：修正具体主题规范正文。
+- `.agents/skills/tyou-dev/references/*.md`：修正具体主题参考正文。
 - `.codex/memory/INDEX.md` 与分类条目：修正可复用经验、决策、反馈和参考位置。
 - `Books/AI-Development-Workflow.md`：修正人读的流程说明。
 - `README.md`：修正面向项目用户的概要说明。
@@ -41,9 +41,9 @@
 
 Codex 工作流本身发生变更时，必须在同一个 OpenSpec change 中检查这些位置是否一致：
 
-- 修改 `.codex/rules/` 中影响任务分级、OpenSpec 门禁、路由、记忆、自检或开发约束的规则时，同时检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md` 与 `openspec/specs/`。
-- 修改 Codex 的触发词、skill 路由、OpenSpec 入口或结束自检时，同时检查 `.agents/skills/*` 与 Codex 规则。
-- 规则正文只维护在 `.codex/rules/`；`.agents/skills/*` 只写触发和路由。
+- 修改 `tyou-dev/references/` 中影响任务分级、OpenSpec 门禁、路由、记忆、自检或开发约束的参考时，同时检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md` 与 `openspec/specs/`。
+- 修改 Codex 的触发词、skill 路由、OpenSpec 入口或结束自检时，同时检查 `.agents/skills/*` 与相关主题参考。
+- 详细主题正文维护在 `.agents/skills/tyou-dev/references/`；`.agents/skills/*/SKILL.md` 只写触发和路由。
 
 ## 记录问题
 

@@ -1,6 +1,6 @@
-# Prefab 创建工作流
+﻿# Prefab 创建工作流
 
-本文件只记录 Prefab 工作流；Scene 独立见 `.codex/rules/tyou-dev/scene-workflow.md`。
+本文件只记录 Prefab 工作流；Scene 独立见 `scene-workflow.md`。
 
 修改 Cocos `.prefab`、`.prefab.meta` 前必须确认格式和引用关系。开发者已在 `2026-06-09` 明确授权 AI 对项目源 Prefab 执行增删改查：允许在 OpenSpec 监督下直接结构化编辑 `Client/assets/**/*.prefab` 和必要的配套 `.prefab.meta`。
 

@@ -1,4 +1,4 @@
----
+﻿---
 type: reference
 description: 本项目 Cocos Scene 源文件是可解析 JSON 对象数组而非不可读二进制
 status: active
@@ -12,4 +12,4 @@ source: codex-observed
 
 速记：顶层是数组，`0` 通常为 `cc.SceneAsset`，`scene.__id__` 指向 `cc.Scene`；`cc.Scene._children` 指向场景根节点；Scene 包含 `cc.SceneGlobals` 和各类全局 info；Prefab 实例会出现 `cc.PrefabInfo`、`cc.PrefabInstance`、`targetOverrides`、`nestedPrefabInstanceRoots` 等结构；`.scene.meta` 的 importer 为 `scene`，files 为 `.json`。
 
-权威规则见 `.codex/rules/tyou-dev/scene-workflow.md`，使用前按当前源码和样本复核。
+权威参考见 `.agents/skills/tyou-dev/references/scene-workflow.md`，使用前按当前源码和样本复核。

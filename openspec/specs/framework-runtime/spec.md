@@ -36,7 +36,7 @@ Framework documentation and AI reference material MUST NOT list debug as an acti
 Framework runtime documentation MUST describe the current `tyou.*` global module tree using the implementation in `Client/assets/ty-framework/Tyou.ts` as the source of truth, including localization when it is exposed.
 
 #### Scenario: Runtime modules are documented
-- **WHEN** framework runtime modules are listed in README, Books, Codex rules, or OpenSpec specs
+- **WHEN** framework runtime modules are listed in README, Books, Tyou topic references, or OpenSpec specs
 - **THEN** the list matches the modules exposed by the current Tyou entry implementation
 
 #### Scenario: Text runtime modules are documented

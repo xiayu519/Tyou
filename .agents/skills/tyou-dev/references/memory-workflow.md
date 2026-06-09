@@ -12,7 +12,7 @@
 
 1. 源码和当前工具输出。
 2. `openspec/specs/` 与当前 change artifacts。
-3. `AGENTS.md`、`.agents/skills/*`、`.codex/rules/`。
+3. `AGENTS.md`、`.agents/skills/*`、`.agents/skills/tyou-dev/references/`。
 4. `.codex/memory/`。
 5. 历史总结、归档 change、对话摘要。
 
@@ -64,22 +64,22 @@ source: user-confirmed|codex-observed|reference-material
 - git/OpenSpec/archive 能恢复的最近改动、任务流水、临时状态。
 - 当前对话上下文、一次性 TODO、完整终端日志。
 - 未经验证的猜测、模型推断、含糊偏好。
-- `AGENTS.md`、`.codex/rules/` 或 OpenSpec spec 已明确写过的重复规则。
+- `AGENTS.md`、Tyou topic references 或 OpenSpec spec 已明确写过的重复规则。
 - 会快速过期的相对日期；必须记录时转换为绝对日期。
 
 ## Stale 复核
 
 memory 不是当前事实，而是历史快照；active memory 按当前上下文使用。只有以下 stale-prone 情况在使用前必须复核：
 
-- 涉及工具行为、命令输出、参考材料、依赖版本、规则状态。
+- 涉及工具行为、命令输出、参考材料、依赖版本、工作流参考状态。
 - 涉及文件路径、函数名、配置项、flag、端口或日期。
 - `last_verified` 明显早于相关规则或源码变更。
-- memory 与源码、OpenSpec spec、`.codex/rules/` 或工具输出冲突。
+- memory 与源码、OpenSpec spec、Tyou topic references 或工具输出冲突。
 
 复核后：
 
 - 仍适用：更新 `last_verified`。
-- 已失效：改为 `status: stale`，或写明被哪条 memory/spec/rule 取代并标记 `superseded`。
+- 已失效：改为 `status: stale`，或写明被哪条 memory/spec/reference 取代并标记 `superseded`。
 - 事实冲突：以权威优先级更高的来源为准。
 
 ## INDEX.md 约束

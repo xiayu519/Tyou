@@ -1,0 +1,30 @@
+// Tyou shader parameter driver starter.
+// Adapt property names and Material API calls to the exact Cocos Creator 3.8.7 component/material in use.
+
+import { _decorator, Component, Material, Sprite, sp } from "cc";
+
+const { ccclass, property } = _decorator;
+
+@ccclass("ShaderParamDriver")
+export class ShaderParamDriver extends Component {
+    @property
+    public speed = 1;
+
+    private _material: Material | null = null;
+    private _time = 0;
+
+    onLoad() {
+        const sprite = this.getComponent(Sprite);
+        const skeleton = this.getComponent(sp.Skeleton);
+
+        // Prefer a material instance when each node needs independent progress/color.
+        this._material = sprite?.customMaterial || skeleton?.customMaterial || null;
+    }
+
+    update(dt: number) {
+        if (!this._material) return;
+        this._time += dt * this.speed;
+        // Example: this._material.setProperty("frameIndex", this._time * 12);
+        // Example: this._material.setProperty("dissolveProgress", Math.min(1, this._time));
+    }
+}

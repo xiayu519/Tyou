@@ -1,6 +1,6 @@
 ---
 name: wiki-sync
-description: Tyou 项目 Wiki/文档知识库同步 skill。用于 README、Books、.codex/rules、openspec/specs、AGENTS.md、AGENTS.override.md、memory、skills 与源码/工具行为之间的差异扫描、报告和受控修正。触发词：wiki、Wiki、知识库、同步文档、文档过期、规则不一致、扫描文档差异、更新 Books、README 和代码不一致、wiki-sync。
+description: Tyou 项目 Wiki/文档知识库同步 skill。用于 README、Books、skill references、openspec/specs、AGENTS.md、AGENTS.override.md、memory、skills 与源码/工具行为之间的差异扫描、报告和受控修正。触发词：wiki、Wiki、知识库、同步文档、文档过期、参考不一致、扫描文档差异、更新 Books、README 和代码不一致、wiki-sync。
 ---
 
 # Tyou Wiki 同步
@@ -13,7 +13,7 @@ description: Tyou 项目 Wiki/文档知识库同步 skill。用于 README、Book
 
 关键字段：
 
-- `source_paths`：需要和文档对齐的源码/工具/规则目录。
+- `source_paths`：需要和文档对齐的源码/工具/参考目录。
 - `wiki_include`：当前本地 Wiki/文档集合的包含规则。
 - `mappings`：源码目录到文档路径的映射。
 - `ignore`：源码和文档扫描忽略规则。
@@ -49,7 +49,7 @@ powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-sync/scripts/wiki-s
 只读扫描覆盖关系和明显缺口。
 
 - 输入：模块、功能、目录、最近改动范围或文档主题。
-- 输出：涉及源码、README/Books、`.codex/rules/`、OpenSpec specs、skills、memory 的覆盖表。
+- 输出：涉及源码、README/Books、skill references、OpenSpec specs、skills、memory 的覆盖表。
 
 ### diff
 
@@ -64,15 +64,15 @@ powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-sync/scripts/wiki-s
 执行文档修正。
 
 - L1 文档 typo 可以直接改。
-- 任何影响 Codex 工作流、规则、OpenSpec specs、开发约束的同步属于 L2+，必须使用 OpenSpec change。
-- 修改工作流时同步检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/rules/`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md`、`openspec/specs/`。
+- 任何影响 Codex 工作流、参考、OpenSpec specs、开发约束的同步属于 L2+，必须使用 OpenSpec change。
+- 修改工作流时同步检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md`、`openspec/specs/`；只有官方 Codex 命令审批策略变化时才检查 `.codex/rules/*.rules`。
 - 方向 A（项目到 Wiki）不自动覆盖文档；必须先生成报告，再按 OpenSpec 修改文档。
 - 方向 B（Wiki 到项目）只生成待办，不自动改业务代码。
 
 ## 安全约束
 
 - 不自动改业务代码；发现代码和文档冲突时，以源码为准，先报告再修文档。
-- 不把非本项目规则写入 Tyou 文档；只写入已确认适合 Tyou 的机制。
+- 不把非本项目参考或规则写入 Tyou 文档；只写入已确认适合 Tyou 的机制。
 - 不写敏感信息、绝对私有路径或临时日志进 README/Books。
 - 写入报告或待办前必须确认 `write_enabled` / `-Write`，并使用 `.wiki-sync-backups` 作为备份目录。
 - 可复发坑写入结构化 `.codex/memory/`。

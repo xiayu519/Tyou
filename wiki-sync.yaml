@@ -1,4 +1,4 @@
-version: "1.0"
+﻿version: "1.0"
 
 source_paths:
   - path: "Client/assets/scripts"
@@ -11,8 +11,8 @@ source_paths:
     label: "Luban Config"
   - path: ".agents/skills"
     label: "Codex Skills"
-  - path: ".codex/rules/tyou-dev"
-    label: "Codex Rules"
+  - path: ".agents/skills/tyou-dev/references"
+    label: "Tyou Topic References"
   - path: ".codex/memory"
     label: "Codex Memory"
 
@@ -20,7 +20,7 @@ wiki_root: "."
 wiki_include:
   - "README.md"
   - "Books/**/*.md"
-  - ".codex/rules/**/*.md"
+  - ".agents/skills/**/references/**/*.md"
   - ".codex/memory/**/*.md"
   - "openspec/specs/**/*.md"
   - ".agents/skills/**/SKILL.md"
@@ -29,19 +29,21 @@ wiki_include:
 
 mappings:
   - source_pattern: "Client/assets/ty-framework/**"
-    wiki_path: ".codex/rules/tyou-dev"
+    wiki_path: ".agents/skills/tyou-dev/references"
   - source_pattern: "Client/assets/scripts/proto/config/**"
-    wiki_path: ".codex/rules/tyou-dev/luban-config.md"
+    wiki_path: ".agents/skills/tyou-dev/references/luban-config.md"
   - source_pattern: "Design/config/**"
-    wiki_path: ".codex/rules/tyou-dev/luban-config.md"
+    wiki_path: ".agents/skills/tyou-dev/references/luban-config.md"
   - source_pattern: "Client/extensions/**"
-    wiki_path: ".codex/rules/tyou-dev"
+    wiki_path: ".agents/skills/tyou-dev/references"
   - source_pattern: ".agents/skills/**"
     wiki_path: "Books/AI-Development-Workflow.md"
 
 ignore:
   source:
     - "**/*.meta"
+    - "**/*.pyc"
+    - "**/__pycache__/**"
     - "**/node_modules/**"
     - "**/temp/**"
     - "**/library/**"

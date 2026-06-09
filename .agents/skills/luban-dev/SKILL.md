@@ -1,11 +1,11 @@
----
+﻿---
 name: luban-dev
 description: Tyou Luban 配表开发专用指导。涉及新增/修改/删除配置表、Excel/Defines、Luban schema、导表、生成二进制配置、配置访问封装、字段变更安全、配置数据校验时必须使用。触发词：Luban、配表、配置表、Excel、Defines、genBin、导表、Tb、Config、配置数据、字段、枚举、Bean。
 ---
 
 # Tyou Luban 配表指导
 
-本 skill 只处理 Tyou 的 Luban 配表工作。框架与业务规则仍以源码和 `.codex/rules/tyou-dev/luban-config.md` 为准。
+本 skill 只处理 Tyou 的 Luban 配表工作。框架与业务参考仍以源码和 `.agents/skills/tyou-dev/references/luban-config.md` 为准。
 
 ## 当前项目路径
 
@@ -20,7 +20,7 @@ description: Tyou Luban 配表开发专用指导。涉及新增/修改/删除配
 
 ## 必读顺序
 
-1. 先读 `.codex/rules/tyou-dev/luban-config.md`。
+1. 先读 `.agents/skills/tyou-dev/references/luban-config.md`。
 2. 再查 `Design/tools/genBin.bat`、`Design/tools/Defines/` 和实际配置加载代码。
 3. 涉及业务访问方式时，用 `rg "tyou.table"` 和 `rg "Tb"` 查现有调用。
 

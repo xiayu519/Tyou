@@ -1,0 +1,102 @@
+// Tyou/Cocos 3.8.7 UI/Sprite effect starter.
+// Verify against the current Cocos Effect compiler before using in assets.
+// Scope: 2D UI/Sprite tint, flash, and dissolve. Cocos Sprite texture + optional noise.
+
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: sprite-vs:vert
+      frag: sprite-fs:frag
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: one
+          blendDstAlpha: one_minus_src_alpha
+      rasterizerState:
+        cullMode: none
+      depthStencilState:
+        depthTest: false
+        depthWrite: false
+      properties:
+        noiseTexture: { value: white }
+        tintColor: { value: [1, 1, 1, 1], editor: { type: color } }
+        flashColor: { value: [1, 1, 1, 1], editor: { type: color } }
+        flashAmount: { value: 0, editor: { type: range, min: 0, max: 1, step: 0.01 } }
+        dissolveProgress: { value: 0, editor: { type: range, min: 0, max: 1, step: 0.01 } }
+        dissolveEdge: { value: 0.06, editor: { type: range, min: 0, max: 0.3, step: 0.01 } }
+        edgeColor: { value: [1, 0.75, 0.2, 1], editor: { type: color } }
+}%
+
+CCProgram sprite-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #if USE_LOCAL
+    #include <builtin/uniforms/cc-local>
+  #endif
+  #include <common/common-define>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+  in vec4 a_color;
+
+  out vec2 v_uv;
+  out vec4 v_color;
+
+  vec4 vert () {
+    v_uv = a_texCoord;
+    #if SAMPLE_FROM_RT
+      CC_HANDLE_RT_SAMPLE_FLIP(v_uv);
+    #endif
+    v_color = a_color;
+
+    vec4 pos = vec4(a_position, 1.0);
+    #if USE_LOCAL
+      pos = cc_matWorld * pos;
+    #endif
+    #if USE_PIXEL_ALIGNMENT
+      pos = cc_matView * pos;
+      pos.xyz = floor(pos.xyz);
+      pos = cc_matProj * pos;
+    #else
+      pos = cc_matViewProj * pos;
+    #endif
+    return pos;
+  }
+}%
+
+CCProgram sprite-fs %{
+  precision mediump float;
+  #include <builtin/internal/embedded-alpha>
+  #include <builtin/internal/alpha-test>
+  #include <builtin/internal/sprite-texture>
+
+  in vec2 v_uv;
+  in vec4 v_color;
+
+  uniform sampler2D noiseTexture;
+  uniform Constant {
+    vec4 tintColor;
+    vec4 flashColor;
+    vec4 edgeColor;
+    float flashAmount;
+    float dissolveProgress;
+    float dissolveEdge;
+  };
+
+  vec4 frag () {
+    vec4 baseColor = CCSampleWithAlphaSeparated(cc_spriteTexture, v_uv) * v_color * tintColor;
+
+    float noiseValue = texture(noiseTexture, v_uv).r;
+    float cut = dissolveProgress;
+    float alphaMask = smoothstep(cut, cut + dissolveEdge, noiseValue);
+    float edgeMask = smoothstep(cut, cut + dissolveEdge, noiseValue) - smoothstep(cut + dissolveEdge, cut + dissolveEdge * 2.0, noiseValue);
+
+    vec3 flashed = mix(baseColor.rgb, flashColor.rgb, clamp(flashAmount, 0.0, 1.0));
+    vec3 finalRgb = mix(flashed, edgeColor.rgb, clamp(edgeMask, 0.0, 1.0) * edgeColor.a);
+    vec4 o = vec4(finalRgb, baseColor.a * alphaMask);
+    ALPHA_TEST(o);
+    return o;
+  }
+}%

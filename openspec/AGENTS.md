@@ -10,8 +10,8 @@
 4. **archive**：完成后移动到 `changes/archive/YYYY-MM-DD-<name>/`，可调用 `$openspec-archive-change`。
 
 约束：
-- 未走 propose 直接新建 change 子目录；
-- 跳过未完成 tasks 直接 archive；
+- 禁止未走 propose 直接新建 change 子目录；
+- 禁止跳过未完成 tasks 直接 archive；
 - `archive/` 清理必须通过明确的 OpenSpec change 记录原因和验证结果。
 
 推荐 CLI 校验：

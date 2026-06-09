@@ -54,7 +54,7 @@ L2 不是按代码行数判断，而是按长期行为影响判断。
 - 改公共 API 语义、错误处理或可复用行为。
 - 改资源加载、缓存、引用计数、释放、索引生成或 UI 生命周期。
 - 改计时器、网络、对象池、事件、状态机等运行时行为。
-- 改 Codex 工作流文档、`.codex/rules/`、OpenSpec specs、skills 或 Wiki 同步配置。
+- 改 Codex 工作流文档、Tyou topic references、OpenSpec specs、skills 或 Wiki 同步配置。
 - 发现可复发坑，或验证不直接、剩余风险需要记录。
 
 规则：
@@ -185,7 +185,7 @@ openspec status --change "<change-name>" --json
 
 - tasks 是否全部完成。
 - 代码是否已验证。
-- Codex 规则是否需要同步更新。
+- Tyou topic references 是否需要同步更新。
 - 是否存在开发者确认过的未完成项。
 - 是否仍有与源码不一致的 Codex 工作流文档。
 - L3/L4 change 是否存在 `run-report.md`，以及 sensor 结果是否已作为 review 证据检查。
@@ -200,8 +200,8 @@ openspec status --change "<change-name>" --json
 
 ## 本项目集成规则
 
-- OpenSpec 不能绕过 `AGENTS.md`、`.agents/skills/` 和 `tyou-dev` Codex 规则。
-- OpenSpec 只监督目标、范围、任务和验收；具体实现仍以 Tyou 源码和 `.codex/rules/tyou-dev/` Codex 规则为准。
+- OpenSpec 不能绕过 `AGENTS.md`、`.agents/skills/` 和 `tyou-dev` 主题参考。
+- OpenSpec 只监督目标、范围、任务和验收；具体实现仍以 Tyou 源码和 `.agents/skills/tyou-dev/references/` 主题参考为准。
 - 涉及 UI 时仍必须走 UI 自动生成链路。
 - 涉及资源时仍必须走资源索引和引用计数约束。
 - 涉及 Luban 时必须先检查是否导表和 Excel 原始数据，不能直接改生成脚本或二进制数据。

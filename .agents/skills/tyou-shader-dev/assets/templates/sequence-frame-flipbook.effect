@@ -1,0 +1,82 @@
+// Tyou/Cocos 3.8.7 flipbook starter for 2D sequence-frame textures.
+// Use only for regular grid flipbook textures, not for Cocos Sprite current-frame or SpriteAtlas multi-SpriteFrame animation.
+// Verify UV Y direction in the current project before production use.
+
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: flipbook-vs:vert
+      frag: flipbook-fs:frag
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+      rasterizerState:
+        cullMode: none
+      depthStencilState:
+        depthTest: false
+        depthWrite: false
+      properties:
+        mainTexture: { value: white }
+        tintColor: { value: [1, 1, 1, 1], editor: { type: color } }
+        frameCountX: { value: 4 }
+        frameCountY: { value: 4 }
+        frameIndex: { value: 0 }
+        blendFrames: { value: 0, editor: { type: range, min: 0, max: 1, step: 1 } }
+}%
+
+CCProgram flipbook-vs %{
+  precision highp float;
+  #include <cc-global>
+  #include <cc-local>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+  in vec4 a_color;
+
+  out vec2 v_uv;
+  out vec4 v_color;
+
+  vec4 vert () {
+    v_uv = a_texCoord;
+    v_color = a_color;
+    return cc_matProj * cc_matView * cc_matWorld * vec4(a_position, 1.0);
+  }
+}%
+
+CCProgram flipbook-fs %{
+  precision mediump float;
+
+  in vec2 v_uv;
+  in vec4 v_color;
+
+  uniform sampler2D mainTexture;
+  uniform Constant {
+    vec4 tintColor;
+    float frameCountX;
+    float frameCountY;
+    float frameIndex;
+    float blendFrames;
+  };
+
+  vec2 flipbookUV(vec2 uv, float frame) {
+    float columns = max(frameCountX, 1.0);
+    float rows = max(frameCountY, 1.0);
+    float total = columns * rows;
+    float f = mod(max(frame, 0.0), total);
+    float x = mod(f, columns);
+    float y = floor(f / columns);
+    vec2 cell = vec2(1.0 / columns, 1.0 / rows);
+    return uv * cell + vec2(x, y) * cell;
+  }
+
+  vec4 frag () {
+    float baseFrame = floor(frameIndex);
+    float t = fract(frameIndex);
+    vec4 c0 = texture(mainTexture, flipbookUV(v_uv, baseFrame));
+    vec4 c1 = texture(mainTexture, flipbookUV(v_uv, baseFrame + 1.0));
+    vec4 color = mix(c0, c1, t * step(0.5, blendFrames));
+    return color * v_color * tintColor;
+  }
+}%

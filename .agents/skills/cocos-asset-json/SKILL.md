@@ -1,4 +1,4 @@
----
+﻿---
 name: cocos-asset-json
 description: Tyou/Cocos Creator 3.8.7 源资产解析 skill。用于检查、汇总和校验 Cocos `.prefab`、`.scene`、`.meta`、`asset-index.json`、SpriteAtlas `.plist/.plist.meta` 的结构、uuid、`__id__` 引用、Prefab instance/override、自定义脚本组件字段和资源索引。触发词：Cocos 资产解析、prefab json、scene json、meta uuid、asset-index、SpriteAtlas、plist、uuid 引用、__id__ 校验、PrefabInstance、targetOverrides。明确不用于 Luban `.bin` 解析；配表问题走 `luban-dev` 和源 Excel/Defines。
 ---
@@ -19,7 +19,7 @@ python .agents/skills/cocos-asset-json/scripts/cocos_asset_json.py asset-index -
 python .agents/skills/cocos-asset-json/scripts/cocos_asset_json.py atlas --plist Client/assets/asset-raw/ui-raw/atlas/foo/foo.plist --meta Client/assets/asset-raw/ui-raw/atlas/foo/foo.plist.meta
 ```
 
-脚本只读，输出 JSON。需要编辑资产时，先读对应 Tyou 规则并走 OpenSpec：Prefab 用 `.codex/rules/tyou-dev/prefab-workflow.md`，Scene 用 `.codex/rules/tyou-dev/scene-workflow.md`，资源索引用 `.codex/rules/tyou-dev/resource-api.md`。
+脚本只读，输出 JSON。需要编辑资产时，先读对应 Tyou 参考并走 OpenSpec：Prefab 用 `.agents/skills/tyou-dev/references/prefab-workflow.md`，Scene 用 `.agents/skills/tyou-dev/references/scene-workflow.md`，资源索引用 `.agents/skills/tyou-dev/references/resource-api.md`。
 
 ## 何时读 reference
 

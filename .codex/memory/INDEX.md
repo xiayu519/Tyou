@@ -17,6 +17,7 @@
 
 - `.codex/memory/feedback/local-memory-formal-workflow.md`：本地 memory 按正式 Codex 工作流启用，符合条件时直接归档。
 - `.codex/memory/feedback/do-not-parse-luban-bin.md`：开发者明确要求不要解析 Luban `.bin`，配表问题直接看源表数据。
+- `.codex/memory/feedback/tyou-shader-skill-scope.md`：Tyou shader skill 首版只关注 2D、Spine、序列帧图，并可参考 Unity Built-in 概念。
 
 ## References
 

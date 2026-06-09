@@ -1,6 +1,6 @@
 ---
 name: wiki-query
-description: Tyou 项目 Wiki/文档知识库只读检索 skill。用于查 README、Books、.codex/rules、openspec/specs、AGENTS.md、AGENTS.override.md、memory 与源码之间的对应关系，回答“wiki 在哪、文档在哪、规则是否存在、哪份文档过期、如何查项目文档”等问题。不修改文件。
+description: Tyou 项目 Wiki/文档知识库只读检索 skill。用于查 README、Books、skill references、openspec/specs、AGENTS.md、AGENTS.override.md、memory 与源码之间的对应关系，回答“wiki 在哪、文档在哪、参考是否存在、哪份文档过期、如何查项目文档”等问题。不修改文件。
 ---
 
 # Tyou Wiki 查询
