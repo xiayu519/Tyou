@@ -50,6 +50,7 @@ Design/tools/genBin.bat
 
 - 不手改生成代码 `schema.ts`。
 - 不手改生成的 `.bin` 二进制数据。
+- 不解析 Luban `.bin` 作为排查主路径；配表问题直接看源 Excel/Defines、导表脚本和生成 TS 访问面。
 - 先改 Excel/定义，再运行导表。
 - 修改字段要考虑存量数据安全。
 - 删除或改名字段风险高，需要先确认引用。
@@ -63,7 +64,7 @@ Design/tools/genBin.bat
 1. 先确认是否执行过 `Design/tools/genBin.bat` 导表。
 2. 直接读取 `Design/config/*.xlsx` 原始 Excel 数据，确认源数据是否正确。
 3. 检查 `__tables__.xlsx`、`__beans__.xlsx`、`__enums__.xlsx` 或 XML 定义是否漏字段、类型或分组。
-4. 再检查生成后的 `schema.ts` 和 `.bin` 是否确实未更新。
+4. 再检查生成后的 `schema.ts` 和 `.bin` 是否确实未更新；`.bin` 只作为导表产物存在性和时间/差异证据，不做内容解析。
 5. 只修改源 Excel/定义文件，然后重新导表。
 
 禁止把生成脚本或二进制数据当成常规修复目标。生成物错误通常是“没有导表”或“源表/定义错误”的结果。

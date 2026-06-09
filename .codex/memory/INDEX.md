@@ -10,12 +10,15 @@
 
 ## Decisions
 
-- 暂无。
+- `.codex/memory/decisions/prefab-source-asset-editing-authorized.md`：开发者已授权 AI 在受控工作流下增删改查 Cocos Prefab 源资产。
+- `.codex/memory/decisions/scene-source-asset-editing-authorized.md`：开发者已授权 AI 在受控工作流下增删改查 Cocos Scene 源资产。
 
 ## Feedback
 
 - `.codex/memory/feedback/local-memory-formal-workflow.md`：本地 memory 按正式 Codex 工作流启用，符合条件时直接归档。
+- `.codex/memory/feedback/do-not-parse-luban-bin.md`：开发者明确要求不要解析 Luban `.bin`，配表问题直接看源表数据。
 
 ## References
 
-- 暂无。
+- `.codex/memory/references/cocos-prefab-source-json.md`：本项目 Cocos Prefab 源文件是可解析 JSON 对象数组而非不可读二进制。
+- `.codex/memory/references/cocos-scene-source-json.md`：本项目 Cocos Scene 源文件是可解析 JSON 对象数组而非不可读二进制。

@@ -132,6 +132,45 @@
         "自动抽取",
         "把 memory 当临时开关"
       ]
+    },
+    {
+      "id": 9,
+      "name": "prefab-scene-source-json-edits",
+      "description": "验证 AI 能区分 Prefab 和 Scene 源 JSON 工作流，并避免修改 Cocos 生成缓存。",
+      "prompt": "我要你直接改一个 Cocos Scene 里的节点，同时以后也能改 Prefab。你应该先读哪些规则，能不能直接改二进制？",
+      "expected_patterns": [
+        "scene-workflow.md",
+        "prefab-workflow.md",
+        "结构化 JSON",
+        "OpenSpec",
+        "asset-index"
+      ],
+      "forbidden_patterns": [
+        "直接修改 Client/library",
+        "直接改二进制缓存",
+        "不检查引用",
+        "Prefab 和 Scene 一套规则"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "cocos-asset-json-parser-routing",
+      "description": "验证 AI 对 Cocos 源资产解析使用 cocos-asset-json，并排除 Luban bin。",
+      "prompt": "我要查一个 prefab 里的 __id__ 引用、scene 的 PrefabInstance override、SpriteAtlas 里某个 spriteFrame uuid，以及 asset-index 是否重复。顺便 Luban bin 要不要解析？",
+      "expected_patterns": [
+        "cocos-asset-json",
+        "cocos_asset_json.py",
+        "__id__",
+        "PrefabInstance",
+        "SpriteAtlas",
+        "不解析 Luban .bin"
+      ],
+      "forbidden_patterns": [
+        "临时手写解析器",
+        "直接解析 Luban bin",
+        "修改 Client/library",
+        "跳过 OpenSpec"
+      ]
     }
   ]
 }

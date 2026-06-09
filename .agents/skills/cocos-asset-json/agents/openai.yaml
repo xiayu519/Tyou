@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cocos Asset JSON"
+  short_description: "Inspect Cocos Creator source assets"
+  default_prompt: "Inspect Cocos Prefab, Scene, meta, asset-index, or SpriteAtlas structure."

@@ -181,11 +181,16 @@ The Codex OpenSpec workflow MUST keep explore read-only for implementation surfa
 - **THEN** it checks artifact status, task completion, and any delta specs under `openspec/changes/<name>/specs/` before moving the change
 
 ### Requirement: Specialized workflow skills are explicit
-The Codex workflow MUST expose specialized skills for Luban configuration, read-only Wiki/documentation query, and controlled Wiki/documentation synchronization.
+The Codex workflow MUST expose specialized skills for Luban configuration, Cocos source asset parsing, read-only Wiki/documentation query, and controlled Wiki/documentation synchronization.
 
 #### Scenario: Luban configuration work is requested
 - **WHEN** Codex handles configuration table schema, data, export, or breaking-change safety work
 - **THEN** it routes to `luban-dev`
+
+#### Scenario: Cocos source asset parsing is requested
+- **WHEN** Codex inspects `.prefab`, `.scene`, `.meta`, `asset-index.json`, or SpriteAtlas `.plist/.plist.meta` structure
+- **THEN** it routes to `cocos-asset-json`
+- **AND** it uses read-only parser helpers when they cover the task
 
 #### Scenario: Documentation lookup is requested
 - **WHEN** Codex needs to locate or answer from project documentation without changing it
@@ -194,6 +199,42 @@ The Codex workflow MUST expose specialized skills for Luban configuration, read-
 #### Scenario: Documentation/code drift is requested
 - **WHEN** Codex needs to scan, diff, or synchronize project documentation with implementation behavior
 - **THEN** it routes to `wiki-sync`
+
+### Requirement: Prefab source JSON edits are permitted under bounded workflow
+The Codex workflow MUST allow Codex to create, read, update, and delete project source `.prefab` assets and necessary matching `.prefab.meta` files when the task is supervised by OpenSpec and follows the Prefab-specific Tyou rule.
+
+#### Scenario: Prefab source asset edit is requested
+- **WHEN** Codex is asked to create, inspect, modify, rename, or delete a Cocos Prefab source asset
+- **THEN** Codex uses `.codex/rules/tyou-dev/prefab-workflow.md` as the Prefab-specific workflow
+- **AND** it treats submitted source `.prefab` files as structured Cocos JSON object arrays rather than opaque binary files
+
+#### Scenario: Prefab generated cache is encountered
+- **WHEN** Codex encounters Cocos generated cache, imported output, build output, or temporary Prefab-derived files outside the source asset tree
+- **THEN** Codex does not treat those files as normal edit targets
+- **AND** it updates the source `.prefab` or asks for a tool/editor path instead
+
+### Requirement: Scene source JSON edits are permitted under bounded workflow
+The Codex workflow MUST allow Codex to create, read, update, and delete project source `.scene` assets and necessary matching `.scene.meta` files when the task is supervised by OpenSpec and follows the Scene-specific Tyou rule.
+
+#### Scenario: Scene source asset edit is requested
+- **WHEN** Codex is asked to create, inspect, modify, rename, or delete a Cocos Scene source asset
+- **THEN** Codex uses `.codex/rules/tyou-dev/scene-workflow.md` as the Scene-specific workflow
+- **AND** it treats submitted source `.scene` files as structured Cocos JSON object arrays rather than opaque binary files
+
+#### Scenario: Scene edit may affect runtime startup contracts
+- **WHEN** a Scene edit touches startup nodes, scene registration, Prefab instances, or resource index membership
+- **THEN** Codex verifies the relevant references and synchronizes affected workflow or runtime documentation when needed
+
+### Requirement: Prefab and Scene workflows stay separate
+The Codex workflow MUST keep Prefab and Scene asset editing guidance in separate topic rules so Codex can load the minimum relevant context for each task.
+
+#### Scenario: Prefab work begins
+- **WHEN** Codex handles a Prefab task that does not require Scene semantics
+- **THEN** Codex reads the Prefab workflow without needing the Scene workflow
+
+#### Scenario: Scene work begins
+- **WHEN** Codex handles a Scene task that does not require Prefab authoring details
+- **THEN** Codex reads the Scene workflow without needing the Prefab creation workflow
 
 ### Requirement: Wiki synchronization is configured and guarded
 The Codex workflow MUST use `wiki-sync.yaml` and local scripts for Wiki/documentation scanning, query, reporting, and guarded write operations.
@@ -225,6 +266,35 @@ The Codex workflow MUST provide executable Luban helpers for Tyou configuration 
 #### Scenario: Luban breaking-change risk exists
 - **WHEN** a field, row, type, table, enum, or bean change may break references
 - **THEN** Codex runs reference or validation checks before proposing the edit
+
+#### Scenario: Luban binary output is encountered
+- **WHEN** Codex sees Luban-generated `.bin` files during configuration or Cocos asset work
+- **THEN** Codex treats them as generated export outputs rather than parsing targets
+- **AND** it verifies source Excel/Defines, export commands, generated TypeScript code, and file presence/diff instead of parsing `.bin` contents
+
+### Requirement: Cocos source asset parsing skill is available
+The Codex workflow MUST provide a project skill for Cocos Creator source asset parsing that supports Prefab, Scene, SpriteAtlas, meta uuid, and asset-index inspection without parsing Luban binary tables.
+
+#### Scenario: Cocos asset structure inspection is requested
+- **WHEN** Codex needs to inspect or validate `.prefab`, `.scene`, `.meta`, SpriteAtlas `.plist`, or `asset-index.json` structure
+- **THEN** Codex routes to `.agents/skills/cocos-asset-json/`
+- **AND** it uses the skill's scripts before hand-writing ad hoc parsers when the scripts cover the task
+
+#### Scenario: Luban binary data is encountered
+- **WHEN** Codex encounters Luban-generated `.bin` files during Cocos asset parsing work
+- **THEN** Codex excludes them from `cocos-asset-json` parsing
+- **AND** it routes configuration table work to `luban-dev` and source table data instead
+
+### Requirement: Cocos source asset parser remains read-only by default
+The Codex workflow MUST keep reusable Cocos asset parser helpers read-only unless a later OpenSpec change explicitly adds guarded write operations.
+
+#### Scenario: Parser helper is used
+- **WHEN** Codex runs `cocos_asset_json.py`
+- **THEN** the helper inspects, summarizes, indexes, or validates files without writing project assets
+
+#### Scenario: Asset edit is needed after inspection
+- **WHEN** parser output indicates a Prefab, Scene, Atlas, meta, or asset-index edit is needed
+- **THEN** Codex follows the corresponding Tyou workflow rule and OpenSpec gate before editing source assets
 
 ### Requirement: Skill behavior has regression examples
 The Codex workflow MUST keep Tyou skill regression examples for AI behavior checks.

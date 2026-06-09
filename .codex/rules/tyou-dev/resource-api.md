@@ -71,6 +71,16 @@ await tyou.res.loadAssetAsync({
 
 加载资源找不到或出现 `[ResourceModule] Asset index missing` 时，第一优先级是确认是否执行过 `assetool` 自动索引生成；不要手动编辑 `asset-index.json` 作为常规修复。
 
+需要只读检查 `asset-index.json`、`.meta` uuid 或 SpriteAtlas `.plist/.plist.meta` 结构时，优先用 Cocos 源资产解析 skill：
+
+```powershell
+python .agents/skills/cocos-asset-json/scripts/cocos_asset_json.py uuid-index --assets-root Client/assets
+python .agents/skills/cocos-asset-json/scripts/cocos_asset_json.py asset-index --file Client/assets/asset-raw/asset-catalog/asset-index.json
+python .agents/skills/cocos-asset-json/scripts/cocos_asset_json.py atlas --plist <atlas.plist> --meta <atlas.plist.meta>
+```
+
+该 helper 只读，不替代 `assetool` 生成索引。
+
 ## 引用计数配对
 
 `addRef/decRef` 不是同一帧内粗暴同步释放。`decRef` 会加入 `_pendingReleaseQueue`，之后由 `onUpdate` 定期检查，满足延迟时间且 `refCount === 0` 才真正释放。

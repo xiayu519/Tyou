@@ -1,13 +1,13 @@
 ---
 name: tyou-dev
-description: Tyou Cocos Creator 3.8.7 + TypeScript 客户端框架开发指导。涉及以下任意主题时必须激活：tyou 全局入口、UIWindow、UIBase、@UIDecorator、UIName、UIImportAll、UIModule、tyou.ui.showUIAsync、tyou.res、tyou.event、ResourceModule、AssetIndexManager、asset-index.json、addRef/decRef、PSD2CCC、psd2ui、Luban 配表、Cocos Prefab/Scene/Meta 修改、Cocos 编辑器扩展（assetool/psd2ccc/uitscreate）、ty-framework 框架代码、UI 节点前缀、UI 命名规范、战斗设计、ECS、小游戏运行时约束。触发词：Tyou、tyou、Cocos Creator、UIWindow、UIBase、UIName、UIImportAll、ty-framework、psd2ccc、uitscreate、assetool、asset-index、Luban、配表、UI 开发、资源加载、事件系统、Prefab、战斗、技能、Buff、ECS、小游戏。
+description: Tyou Cocos Creator 3.8.7 + TypeScript 客户端框架开发指导。涉及以下任意主题时必须激活：tyou 全局入口、UIWindow、UIBase、@UIDecorator、UIName、UIImportAll、UIModule、tyou.ui.showUIAsync、tyou.res、tyou.event、ResourceModule、AssetIndexManager、asset-index.json、addRef/decRef、PSD2CCC、psd2ui、Luban 配表、Cocos Prefab/Scene/Meta 修改、Cocos 资产解析、SpriteAtlas/plist、Cocos 编辑器扩展（assetool/psd2ccc/uitscreate）、ty-framework 框架代码、UI 节点前缀、UI 命名规范、战斗设计、ECS、小游戏运行时约束。触发词：Tyou、tyou、Cocos Creator、UIWindow、UIBase、UIName、UIImportAll、ty-framework、psd2ccc、uitscreate、assetool、asset-index、Cocos 资产解析、SpriteAtlas、plist、Luban、配表、UI 开发、资源加载、事件系统、Prefab、Scene、场景、战斗、技能、Buff、ECS、小游戏。
 ---
 
 # Tyou 开发指导
 
 Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。具体规则在 `.codex/rules/tyou-dev/`，按任务主题读取最少文件，再查源码确认。
 
-回归用例位于 `.agents/skills/tyou-dev/evals/evals.json`，用于检查 AI 是否仍按 Tyou UI、资源、Luban、事件、Prefab 和 OpenSpec 规则回答。
+回归用例位于 `.agents/skills/tyou-dev/evals/evals.json`，用于检查 AI 是否仍按 Tyou UI、资源、Luban、事件、Prefab、Scene 和 OpenSpec 规则回答。
 
 ## 核心原则
 
@@ -29,12 +29,14 @@ Tyou 是 Cocos Creator 3.8.7 + TypeScript 客户端框架。具体规则在 `.co
 | 模块 API | `.codex/rules/tyou-dev/modules.md` | 对应源码 |
 | UI 开发 | `.codex/rules/tyou-dev/ui-lifecycle.md` | `.codex/rules/tyou-dev/ui-patterns.md`, `.codex/rules/tyou-dev/naming-rules.md` |
 | 资源加载/索引 | `.codex/rules/tyou-dev/resource-api.md` | `.codex/rules/tyou-dev/troubleshooting.md` |
+| Cocos 源资产解析/uuid/Atlas | `.agents/skills/cocos-asset-json/SKILL.md` | `.codex/rules/tyou-dev/resource-api.md`, `.codex/rules/tyou-dev/prefab-workflow.md`, `.codex/rules/tyou-dev/scene-workflow.md` |
 | 事件系统 | `.codex/rules/tyou-dev/event-system.md` | `.codex/rules/tyou-dev/modules.md` |
 | 战斗设计/ECS/小游戏运行时 | `.codex/rules/tyou-dev/battle-design.md` | `.codex/rules/tyou-dev/modules.md` |
 | 配置表/Luban | `.agents/skills/luban-dev/SKILL.md` | `.codex/rules/tyou-dev/luban-config.md`, `Design/tools/genBin.bat` |
 | PSD 到 UI | `.codex/rules/tyou-dev/psd2ui-workflow.md` | `.codex/rules/tyou-dev/ui-patterns.md` |
-| Prefab 创建 | `.codex/rules/tyou-dev/prefab-workflow.md` | `.codex/rules/tyou-dev/prefab-mcp.md` |
+| Prefab 创建/修改 | `.codex/rules/tyou-dev/prefab-workflow.md` | `.codex/rules/tyou-dev/prefab-mcp.md` |
 | AI 创建 Prefab/MCP | `.codex/rules/tyou-dev/prefab-mcp.md` | `.codex/rules/tyou-dev/prefab-workflow.md` |
+| Scene 创建/修改 | `.codex/rules/tyou-dev/scene-workflow.md` | `.codex/rules/tyou-dev/resource-api.md`, `.codex/rules/tyou-dev/architecture.md` |
 | 命名/生成规范 | `.codex/rules/tyou-dev/naming-rules.md` | `.codex/rules/tyou-dev/ui-patterns.md` |
 | OpenSpec 工作流 | `.codex/rules/tyou-dev/openspec-workflow.md` | `Books/AI-Development-Workflow.md` |
 | Codex memory 工作流 | `.codex/rules/tyou-dev/memory-workflow.md` | `.codex/memory/INDEX.md`, `.agents/skills/tyou-dev/templates/memory-*.md` |

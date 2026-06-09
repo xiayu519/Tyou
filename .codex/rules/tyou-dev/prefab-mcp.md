@@ -11,6 +11,9 @@
 1. PSD 一键生成。
 2. AI + 精简 MCP 创建。
 3. 手动拼。
+4. AI 结构化 JSON 编辑。
+
+直接编辑源 `.prefab` JSON 的授权和边界见 `prefab-workflow.md`；本文件只描述 MCP 方式。
 
 ## 需要的 MCP 能力
 
@@ -59,7 +62,7 @@
 
 ## 失败处理
 
-- MCP 不能连接：停止并提示开发者启用精简 Prefab MCP 或改用 PSD/手动拼。
+- MCP 不能连接：优先提示开发者启用精简 Prefab MCP 或改用 PSD/手动拼；若任务适合小范围源 JSON 编辑，可按 `prefab-workflow.md` 的授权边界继续。
 - 找不到 Canvas：提示先打开可编辑 UI 场景。
 - 保存 Prefab 后加载失败：优先检查是否刷新资源和生成资源索引。
 - UI 脚本报空：优先检查是否执行前缀组件检查和 UI 代码生成。
@@ -68,5 +71,5 @@
 
 - 不要为了创建 Prefab 加载完整 MCP 文档。
 - 不要直接手写 UI 脚本绕过生成工具。
-- 不要手写 `.prefab` JSON，除非开发者明确确认且已说明风险。
+- 不要在未读取 `prefab-workflow.md` 的情况下直接编辑 `.prefab` JSON 或 `.prefab.meta`。
 - 不要修改 `ty-framework` 来适配某个 Prefab。
