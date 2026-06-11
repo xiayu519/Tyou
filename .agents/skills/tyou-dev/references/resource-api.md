@@ -62,6 +62,7 @@ await tyou.res.loadAssetAsync({
 ## 自动释放
 
 - Prefab 实例：`loadGameObjectAsync` 会添加 `ResourceHolder`。
+- Pool 节点池：`NodePool` 持有 Prefab 时必须由 Pool 生命周期管理，池销毁时通过 `tyou.res.decRef(prefab)` 配对释放；业务只归还节点，不手动释放池持有的 Prefab。
 - UI 动态资源：用 `UIBase.addAutoReleaseAsset(asset)`，窗口关闭时 `decRef`。
 - 配表加载后会对 `BufferAsset` 调用 `tyou.res.decRef(cfg)`。
 - 远程图片：`setRemoteSpriteAsync` 通过 `setSpriteAsync({ url })` 生成托管 `SpriteFrame`，成功赋值后由 UI 自动释放集合负责 `decRef`。
@@ -73,6 +74,7 @@ await tyou.res.loadAssetAsync({
 - UI 窗口内加载的 `SpriteFrame`、`SpriteAtlas`、远程 `SpriteFrame`：放入 `UIBase.addAutoReleaseAsset()`，窗口释放时统一 `decRef`。
 - 场景生命周期内的动态资源：放入 `tyou.scene.addAutoReleaseAsset()` 或当前 `SceneBase.addAutoReleaseAsset()`，场景离开时释放。
 - Prefab 实例：优先用 `tyou.res.loadGameObjectAsync()`，框架会给实例添加 `ResourceHolder`，节点销毁时释放 Prefab 资源。
+- Pool Prefab：节点池加载 Prefab 后由池持有，`NodePool.destroy()` 负责释放 Prefab；租借出的节点用 `pool.release(node)` 或 `tyou.pool.releaseNode(node)` 归还，不在业务侧对 Prefab 调 `decRef`。
 - Spine 自动释放：优先用 `loadSpineAsync()` / `loadSpineEffectAsync()` 的默认 `isAutoRelease = true`，由 `SpineHolder` 在节点销毁或特效播放结束时释放。
 - 表格、音频等模块内部资源：模块自己持有缓存时，必须在移出缓存或模块销毁时成对 `decRef`。
 - 只用于一次性解析的资源：解析完成后立即 `decRef`，例如配表 `BufferAsset` 读取到内存后释放源资源引用。

@@ -53,12 +53,12 @@ export class PoolModule extends Module {
         return node;
     }
 
-    releaseNode(node: Node) {
-        this._nodePool.release(node);
+    releaseNode(node: Node): boolean {
+        return this._nodePool.release(node);
     }
 
-    destroyNodePool(assetPath: string) {
-        this._nodePool.destroyPool(assetPath);
+    destroyNodePool(poolNameOrAssetPath: string) {
+        this._nodePool.destroyPool(poolNameOrAssetPath);
     }
 
     /**
