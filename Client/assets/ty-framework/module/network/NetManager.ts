@@ -42,6 +42,7 @@ export class NetManager {
 
     /** 移除Node */
     removeNetNode(channelId: number) {
+        this._channels[channelId]?.close();
         delete this._channels[channelId];
     }
 
@@ -131,7 +132,7 @@ export class NetManager {
      */
     close(code?: number, reason?: string, channelId: number = 0) {
         if (this._channels[channelId]) {
-            return this._channels[channelId].closeSocket(code, reason);
+            return this._channels[channelId].close(code, reason);
         }
     }
 }

@@ -76,6 +76,7 @@ class Tyou {
         this.res.onDestroy();
         this.event.onDestroy();
         this.timer.onDestroy();
+        this.http.onDestroy();
         this.pool.onDestroy();
         this.audio.onDestroy();
         this.scene.onDestroy();

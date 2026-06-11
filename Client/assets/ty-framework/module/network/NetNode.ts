@@ -1,5 +1,4 @@
-import { error, sys, warn } from "cc";
-import { WECHAT } from "cc/env";
+import { error, warn } from "cc";
 import { CallbackObject, INetworkTips, IProtocolHelper, IRequestProtocol, ISocket, NetCallFunc, NetData, RequestObject } from "./NetInterface";
 
 /*
@@ -55,14 +54,15 @@ export class NetNode {
     protected _disconnectCallback: BoolFunc | null = null;                  // 断线回调
     protected _callbackExecuter: ExecuterFunc | null = null;                // 回调执行
 
-    protected _keepAliveTimer: any = null;                                  // 心跳定时器
-    protected _receiveMsgTimer: any = null;                                 // 接收数据定时器
-    protected _reconnectTimer: any = null;                                  // 重连定时器
+    protected _keepAliveTimer: number = 0;                                  // 心跳定时器
+    protected _receiveMsgTimer: number = 0;                                 // 接收数据定时器
+    protected _reconnectTimer: number = 0;                                  // 重连定时器
     protected _heartTime: number = 10000;                                   // 心跳间隔
     protected _receiveTime: number = 100000;                               // 多久没收到数据断开
     protected _reconnetTimeOut: number = 5000;                           // 重连间隔
     protected _requests: RequestObject[] = Array<RequestObject>();          // 请求列表
     protected _listener: { [key: string]: CallbackObject[] | null } = {}    // 监听者列表
+    protected _isClosedByUser: boolean = false;
 
     /********************** 网络相关处理 *********************/
     init(socket: ISocket, protocol: IProtocolHelper, networkTips: INetworkTips | null = null, execFunc: ExecuterFunc | null = null, checkFunc: CheckFunc | null = null) {
@@ -84,12 +84,14 @@ export class NetNode {
             if (!this._isSocketInit) {
                 this.initSocket();
             }
+            this._isClosedByUser = false;
             this._state = NetNodeState.Connecting;
             if (!this._socket.connect(options)) {
+                this._state = NetNodeState.Closed;
                 this.updateNetTips(NetTipsType.Connecting, false);
                 return false;
             }
-            if (this._connectOptions == null && typeof options.autoReconnect == "number") {
+            if (typeof options.autoReconnect == "number") {
                 this._autoReconnect = options.autoReconnect;
             }
             this._connectOptions = options;
@@ -125,6 +127,10 @@ export class NetNode {
 
     /** 网络连接成功 */
     protected onConnected(event: any) {
+        if (this._isClosedByUser) {
+            return;
+        }
+
         Log.net("网络已连接")
         this._isSocketOpen = true;
         // 如果设置了鉴权回调，在连接完成后进入鉴权阶段，等待鉴权结束
@@ -168,6 +174,10 @@ export class NetNode {
 
     /** 接收到一个完整的消息包 */
     protected onMessage(msg: any): void {
+        if (this._state === NetNodeState.Closed || this._isClosedByUser) {
+            return;
+        }
+
         // Log.net(`接受消息状态为【${NetNodeStateStrs[this._state]}】`);
 
         var callback = (json: any)=>{
@@ -225,37 +235,43 @@ export class NetNode {
                 }
             }
         }
-        if (sys.isNative) {
-            var a = new Uint8Array(msg)
-            let packet: Object = JSON.parse(this.Utf8ArrayToStr(a))
-            callback(packet);
-        } else {
-            const uint8Arr: any = new Uint8Array(msg);
-            const encodedString: any = String.fromCharCode.apply(null, uint8Arr);
-            const decodedString = decodeURIComponent(escape(encodedString));
-            let packet: Object = JSON.parse(decodedString);
-            callback(packet);
+        try {
+            callback(this.decodePacket(msg));
+        } catch (e) {
+            error("[NetNode] parse socket message failed", e);
         }
     }
 
     protected onError(event: any) {
+        if (this._state === NetNodeState.Closed && this._isClosedByUser) {
+            return;
+        }
         error(event);
     }
 
     protected onClosed(event: any) {
         console.warn("socket onClosed");
         this.clearTimer();
+        this._isSocketOpen = false;
+
+        if (this._state === NetNodeState.Closed && this._isClosedByUser) {
+            return;
+        }
 
         // 执行断线回调，返回false表示不进行重连
         if (this._disconnectCallback && !this._disconnectCallback()) {
             Log.net(`断开连接`);
+            this._state = NetNodeState.Closed;
             return;
         }
 
         // 自动重连
-        if (this.isAutoReconnect()) {
+        if (!this._isClosedByUser && this.isAutoReconnect()) {
             this.updateNetTips(NetTipsType.ReConnecting, true);
-            this._reconnectTimer = setTimeout(() => {
+            this._reconnectTimer = this.addNetworkTimer(() => {
+                if (this._isClosedByUser || this._state === NetNodeState.Working) {
+                    return;
+                }
                 this._socket!.close();
                 this._state = NetNodeState.Closed;
                 //断线重连清空缓存区
@@ -277,6 +293,10 @@ export class NetNode {
      * @param reason    关闭原因
      */
     close(code?: number, reason?: string) {
+        this._isClosedByUser = true;
+        this._autoReconnect = 0;
+        this._state = NetNodeState.Closed;
+        this._isSocketOpen = false;
         this.clearTimer();
         this._listener = {};
         this._requests.length = 0;
@@ -287,9 +307,6 @@ export class NetNode {
         }
         if (this._socket) {
             this._socket.close(code, reason);
-        }
-        else {
-            this._state = NetNodeState.Closed;
         }
     }
 
@@ -468,37 +485,36 @@ export class NetNode {
 
     /********************** 心跳、超时相关处理 *********************/
     protected resetReceiveMsgTimer() {
-        if (this._receiveMsgTimer !== null) {
-            clearTimeout(this._receiveMsgTimer);
-        }
+        this.removeNetworkTimer(this._receiveMsgTimer);
 
-        this._receiveMsgTimer = setTimeout(() => {
+        this._receiveMsgTimer = this.addNetworkTimer(() => {
+            if (this._state === NetNodeState.Closed || this._isClosedByUser) {
+                return;
+            }
             warn("接收消息定时器关闭网络连接");
             this._socket!.close();
         }, this._receiveTime);
     }
 
     protected resetHearbeatTimer() {
-        if (this._keepAliveTimer !== null) {
-            clearTimeout(this._keepAliveTimer);
-        }
+        this.removeNetworkTimer(this._keepAliveTimer);
 
-        this._keepAliveTimer = setTimeout(() => {
+        this._keepAliveTimer = this.addNetworkTimer(() => {
+            if (this._state !== NetNodeState.Working || this._isClosedByUser) {
+                return;
+            }
             Log.net("网络节点保持活跃发送心跳信息");
             this.send(this._protocolHelper!.getHearbeat());
         }, this._heartTime);
     }
 
     protected clearTimer() {
-        if (this._receiveMsgTimer !== null) {
-            clearTimeout(this._receiveMsgTimer);
-        }
-        if (this._keepAliveTimer !== null) {
-            clearTimeout(this._keepAliveTimer);
-        }
-        if (this._reconnectTimer !== null) {
-            clearTimeout(this._reconnectTimer);
-        }
+        this.removeNetworkTimer(this._receiveMsgTimer);
+        this.removeNetworkTimer(this._keepAliveTimer);
+        this.removeNetworkTimer(this._reconnectTimer);
+        this._receiveMsgTimer = 0;
+        this._keepAliveTimer = 0;
+        this._reconnectTimer = 0;
     }
 
     /** 是否自动重连接 */
@@ -510,6 +526,46 @@ export class NetNode {
     rejectReconnect() {
         this._autoReconnect = 0;
         this.clearTimer();
+    }
+
+    private addNetworkTimer(callback: () => void, milliseconds: number): number {
+        return tyou.timer.addTimer(callback, Math.max(0, milliseconds) / 1000);
+    }
+
+    private removeNetworkTimer(timerId: number): void {
+        if (timerId > 0) {
+            tyou.timer.removeTimer(timerId);
+        }
+    }
+
+    private decodePacket(msg: any): any {
+        if (typeof msg === "string") {
+            return JSON.parse(msg);
+        }
+
+        const bytes = this.getMessageBytes(msg);
+        const decoderCtor = (globalThis as any).TextDecoder;
+        if (decoderCtor) {
+            return JSON.parse(new decoderCtor("utf-8").decode(bytes));
+        }
+
+        return JSON.parse(this.Utf8ArrayToStr(bytes));
+    }
+
+    private getMessageBytes(msg: any): Uint8Array {
+        if (msg instanceof ArrayBuffer) {
+            return new Uint8Array(msg);
+        }
+        if (ArrayBuffer.isView(msg)) {
+            return new Uint8Array(msg.buffer, msg.byteOffset, msg.byteLength);
+        }
+        if (msg?.data instanceof ArrayBuffer) {
+            return new Uint8Array(msg.data);
+        }
+        if (msg?.buffer instanceof ArrayBuffer) {
+            return new Uint8Array(msg.buffer);
+        }
+        throw new Error("Unsupported socket message data");
     }
 
     private Utf8ArrayToStr(array: any) {

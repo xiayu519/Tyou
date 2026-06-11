@@ -1,8 +1,25 @@
 import {error, warn} from "cc";
-import {Module} from "../Module";
 
-var urls: any = {};                      // 当前请求地址集合
-var reqparams: any = {};                 // 请求参数
+type HttpMethod = "GET" | "POST";
+type HttpResponseType = "" | "arraybuffer";
+type HttpCallback = Function | undefined;
+
+interface IHttpRequestRecord {
+    key: string;
+    name: string;
+    url: string;
+    finalUrl: string;
+    method: HttpMethod;
+    params: any;
+    responseType: HttpResponseType;
+    abort?: () => void;
+    settled: boolean;
+}
+
+interface IPlatformRequestAdapter {
+    name: string;
+    api: any;
+}
 
 /** 请求事件 */
 export enum HttpEvent {
@@ -11,7 +28,13 @@ export enum HttpEvent {
     /** 未知错误 */
     UNKNOWN_ERROR = "http_request_unknown_error",
     /** 请求超时 */
-    TIMEOUT = "http_request_timout"
+    TIMEOUT = "http_request_timout",
+    /** 请求取消 */
+    ABORT = "http_request_abort",
+    /** HTTP状态码错误 */
+    HTTP_ERROR = "http_request_http_error",
+    /** 响应解析错误 */
+    PARSE_ERROR = "http_request_parse_error"
 }
 
 /** HTTP请求 */
@@ -21,22 +44,17 @@ export class HttpModule {
     /** 请求超时时间 */
     timeout: number = 10000;
 
+    private readonly _requests: Map<string, IHttpRequestRecord> = new Map();
+    private readonly _platformNames: string[] = ["wx", "tt", "qq", "my", "swan", "qg", "ks", "jd", "hbs"];
+
     /**
      * HTTP GET请求
      * @param name                  协议名
      * @param completeCallback      请求完整回调方法
      * @param errorCallback         请求失败回调方法
-     * @example
-     var complete = function(response){
-     console.log(response);
-     }
-     var error = function(response){
-     console.log(response);
-     }
-     oops.http.get(name, complete, error);
      */
     get(name: string, completeCallback: Function, errorCallback: Function) {
-        this.sendRequest(name, null, false, completeCallback, errorCallback)
+        this.sendRequest(name, null, false, completeCallback, errorCallback);
     }
 
     /**
@@ -45,20 +63,9 @@ export class HttpModule {
      * @param params                查询参数
      * @param completeCallback      请求完整回调方法
      * @param errorCallback         请求失败回调方法
-     * @example
-     var param = '{"uid":12345}'
-     var complete = function(response){
-     var jsonData = JSON.parse(response);
-     var data = JSON.parse(jsonData.Data);
-     console.log(data.Id);
-     }
-     var error = function(response){
-     console.log(response);
-     }
-     oops.http.getWithParams(name, param, complete, error);
      */
     getWithParams(name: string, params: any, completeCallback: Function, errorCallback: Function) {
-        this.sendRequest(name, params, false, completeCallback, errorCallback)
+        this.sendRequest(name, params, false, completeCallback, errorCallback);
     }
 
     /**
@@ -68,7 +75,7 @@ export class HttpModule {
      * @param errorCallback         请求失败回调方法
      */
     getByArraybuffer(name: string, completeCallback: Function, errorCallback: Function) {
-        this.sendRequest(name, null, false, completeCallback, errorCallback, 'arraybuffer', false);
+        this.sendRequest(name, null, false, completeCallback, errorCallback, "arraybuffer", false);
     }
 
     /**
@@ -79,7 +86,7 @@ export class HttpModule {
      * @param errorCallback         请求失败回调方法
      */
     getWithParamsByArraybuffer(name: string, params: any, completeCallback: Function, errorCallback: Function) {
-        this.sendRequest(name, params, false, completeCallback, errorCallback, 'arraybuffer', false);
+        this.sendRequest(name, params, false, completeCallback, errorCallback, "arraybuffer", false);
     }
 
     /**
@@ -88,17 +95,6 @@ export class HttpModule {
      * @param params                查询参数
      * @param completeCallback      请求完整回调方法
      * @param errorCallback         请求失败回调方法
-     * @example
-     var param = '{"LoginCode":"donggang_dev","Password":"e10adc3949ba59abbe56e057f20f883e"}'
-     var complete = function(response){
-     var jsonData = JSON.parse(response);
-     var data = JSON.parse(jsonData.Data);
-     console.log(data.Id);
-     }
-     var error = function(response){
-     console.log(response);
-     }
-     oops.http.post(name, param, complete, error);
      */
     post(name: string, params: any, completeCallback?: Function, errorCallback?: Function) {
         this.sendRequest(name, params, true, completeCallback, errorCallback);
@@ -106,16 +102,38 @@ export class HttpModule {
 
     /** 取消请求中的请求 */
     abort(name: string) {
-        var xhr = urls[this.server + name];
-        if (xhr) {
-            xhr.abort();
+        const resolvedUrl = this.resolveUrl(name);
+        for (const record of Array.from(this._requests.values())) {
+            if (record.name === name || record.url === resolvedUrl || record.finalUrl === resolvedUrl || record.finalUrl.startsWith(`${resolvedUrl}?`)) {
+                this.abortRecord(record);
+            }
         }
+    }
+
+    onDestroy(): void {
+        for (const record of Array.from(this._requests.values())) {
+            this.abortRecord(record);
+        }
+        this._requests.clear();
+    }
+
+    onInit(server: string, timeout: number): void {
+        this.server = server;
+        this.timeout = timeout;
     }
 
     /**
      * 获得字符串形式的参数
      */
-    private getParamString(params: any) {
+    private getParamString(params: any): string {
+        if (params == null || params === "") {
+            return "";
+        }
+
+        if (typeof params === "string") {
+            return params;
+        }
+
         const pairs: string[] = [];
         const append = (key: string, value: any) => {
             const encodedKey = encodeURIComponent(key);
@@ -123,14 +141,14 @@ export class HttpModule {
             pairs.push(`${encodedKey}=${encodedValue}`);
         };
 
-        for (var name in params) {
+        for (const name in params) {
             if (!Object.prototype.hasOwnProperty.call(params, name)) {
                 continue;
             }
 
-            let data = params[name];
-            if (data !== null && typeof data === "object") {
-                for (var key in data) {
+            const data = params[name];
+            if (data !== null && typeof data === "object" && !Array.isArray(data)) {
+                for (const key in data) {
                     if (Object.prototype.hasOwnProperty.call(data, key)) {
                         append(key, data[key]);
                     }
@@ -157,139 +175,306 @@ export class HttpModule {
                         isPost: boolean,
                         completeCallback?: Function,
                         errorCallback?: Function,
-                        responseType?: string,
+                        responseType: HttpResponseType = "",
                         isOpenTimeout = true,
                         timeout: number = this.timeout) {
-        if (name == null || name == '') {
+        if (name == null || name === "") {
             error("请求地址不能为空");
             return;
         }
 
-        var url: string, newUrl: string, paramsStr: string;
-        if (name.toLocaleLowerCase().indexOf("http") == 0) {
-            url = name;
-        } else {
-            url = this.server + name;
-        }
+        const method: HttpMethod = isPost ? "POST" : "GET";
+        const url = this.resolveUrl(name);
+        const query = method === "GET" ? this.getParamString(params) : "";
+        const finalUrl = this.appendQuery(url, query);
+        const body = method === "POST" ? this.serializeBody(params) : undefined;
+        const key = this.makeRequestKey(method, finalUrl, body, responseType);
 
-        if (params) {
-            paramsStr = this.getParamString(params);
-            if (url.indexOf("?") > -1)
-                newUrl = url + "&" + paramsStr;
-            else
-                newUrl = url + "?" + paramsStr;
-        } else {
-            newUrl = url;
-        }
-
-        if (urls[newUrl] != null && reqparams[newUrl] == paramsStr!) {
-            warn(`地址【${url}】已正在请求中，不能重复请求`);
+        if (this._requests.has(key)) {
+            warn(`地址【${finalUrl}】已正在请求中，不能重复请求`);
             return;
         }
 
-        var xhr = new XMLHttpRequest();
+        const record: IHttpRequestRecord = {
+            key,
+            name,
+            url,
+            finalUrl,
+            method,
+            params,
+            responseType,
+            settled: false
+        };
+        this._requests.set(key, record);
 
-        // 防重复请求功能
-        urls[newUrl] = xhr;
-        reqparams[newUrl] = paramsStr!;
-
-        if (isPost) {
-            xhr.open("POST", url);
-        } else {
-            xhr.open("GET", newUrl);
+        const adapter = this.getPlatformRequestAdapter();
+        if (adapter) {
+            this.sendByPlatform(adapter, record, body, completeCallback, errorCallback, isOpenTimeout ? timeout : 0);
+            return;
         }
 
-        // xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=utf-8");
-        xhr.setRequestHeader("Content-Type", "application/json; charset=utf-8");
+        if (typeof XMLHttpRequest !== "undefined") {
+            this.sendByXHR(record, body, completeCallback, errorCallback, isOpenTimeout ? timeout : 0);
+            return;
+        }
 
-        var data: any = {};
-        data.url = url;
-        data.params = params;
+        this.failRequest(record, errorCallback, HttpEvent.UNKNOWN_ERROR, {message: "No HTTP request adapter available"});
+    }
 
-        // 请求超时
-        if (isOpenTimeout) {
-            xhr.timeout = timeout;
-            xhr.ontimeout = () => {
-                this.deleteCache(newUrl);
+    private resolveUrl(name: string): string {
+        const lowerName = name.toLowerCase();
+        if (lowerName.indexOf("http://") === 0 || lowerName.indexOf("https://") === 0) {
+            return name;
+        }
 
-                data.event = HttpEvent.TIMEOUT;
+        if (this.server.endsWith("/") && name.startsWith("/")) {
+            return this.server + name.substring(1);
+        }
+        if (!this.server.endsWith("/") && !name.startsWith("/")) {
+            return `${this.server}/${name}`;
+        }
+        return this.server + name;
+    }
 
-                if (errorCallback) errorCallback(data);
+    private appendQuery(url: string, query: string): string {
+        if (!query) {
+            return url;
+        }
+        return url.indexOf("?") > -1 ? `${url}&${query}` : `${url}?${query}`;
+    }
+
+    private serializeBody(params: any): any {
+        if (params == null || params === "") {
+            return undefined;
+        }
+        if (typeof params === "string" || params instanceof ArrayBuffer) {
+            return params;
+        }
+        return JSON.stringify(params);
+    }
+
+    private makeRequestKey(method: HttpMethod, finalUrl: string, body: any, responseType: HttpResponseType): string {
+        return `${method}|${finalUrl}|${responseType}|${this.getBodySignature(body)}`;
+    }
+
+    private getBodySignature(body: any): string {
+        if (body == null) {
+            return "";
+        }
+        if (typeof body === "string") {
+            return body;
+        }
+        if (body instanceof ArrayBuffer) {
+            return `arraybuffer:${body.byteLength}`;
+        }
+        return String(body);
+    }
+
+    private getPlatformRequestAdapter(): IPlatformRequestAdapter | null {
+        const root = globalThis as any;
+        for (const name of this._platformNames) {
+            const api = root[name];
+            if (api && typeof api.request === "function") {
+                return {name, api};
             }
         }
+        return null;
+    }
 
-        xhr.onloadend = (a) => {
-            if (xhr.status == 500) {
-                this.deleteCache(newUrl);
-
-                if (errorCallback == null) return;
-
-                data.event = HttpEvent.NO_NETWORK;          // 断网
-
-                if (errorCallback) errorCallback(data);
-            }
-        }
-
-        xhr.onerror = () => {
-            this.deleteCache(newUrl);
-
-            if (errorCallback == null) return;
-
-            if (xhr.readyState == 0 || xhr.readyState == 1 || xhr.status == 0) {
-                data.event = HttpEvent.NO_NETWORK;          // 断网 
+    private sendByPlatform(adapter: IPlatformRequestAdapter,
+                           record: IHttpRequestRecord,
+                           body: any,
+                           completeCallback: HttpCallback,
+                           errorCallback: HttpCallback,
+                           timeout: number): void {
+        let settled = false;
+        const settleSuccess = (res: any) => {
+            if (settled) return;
+            settled = true;
+            const statusCode = this.getStatusCode(res);
+            if (this.isHttpSuccess(statusCode)) {
+                this.completeRequest(record, completeCallback, errorCallback, res?.data, statusCode);
             } else {
-                data.event = HttpEvent.UNKNOWN_ERROR;       // 未知错误
+                this.failRequest(record, errorCallback, HttpEvent.HTTP_ERROR, res, statusCode);
             }
-
-            if (errorCallback) errorCallback(data);
+        };
+        const settleFail = (err: any) => {
+            if (settled) return;
+            settled = true;
+            this.failRequest(record, errorCallback, this.mapPlatformError(err), err);
         };
 
-        xhr.onreadystatechange = () => {
-            if (xhr.readyState != 4) return;
-
-            this.deleteCache(newUrl);
-
-            if (xhr.status == 200) {
-                if (completeCallback) {
-                    if (responseType == 'arraybuffer') {
-                        // 加载非文本格式
-                        xhr.responseType = responseType;
-                        if (completeCallback) completeCallback(xhr.response);
-                    } else {
-                        // 加载非文本格式
-                        var data: any = JSON.parse(xhr.response);
-                        if (data.code != null) {
-                            /** 服务器错误码处理 */
-                            if (data.code == 0) {
-                                if (completeCallback) completeCallback(data.data);
-                            } else {
-                                if (errorCallback) errorCallback(data);
-                            }
-                        } else {
-                            if (completeCallback) completeCallback(data);
-                        }
+        try {
+            const requestOptions: any = {
+                url: record.method === "GET" ? record.finalUrl : record.url,
+                method: record.method,
+                data: record.method === "POST" ? body : undefined,
+                header: {"Content-Type": "application/json; charset=utf-8"},
+                headers: {"Content-Type": "application/json; charset=utf-8"},
+                timeout: timeout > 0 ? timeout : undefined,
+                responseType: record.responseType || undefined,
+                success: settleSuccess,
+                fail: settleFail,
+                complete: (res: any) => {
+                    if (!settled && res && (res.statusCode !== undefined || res.status !== undefined)) {
+                        settleSuccess(res);
                     }
                 }
-            }
-        };
+            };
 
-        if (params == null || params == "") {
-            xhr.send();
-        } else {
-            // xhr.send(paramsStr!);                // 根据服务器接受数据方式做选择
-            xhr.send(JSON.stringify(params));
+            const task = adapter.api.request(requestOptions);
+            if (task && typeof task.abort === "function") {
+                record.abort = () => task.abort();
+            }
+        } catch (e) {
+            settleFail(e);
         }
     }
 
-    private deleteCache(url: string) {
-        delete urls[url];
-        delete reqparams[url];
+    private sendByXHR(record: IHttpRequestRecord,
+                      body: any,
+                      completeCallback: HttpCallback,
+                      errorCallback: HttpCallback,
+                      timeout: number): void {
+        const xhr = new XMLHttpRequest();
+        record.abort = () => xhr.abort();
+
+        try {
+            xhr.open(record.method, record.method === "GET" ? record.finalUrl : record.url, true);
+            xhr.setRequestHeader("Content-Type", "application/json; charset=utf-8");
+            if (record.responseType) {
+                xhr.responseType = record.responseType;
+            }
+            if (timeout > 0) {
+                xhr.timeout = timeout;
+            }
+
+            xhr.onload = () => {
+                if (this.isHttpSuccess(xhr.status)) {
+                    const response = record.responseType === "arraybuffer" ? xhr.response : (xhr.response || xhr.responseText);
+                    this.completeRequest(record, completeCallback, errorCallback, response, xhr.status);
+                } else {
+                    this.failRequest(record, errorCallback, this.mapXHRError(xhr), xhr.response || xhr.responseText, xhr.status);
+                }
+            };
+            xhr.onerror = () => this.failRequest(record, errorCallback, this.mapXHRError(xhr), xhr.response || xhr.responseText, xhr.status);
+            xhr.ontimeout = () => this.failRequest(record, errorCallback, HttpEvent.TIMEOUT, xhr.response || xhr.responseText, xhr.status);
+            xhr.onabort = () => this.finishRequest(record);
+            xhr.send(body);
+        } catch (e) {
+            this.failRequest(record, errorCallback, HttpEvent.UNKNOWN_ERROR, e);
+        }
     }
 
+    private completeRequest(record: IHttpRequestRecord,
+                            completeCallback: HttpCallback,
+                            errorCallback: HttpCallback,
+                            response: any,
+                            statusCode?: number): void {
+        this.finishRequest(record);
 
-    onInit(server: string, timeout: number): void {
-        this.server = server;
-        this.timeout = timeout;
+        if (record.responseType === "arraybuffer") {
+            completeCallback?.(response);
+            return;
+        }
+
+        let data: any;
+        try {
+            data = this.parseResponse(response);
+        } catch (e) {
+            this.invokeError(errorCallback, record, HttpEvent.PARSE_ERROR, e, statusCode);
+            return;
+        }
+
+        if (data && typeof data === "object" && Object.prototype.hasOwnProperty.call(data, "code")) {
+            if (data.code === 0) {
+                completeCallback?.(data.data);
+            } else {
+                this.invokeError(errorCallback, record, HttpEvent.UNKNOWN_ERROR, data, statusCode);
+            }
+            return;
+        }
+
+        completeCallback?.(data);
     }
 
+    private failRequest(record: IHttpRequestRecord, errorCallback: HttpCallback, event: HttpEvent, raw?: any, statusCode?: number): void {
+        this.finishRequest(record);
+        this.invokeError(errorCallback, record, event, raw, statusCode);
+    }
+
+    private invokeError(errorCallback: HttpCallback,
+                        record: IHttpRequestRecord,
+                        event: HttpEvent,
+                        raw?: any,
+                        statusCode?: number): void {
+        errorCallback?.({
+            url: record.url,
+            finalUrl: record.finalUrl,
+            params: record.params,
+            event,
+            statusCode,
+            raw
+        });
+    }
+
+    private finishRequest(record: IHttpRequestRecord): void {
+        if (record.settled) {
+            return;
+        }
+        record.settled = true;
+        this._requests.delete(record.key);
+    }
+
+    private abortRecord(record: IHttpRequestRecord): void {
+        const abort = record.abort;
+        this.finishRequest(record);
+        try {
+            abort?.();
+        } catch (e) {
+            warn("[HttpModule] abort request failed", e);
+        }
+    }
+
+    private parseResponse(response: any): any {
+        if (response == null || response === "") {
+            return null;
+        }
+        if (typeof response === "string") {
+            return JSON.parse(response);
+        }
+        return response;
+    }
+
+    private getStatusCode(res: any): number {
+        if (!res) {
+            return 0;
+        }
+        return Number(res.statusCode ?? res.status ?? 0);
+    }
+
+    private isHttpSuccess(statusCode: number): boolean {
+        return (statusCode >= 200 && statusCode < 300) || statusCode === 304;
+    }
+
+    private mapXHRError(xhr: XMLHttpRequest): HttpEvent {
+        if (xhr.readyState === 0 || xhr.readyState === 1 || xhr.status === 0) {
+            return HttpEvent.NO_NETWORK;
+        }
+        return HttpEvent.HTTP_ERROR;
+    }
+
+    private mapPlatformError(err: any): HttpEvent {
+        const message = String(err?.errMsg || err?.message || err || "").toLowerCase();
+        if (message.indexOf("timeout") >= 0) {
+            return HttpEvent.TIMEOUT;
+        }
+        if (message.indexOf("abort") >= 0 || message.indexOf("cancel") >= 0) {
+            return HttpEvent.ABORT;
+        }
+        if (message.indexOf("network") >= 0 || message.indexOf("fail") >= 0) {
+            return HttpEvent.NO_NETWORK;
+        }
+        return HttpEvent.UNKNOWN_ERROR;
+    }
 }

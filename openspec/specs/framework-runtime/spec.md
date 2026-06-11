@@ -82,3 +82,16 @@ The Tyou runtime MUST keep the shared popup backdrop synchronized with the curre
 - **WHEN** the shared backdrop is clicked behind the top eligible popup
 - **THEN** the runtime closes that popup only if `bgClose` is enabled
 - **AND** otherwise emits the existing popup-background-click event for custom handling
+
+### Requirement: Network runtime cleans up through framework lifecycle
+The Tyou framework runtime MUST ensure network and HTTP module-owned transient state is cleared through module close or destroy paths.
+
+#### Scenario: Framework is destroyed
+- **WHEN** `tyou.onDestroy()` runs
+- **THEN** HTTP in-flight request records are aborted or cleared
+- **AND** network socket nodes can be closed without leaving active reconnect or heartbeat timers
+
+#### Scenario: Network module uses timers
+- **WHEN** network runtime code schedules heartbeat, receive-timeout, or reconnect work
+- **THEN** the scheduled work is owned by the network node lifecycle
+- **AND** closing the node clears that work before it can drive stale state

@@ -54,6 +54,8 @@ tyou.i18n.get("common_ok");
 
 对象池的 Node 池租借/归还、`poolName || assetPath` key 语义和 Prefab 释放契约见 `pool-api.md`。
 
+HTTP 请求、小游戏平台 request/WebSocket 适配、错误事件、abort 和网络节点生命周期见 `network-http.md`。
+
 ## 框架模块变更
 
 不要默认新增或修改 `ty-framework/module`。如果任务看起来需要新框架模块，先停下来问开发者是否确认扩展框架，并说明是否需要改 `Tyou.ts` 生命周期。
