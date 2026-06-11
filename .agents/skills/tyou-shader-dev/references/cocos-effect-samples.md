@@ -1,16 +1,8 @@
 # Cocos Effect 样本
 
-本文件记录已检查过的 Cocos Creator 3.8.x shader/material 参考样本。外部项目路径只作为样本来源；落地到 Tyou 前仍要先查当前 `Client/assets` 的真实目录、uuid、bundle 和材质绑定。
+本文件记录已检查过的 Cocos Creator 3.8.x shader/material 参考结构。落地到 Tyou 前仍要先查当前 `Client/assets` 的真实目录、uuid、bundle 和材质绑定。
 
-## first-game actor occlusion outline
-
-样本位置：
-
-- `D:\aipro\first-game\Client\assets\asset-raw\effects\actor-occlusion-outline.effect`
-- `D:\aipro\first-game\Client\assets\asset-raw\effects\actor-occlusion-outline.effect.meta`
-- `D:\aipro\first-game\Client\assets\asset-raw\effects\actor-occlusion-outline.mtl`
-- `D:\aipro\first-game\Client\assets\asset-raw\effects\actor-occlusion-outline.mtl.meta`
-- `D:\aipro\first-game\Client\assets\asset-raw\actor\Actor.prefab`
+## actor occlusion outline structure
 
 ### 资源链路
 

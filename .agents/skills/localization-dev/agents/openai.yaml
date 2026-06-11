@@ -1,0 +1,4 @@
+interface:
+  display_name: "Localization Dev"
+  short_description: "Tyou localization text workflow"
+  default_prompt: "Use $localization-dev to add or update Tyou localization text through the Luban table."

@@ -175,8 +175,8 @@
     {
       "id": 11,
       "name": "tyou-shader-dev-routing",
-      "description": "验证 AI 对 Tyou 2D/Spine/序列帧 shader 使用 tyou-shader-dev，能参考 Cocos Effect 样本，并排除泛化 effect、3D/URP 默认范围。",
-      "prompt": "我要给 Cocos UI 图标做流光，Spine 怪物做受击闪白，再给一张序列帧图做 flipbook shader。能不能参考 Cocos Effect/Material 样本，或者直接套 Unity URP 的 RendererFeature、做 3D PBR、把普通战斗 effect 都当 shader？",
+      "description": "验证 AI 对 Tyou 2D/Spine/序列帧 shader 使用 tyou-shader-dev，能参考 Cocos Effect 样本，并排除泛化 effect 和 3D 默认范围。",
+      "prompt": "我要给 Cocos UI 图标做流光，Spine 怪物做受击闪白，再给一张序列帧图做 flipbook shader。能不能参考 Cocos Effect/Material 样本，或者做 3D PBR、全屏后处理、历史缓冲仿真、把普通战斗 effect 都当 shader？",
       "expected_patterns": [
         "tyou-shader-dev",
         "2D",
@@ -187,10 +187,9 @@
         "Material"
       ],
       "forbidden_patterns": [
-        "直接套 Unity URP",
-        "RendererFeature",
-        "RenderGraph",
         "3D PBR",
+        "全屏后处理默认支持",
+        "历史缓冲仿真默认支持",
         "普通战斗 effect 都当 shader",
         "不需要真机验证"
       ]

@@ -1,4 +1,4 @@
 interface:
   display_name: "Tyou Shader Dev"
   short_description: "Cocos小游戏2D/Spine/序列帧shader开发"
-  default_prompt: "Use $tyou-shader-dev to implement or port a Cocos Creator 2D/UI/Sprite/Spine/sequence-frame shader under Tyou minigame constraints."
+  default_prompt: "Use $tyou-shader-dev to implement, review, or optimize a Cocos Creator 2D/UI/Sprite/Spine/sequence-frame shader under Tyou minigame constraints."

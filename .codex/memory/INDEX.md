@@ -7,6 +7,7 @@
 ## Problems
 
 - `.codex/memory/problems/luban-xlsx-serial-writes.md`：修改 Luban 源 Excel 表时，同一 `.xlsx` 写入必须串行执行。
+- `.codex/memory/problems/skill-creator-chinese-utf8-gbk.md`：Windows 默认 GBK 下 skill-creator 脚本读取中文 UTF-8 `SKILL.md` 可能失败。
 
 ## Decisions
 

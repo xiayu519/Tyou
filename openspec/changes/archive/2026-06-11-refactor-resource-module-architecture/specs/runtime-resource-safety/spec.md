@@ -1,27 +1,4 @@
-# runtime-resource-safety Specification
-
-## Purpose
-Define the Tyou runtime resource-safety contract for asynchronous Sprite assignment and UI auto-release integration.
-## Requirements
-### Requirement: Sprite async assignment ignores stale requests
-The runtime resource API MUST provide a Sprite assignment path that prevents stale asynchronous image loads from overwriting the latest request for the same Sprite.
-
-#### Scenario: Older sprite request finishes last
-- **WHEN** two async sprite assignments target the same Sprite and the older request completes after the newer request
-- **THEN** the older request does not replace the SpriteFrame set by the newer request
-- **AND** any SpriteFrame loaded only for the stale request is released through the resource lifecycle path
-
-#### Scenario: Sprite target is destroyed before completion
-- **WHEN** an async sprite assignment completes after its Sprite target becomes invalid
-- **THEN** the API reports failure and does not assign a SpriteFrame
-- **AND** any SpriteFrame loaded for that failed assignment is released through the resource lifecycle path
-
-### Requirement: UI sprite helper keeps auto release
-The UI base class MUST expose a sprite assignment helper that preserves UI dynamic resource auto-release behavior.
-
-#### Scenario: UI assigns sprite safely
-- **WHEN** a UI uses the safe sprite assignment helper and the latest request succeeds
-- **THEN** the assigned SpriteFrame is registered for UI auto-release
+## ADDED Requirements
 
 ### Requirement: Resource API preserves indexed logical-name loading
 The runtime resource API MUST resolve string resource names through `AssetIndexManager` before loading assets, while preserving the existing fallback diagnostics for missing or unknown index entries.
@@ -50,12 +27,7 @@ The runtime resource module MUST keep the supported `tyou.res.*` facade methods 
 #### Scenario: Existing resource callers keep using tyou.res
 - **WHEN** existing code calls supported resource facade methods such as `loadAssetAsync`, `loadDirAsync`, `loadGameObjectAsync`, `loadSprite`, `loadAtlas`, `setSpriteAsync`, `preload`, `loadBundleAsync`, `reloadBundleAsync`, `addRef`, or `decRef`
 - **THEN** the methods remain available on `tyou.res`
-- **AND** callers do not instantiate `LoaderManager` or access `tyou.res.loader`
-
-#### Scenario: Legacy LoaderManager entry is absent
-- **WHEN** framework or business code needs resource loading
-- **THEN** it uses `tyou.res.*` and the internal resource services
-- **AND** the old `LoaderManager` source file is not kept as a public or compatibility entry
+- **AND** callers do not need to instantiate `LoaderManager` or access `tyou.res.loader`
 
 ### Requirement: Managed asset loading coalesces duplicate in-flight requests
 The runtime resource API MUST avoid starting duplicate Cocos load operations for the same normalized resource request while a request is already in flight.
@@ -104,24 +76,3 @@ The runtime resource API MUST preserve the existing bundle load, reload, remove,
 - **WHEN** a caller invokes `tyou.res.removeBundle`, `tyou.res.release`, or `tyou.res.releaseUnused`
 - **THEN** the corresponding Cocos bundle resource operation remains available through `tyou.res`
 - **AND** `tyou.res.releaseAll` remains available for releasing managed cached resources through the resource facade
-
-### Requirement: Managed release cancels matching in-flight requests
-The runtime resource API MUST prevent in-flight managed loads from re-entering the managed cache after `releaseAll` has released their matching cache scope.
-
-#### Scenario: releaseAll cancels pending managed asset load
-- **WHEN** `tyou.res.releaseAll()` is called while a managed asset request is still in flight
-- **THEN** the pending request does not add a managed cache entry after it completes
-- **AND** it does not add a retained managed reference after it completes
-
-#### Scenario: Bundle-scoped releaseAll cancels matching pending loads
-- **WHEN** `tyou.res.releaseAll(bundle)` is called while managed asset or directory requests for that bundle are still in flight
-- **THEN** pending requests for that bundle do not add managed cache entries after they complete
-- **AND** pending requests for other bundles remain active
-
-### Requirement: Remote SpriteFrame creation is lifecycle-managed
-The runtime resource API MUST ensure SpriteFrames created from remote images have a managed reference that can be released by UI or scene auto-release containers.
-
-#### Scenario: Remote image becomes SpriteFrame
-- **WHEN** `tyou.res.setSpriteAsync` receives a remote image `url`
-- **THEN** the created SpriteFrame is retained through the resource release scheduler before it is returned
-- **AND** the caller can pair it with `tyou.res.decRef` or UI auto-release

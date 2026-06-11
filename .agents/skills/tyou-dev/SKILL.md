@@ -30,6 +30,7 @@ description: Tyou Cocos Creator 3.8.7 + TypeScript 客户端开发总入口。�
 | Scene | `references/scene-workflow.md` | `references/resource-api.md`, `references/architecture.md`, `cocos-asset-json` |
 | Cocos 源资产解析/uuid/Atlas | `.agents/skills/cocos-asset-json/SKILL.md` | 相关 Prefab/Scene/资源参考 |
 | Luban 配表 | `.agents/skills/luban-dev/SKILL.md` | `luban-config.md`, `Design/tools/genBin.bat` |
+| 多语言文案/i18n | `.agents/skills/localization-dev/SKILL.md` | `.agents/skills/luban-dev/SKILL.md`, `luban-config.md` |
 | Cocos 2D/Spine/序列帧 shader | `.agents/skills/tyou-shader-dev/SKILL.md` | 相关资源/Prefab/Scene 参考 |
 | PSD/UI 生成工具 | `references/psd2ui-workflow.md` | `references/ui-patterns.md` |
 | 事件系统 | `references/event-system.md` | `references/modules.md` |

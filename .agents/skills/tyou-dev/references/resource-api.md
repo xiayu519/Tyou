@@ -2,7 +2,13 @@
 
 ## 核心文件
 
-- `ResourceModule.ts`：资源加载门面。
+- `ResourceModule.ts`：资源加载门面，保留 `tyou.res.*` 对外 API。
+- `AssetPathResolver.ts`：逻辑名/完整参数到实际加载参数的解析。
+- `AssetTypeRegistry.ts`：索引类型字符串到 Cocos 资源类型的映射。
+- `ManagedAssetLoader.ts`：托管资源缓存、并发加载合并、preload/remote/loadDir。
+- `BundleService.ts`：bundle load/reload/remove/release 行为。
+- `ReleaseScheduler.ts`：`addRef/decRef` 与延迟释放队列。
+- `SpriteAssignService.ts`：异步 Sprite 设置与旧请求防覆盖。
 - `AssetIndexManager.ts`：逻辑名到 path/bundle/type 的索引。
 - `AssetIndexInfo.ts`：索引数据结构。
 - `asset-index.json`：运行时资源索引。
@@ -11,13 +17,13 @@
 
 ## 资源索引规则
 
-`ResourceModule.getInfo()` 如果收到字符串，会调用：
+`AssetPathResolver` 如果收到字符串资源名，会调用：
 
 ```ts
 const info = AssetIndexManager.instance.getAssetInfo(name);
 ```
 
-再根据 `info.path / info.bundle / info.type` 加载实际资源。
+再根据 `info.path / info.bundle / info.type` 生成实际加载参数，并交给 `ResourceModule`/`ManagedAssetLoader` 加载实际资源。
 
 SpriteFrame 会自动补 `/spriteFrame`。
 
@@ -58,6 +64,22 @@ await tyou.res.loadAssetAsync({
 - Prefab 实例：`loadGameObjectAsync` 会添加 `ResourceHolder`。
 - UI 动态资源：用 `UIBase.addAutoReleaseAsset(asset)`，窗口关闭时 `decRef`。
 - 配表加载后会对 `BufferAsset` 调用 `tyou.res.decRef(cfg)`。
+- 远程图片：`setRemoteSpriteAsync` 通过 `setSpriteAsync({ url })` 生成托管 `SpriteFrame`，成功赋值后由 UI 自动释放集合负责 `decRef`。
+
+## 生命周期契约
+
+资源模块的核心规则是：成功拿到会长期使用的 `Asset` 后，必须进入一个明确的生命周期容器，或者由调用方在使用结束时手动 `tyou.res.decRef(asset)`。
+
+- UI 窗口内加载的 `SpriteFrame`、`SpriteAtlas`、远程 `SpriteFrame`：放入 `UIBase.addAutoReleaseAsset()`，窗口释放时统一 `decRef`。
+- 场景生命周期内的动态资源：放入 `tyou.scene.addAutoReleaseAsset()` 或当前 `SceneBase.addAutoReleaseAsset()`，场景离开时释放。
+- Prefab 实例：优先用 `tyou.res.loadGameObjectAsync()`，框架会给实例添加 `ResourceHolder`，节点销毁时释放 Prefab 资源。
+- Spine 自动释放：优先用 `loadSpineAsync()` / `loadSpineEffectAsync()` 的默认 `isAutoRelease = true`，由 `SpineHolder` 在节点销毁或特效播放结束时释放。
+- 表格、音频等模块内部资源：模块自己持有缓存时，必须在移出缓存或模块销毁时成对 `decRef`。
+- 只用于一次性解析的资源：解析完成后立即 `decRef`，例如配表 `BufferAsset` 读取到内存后释放源资源引用。
+
+`tyou.res.setSpriteAsync()` 有异步覆盖保护：同一个 `Sprite` 的旧请求晚于新请求完成时，旧请求不会覆盖当前图；如果旧请求已经加载出 `SpriteFrame`，框架会释放这次未被赋值的资源。
+
+不要把 `releaseAll()` 当作业务生命周期的替代品。`releaseAll()` 用于清理资源模块的托管缓存和取消匹配的 in-flight 请求；正常 UI/Scene/Prefab 生命周期仍应靠自动释放容器或明确 `decRef` 配对。
 
 ## 资源索引生成
 

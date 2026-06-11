@@ -30,7 +30,7 @@ localUV = uv / float2(columns, rows)
 flipbookUV = localUV + float2(x, y) / float2(columns, rows)
 ```
 
-具体 Y 方向是否翻转要按 Cocos 实际纹理坐标验证，不要照搬 Unity 或 ShaderToy。
+具体 Y 方向是否翻转要按 Cocos 实际纹理坐标验证，不要按经验臆断。
 
 ## 帧间混合
 

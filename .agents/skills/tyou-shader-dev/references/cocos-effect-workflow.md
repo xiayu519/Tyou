@@ -13,7 +13,7 @@ rg --files Client/assets | rg "\.(effect|material|mtl)$"
 rg -n "Material|EffectAsset|setProperty|customMaterial|sharedMaterial|sp\.Skeleton|Sprite" Client/assets -S
 ```
 
-优先使用当前项目已有样本；当前项目没有可复用 shader 样本时，可读 `cocos-effect-samples.md` 的外部参考链路，再从 `assets/templates/` 复制思路并按 Cocos 3.8.7 重新验证。不要把外部参考路径当成当前项目事实。
+优先使用当前项目已有样本；当前项目没有可复用 shader 样本时，可读 `cocos-effect-samples.md` 的结构参考，再从 `assets/templates/` 复制思路并按 Cocos 3.8.7 重新验证。不要把参考结构当成当前项目事实。
 
 ## 文件落点建议
 
@@ -43,4 +43,4 @@ rg -n "Material|EffectAsset|setProperty|customMaterial|sharedMaterial|sp\.Skelet
 - UI/Sprite/Spine 的顶点色和 alpha 不能随手丢，通常要乘回输出颜色。
 - Spine 贴图常依赖 atlas 和 premultiplied alpha，闪白/染色要先确认混合方式。
 - 同一个材质资源被多个对象共享时，运行时改 uniform 会影响所有使用者。
-- ShaderToy 的 `iTime/iResolution/iChannel*` 不是 Cocos 自动变量，必须由材质属性或脚本驱动。
+- 时间、尺寸、额外贴图等动态输入不是 Cocos UI/Sprite 材质的自动变量，必须由材质属性或脚本驱动。
