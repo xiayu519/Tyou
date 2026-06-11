@@ -54,6 +54,8 @@ tyou.i18n.get("common_ok");
 
 对象池的 Node 池租借/归还、`poolName || assetPath` key 语义和 Prefab 释放契约见 `pool-api.md`。
 
+AudioSource 池、AudioClip 引用、BGM 切换和销毁顺序见 `audio-lifecycle.md`。
+
 HTTP 请求、小游戏平台 request/WebSocket 适配、错误事件、abort 和网络节点生命周期见 `network-http.md`。
 
 ## 框架模块变更

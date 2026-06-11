@@ -73,19 +73,19 @@ class Tyou {
     }
 
     public onDestroy(): void {
-        this.res.onDestroy();
-        this.event.onDestroy();
-        this.timer.onDestroy();
-        this.http.onDestroy();
-        this.pool.onDestroy();
+        this.ui.onDestroy();
         this.audio.onDestroy();
         this.scene.onDestroy();
-        this.fsm.onDestroy();
-        this.ui.onDestroy();
+        this.pool.onDestroy();
+        this.table.onDestroy();
+        this.http.onDestroy();
         this.storage.onDestroy();
         this.i18n.onDestroy();
-        this.table.onDestroy();
         this.update.onDestroy();
+        this.fsm.onDestroy();
+        this.event.onDestroy();
+        this.timer.onDestroy();
+        this.res.onDestroy();
     }
 }
 

@@ -41,6 +41,19 @@ The runtime resource safety contract MUST treat UI Prefabs and UI dynamic assets
 - **THEN** the loaded node is destroyed instead of being attached as an active managed window
 - **AND** its resource holder can release the Prefab reference normally
 
+### Requirement: AudioClip resources follow audio playback lifecycle
+The runtime resource safety contract MUST treat AudioClip cache and playback ownership as lifecycle-owned resources released by the audio module.
+
+#### Scenario: AudioClip is cached for playback
+- **WHEN** the audio runtime loads an AudioClip through `tyou.res.loadAssetAsync`
+- **THEN** the clip is tracked in the audio cache
+- **AND** successful playback ownership increments audio playback reference state
+
+#### Scenario: Audio playback ends
+- **WHEN** an AudioSource playback stops, is preempted, completes, or the audio module is destroyed
+- **THEN** the AudioClip playback ownership is released exactly once
+- **AND** unused cached AudioClips are released through `tyou.res.decRef`
+
 ### Requirement: Resource API preserves indexed logical-name loading
 The runtime resource API MUST resolve string resource names through `AssetIndexManager` before loading assets, while preserving the existing fallback diagnostics for missing or unknown index entries.
 
