@@ -13,33 +13,52 @@ export class GameWorld extends Component {
     private _autoSaveIntervalSeconds: number = 5;
     private _autoSaveCount: number = 0;
     private _stamRecoverCount: number = 0;
+    private _lastDayKey: number = 0;
+    private _hasDayKey: boolean = false;
+    private readonly _tickHandler = () => {
+        this._onSecondTick();
+    };
     
     protected start(): void {
         this.setServerTime(Date.now());
-        this.schedule(() => {
-            this._serverTime ++;
-            this._autoSaveCount++;
-            this._stamRecoverCount++;
-            if (this._stamRecoverCount >= 60) {
-                this._stamRecoverCount = 0;
-            }
-            tyou.event.emit(GameEvent.TIME_UPDATE_SECOND);
-            if (this._autoSaveCount >= this._autoSaveIntervalSeconds) {
-                this._autoSaveCount = 0;
-            }
-        }, 1)
+        this.schedule(this._tickHandler, 1);
     }
 
-    setServerTime(val: number) {
-        this._serverTime = this.now(val);
+    protected onDestroy(): void {
+        this.unschedule(this._tickHandler);
+        this.unscheduleAllCallbacks();
+    }
+
+    setServerTime(val: number): void {
+        const normalized = this.normalizeUnixSeconds(val);
+        if (normalized === null) {
+            console.warn('[GameWorld] setServerTime ignored invalid timestamp:', val);
+            return;
+        }
+
+        this._serverTime = normalized;
+        this._refreshDayKey(false);
     }
 
     getServerTime(): number {
         return this._serverTime;
     }
 
-    setTimeScale(scale: number) {
-        this._timeScale = scale;
+    getServerTimeMs(): number {
+        return this._serverTime * 1000;
+    }
+
+    getLocalUnixTime(): number {
+        return Math.floor(Date.now() / 1000);
+    }
+
+    setTimeScale(scale: number): void {
+        if (!Number.isFinite(scale)) {
+            console.warn('[GameWorld] setTimeScale ignored invalid scale:', scale);
+            return;
+        }
+
+        this._timeScale = Math.max(0, scale);
     }
 
     getTimeScale(): number {
@@ -48,33 +67,92 @@ export class GameWorld extends Component {
 
     //当前真实时间戳
     ts2now(ts: number): number {
-        return Math.floor((ts + TIMESTAMP_EPOCH_2025) * 1000);
+        return Math.floor(this.tsToUnixSeconds(ts) * 1000);
     }
     //储存时间戳
     ts(): number {
-        const t = this._serverTime;
-        return t - TIMESTAMP_EPOCH_2025;
+        return this.unixSecondsToTs(this._serverTime);
     }
 
 
-    private now(tick: number): number {
-        return Math.floor(tick / 1000);
+    unixSecondsToTs(unixSeconds: number): number {
+        return Math.floor(unixSeconds || 0) - TIMESTAMP_EPOCH_2025;
+    }
+
+    tsToUnixSeconds(ts: number): number {
+        return Math.floor(ts || 0) + TIMESTAMP_EPOCH_2025;
+    }
+
+    normalizeUnixSeconds(timestamp: number): number | null {
+        if (!Number.isFinite(timestamp)) {
+            return null;
+        }
+
+        const value = Math.floor(timestamp);
+        if (Math.abs(value) >= 100000000000) {
+            return Math.floor(value / 1000);
+        }
+        return value;
     }
 
     //setDayBoundary(480, 5) 默认是0  如果凌晨5点就这么设置
     setDayBoundary(timezoneOffsetMinutes: number = 480, resetHour: number = 0): void {
-        this._dayTimezoneOffsetMinutes = Math.floor(timezoneOffsetMinutes || 0);
-        this._dayResetHour = Math.max(0, Math.min(23, Math.floor(resetHour || 0)));
+        this._dayTimezoneOffsetMinutes = Number.isFinite(timezoneOffsetMinutes) ? Math.floor(timezoneOffsetMinutes) : 0;
+        this._dayResetHour = Number.isFinite(resetHour) ? Math.max(0, Math.min(23, Math.floor(resetHour))) : 0;
+        this._refreshDayKey(false);
     }
 
     checkIsSameDay(ts: number, nowTs?: number): boolean {
-        const a = this.ts2unixSeconds(ts);
-        const b = this.ts2unixSeconds(nowTs ?? this.ts());
+        const a = this.tsToUnixSeconds(ts);
+        const b = this.tsToUnixSeconds(nowTs ?? this.ts());
         return this._getDayKeyByUnixSeconds(a) === this._getDayKeyByUnixSeconds(b);
     }
 
     checkIsNewDay(lastTs: number, nowTs?: number): boolean {
         return !this.checkIsSameDay(lastTs, nowTs);
+    }
+
+    getServerDayKey(): number {
+        return this._getDayKeyByUnixSeconds(this._serverTime);
+    }
+
+    getDayKeyByTs(ts: number): number {
+        return this._getDayKeyByUnixSeconds(this.tsToUnixSeconds(ts));
+    }
+
+    private _onSecondTick(): void {
+        this._serverTime++;
+        this._autoSaveCount++;
+        this._stamRecoverCount++;
+        if (this._stamRecoverCount >= 60) {
+            this._stamRecoverCount = 0;
+        }
+
+        tyou.event.emit(GameEvent.TIME_UPDATE_SECOND);
+        this._refreshDayKey(true);
+
+        if (this._autoSaveCount >= this._autoSaveIntervalSeconds) {
+            this._autoSaveCount = 0;
+        }
+    }
+
+    private _refreshDayKey(emitEvent: boolean): void {
+        const dayKey = this.getServerDayKey();
+        if (!this._hasDayKey) {
+            this._lastDayKey = dayKey;
+            this._hasDayKey = true;
+            return;
+        }
+
+        if (dayKey === this._lastDayKey) {
+            return;
+        }
+
+        const previousDayKey = this._lastDayKey;
+        this._lastDayKey = dayKey;
+        if (emitEvent) {
+            tyou.event.emit(GameEvent.TIME_UPDATE_NEW_DAY, dayKey, previousDayKey);
+        }
     }
 
     private _getDayKeyByUnixSeconds(unixSeconds: number): number {
@@ -86,8 +164,4 @@ export class GameWorld extends Component {
         return y * 10000 + m * 100 + day;
     }
 
-    private ts2unixSeconds(ts: number): number {
-        return (Math.floor(ts || 0) + TIMESTAMP_EPOCH_2025);
-    }
-    
 }

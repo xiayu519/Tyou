@@ -1,34 +1,39 @@
-import {_decorator, Component} from 'cc';
+import {_decorator} from 'cc';
 import {Module} from "../Module";
 
-const {ccclass, property} = _decorator;
+const {ccclass} = _decorator;
 
 // 计时器回调类型
 export type TimerHandler = (args?: any[]) => void;
+
+const EMPTY_TIMER_HANDLER: TimerHandler = () => {
+};
+
+export interface TimerInfo {
+    id: number;
+    leftTime: number;
+    totalTime: number;
+    isLoop: boolean;
+    isRunning: boolean;
+}
 
 class Timer {
     public id: number = 0;
     public currentTime: number = 0;
     public totalTime: number = 0;
-    public handler: TimerHandler;
+    public handler: TimerHandler = EMPTY_TIMER_HANDLER;
     public isLoop: boolean = false;
     public isNeedRemove: boolean = false;
     public isRunning: boolean = false;
     public args: any[] = [];
     public heapIndex: number = -1; // 在堆中的索引，用于快速定位
 
-    constructor() {
-        this.handler = () => {
-        };
-    }
-
     /** 重置Timer对象用于复用 */
     public reset(): void {
         this.id = 0;
         this.currentTime = 0;
         this.totalTime = 0;
-        this.handler = () => {
-        };
+        this.handler = EMPTY_TIMER_HANDLER;
         this.isLoop = false;
         this.isNeedRemove = false;
         this.isRunning = false;
@@ -181,20 +186,23 @@ class TimerHeap {
 
 @ccclass('TimerModule')
 export class TimerModule extends Module {
-    onCreate(): void {
-    }
-
-    onDestroy(): void {
-        this.removeAllTimer();
-    }
-
     private _currentTimerId: number = 0;
     private _timerHeap: TimerHeap = new TimerHeap();
     private _timerMap: Map<number, Timer> = new Map(); // id -> Timer 快速查找
     private _timerPool: Timer[] = []; // Timer对象池
-    private _pendingRemove: Timer[] = []; // 待删除列表
     private _elapsedSeconds: number = 0;
     private _dispatchingTimerId: number = 0;
+    private _isDestroyed: boolean = false;
+
+    public onCreate(): void {
+        this._isDestroyed = false;
+    }
+
+    public onDestroy(): void {
+        this.removeAllTimer();
+        this.clearTimerPool();
+        this._isDestroyed = true;
+    }
 
     /** 从对象池获取或创建Timer */
     private _createTimer(): Timer {
@@ -216,10 +224,21 @@ export class TimerModule extends Module {
      * @returns 计时器ID
      */
     public addTimer(callback: TimerHandler, time: number, isLoop: boolean = false, ...args: any[]): number {
+        if (this._isDestroyed) {
+            console.warn('[TimerModule] addTimer ignored after destroy');
+            return 0;
+        }
+
+        if (!callback) {
+            console.warn('[TimerModule] addTimer ignored because callback is invalid');
+            return 0;
+        }
+
+        const delay = this._normalizeDelay(time);
         const timer = this._createTimer();
         timer.id = ++this._currentTimerId;
-        timer.currentTime = this._elapsedSeconds + Math.max(0, time);
-        timer.totalTime = Math.max(0, time);
+        timer.currentTime = this._elapsedSeconds + delay;
+        timer.totalTime = delay;
         timer.handler = callback;
         timer.isLoop = isLoop;
         timer.args = args;
@@ -265,7 +284,7 @@ export class TimerModule extends Module {
      */
     public isRunning(timerId: number): boolean {
         const timer = this._timerMap.get(timerId);
-        return timer !== null && timer !== undefined && timer.isRunning;
+        return !!timer && !timer.isNeedRemove && timer.isRunning;
     }
 
     /**
@@ -275,7 +294,7 @@ export class TimerModule extends Module {
      */
     public getLeftTime(timerId: number): number {
         const timer = this._timerMap.get(timerId);
-        if (!timer) return 0;
+        if (!timer || timer.isNeedRemove) return 0;
         return timer.isRunning ? Math.max(0, timer.currentTime - this._elapsedSeconds) : Math.max(0, timer.currentTime);
     }
 
@@ -285,7 +304,7 @@ export class TimerModule extends Module {
      */
     public restart(timerId: number): void {
         const timer = this._timerMap.get(timerId);
-        if (timer) {
+        if (timer && !timer.isNeedRemove) {
             timer.isNeedRemove = false;
             this._scheduleTimer(timer, timer.totalTime);
         }
@@ -300,8 +319,8 @@ export class TimerModule extends Module {
      */
     public resetTimer(timerId: number, callback: TimerHandler, time: number, isLoop: boolean = false): void {
         const timer = this._timerMap.get(timerId);
-        if (timer) {
-            timer.totalTime = Math.max(0, time);
+        if (timer && !timer.isNeedRemove) {
+            timer.totalTime = this._normalizeDelay(time);
             timer.handler = callback;
             timer.isLoop = isLoop;
             timer.isNeedRemove = false;
@@ -317,8 +336,8 @@ export class TimerModule extends Module {
      */
     public resetTimerEx(timerId: number, time: number, isLoop: boolean): void {
         const timer = this._timerMap.get(timerId);
-        if (timer) {
-            timer.totalTime = Math.max(0, time);
+        if (timer && !timer.isNeedRemove) {
+            timer.totalTime = this._normalizeDelay(time);
             timer.isLoop = isLoop;
             timer.isNeedRemove = false;
             this._scheduleTimer(timer, timer.totalTime);
@@ -352,7 +371,6 @@ export class TimerModule extends Module {
         }
         this._timerHeap.clear();
         this._timerMap.clear();
-        this._pendingRemove.length = 0;
         this._dispatchingTimerId = 0;
     }
 
@@ -360,7 +378,51 @@ export class TimerModule extends Module {
      * 获取当前活跃定时器数量
      */
     public getTimerCount(): number {
-        return this._timerMap.size;
+        let count = 0;
+        for (const timer of this._timerMap.values()) {
+            if (!timer.isNeedRemove) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * 检查计时器是否仍存在
+     */
+    public hasTimer(timerId: number): boolean {
+        const timer = this._timerMap.get(timerId);
+        return !!timer && !timer.isNeedRemove;
+    }
+
+    /**
+     * 获取计时器状态快照
+     */
+    public getTimerInfo(timerId: number): TimerInfo | null {
+        const timer = this._timerMap.get(timerId);
+        if (!timer || timer.isNeedRemove) return null;
+
+        return {
+            id: timer.id,
+            leftTime: this.getLeftTime(timerId),
+            totalTime: timer.totalTime,
+            isLoop: timer.isLoop,
+            isRunning: timer.isRunning
+        };
+    }
+
+    /**
+     * 获取可复用Timer对象数量
+     */
+    public getTimerPoolSize(): number {
+        return this._timerPool.length;
+    }
+
+    /**
+     * 清空Timer对象池，用于销毁或内存诊断
+     */
+    public clearTimerPool(): void {
+        this._timerPool.length = 0;
     }
 
     /**
@@ -376,9 +438,11 @@ export class TimerModule extends Module {
      * @param elapsedSeconds 经过的秒数
      */
     private _updateTimer(elapsedSeconds: number): void {
-        this._elapsedSeconds += Math.max(0, elapsedSeconds);
-        // 清空待删除列表
-        this._pendingRemove.length = 0;
+        if (this._isDestroyed) {
+            return;
+        }
+
+        this._elapsedSeconds += this._normalizeDelay(elapsedSeconds);
 
         // 处理所有到期的定时器
         // 使用迭代而非递归，防止栈溢出
@@ -422,6 +486,10 @@ export class TimerModule extends Module {
             if (top.isNeedRemove) {
                 this._removeTimer(top);
             } else if (top.isLoop && top.isRunning) {
+                if (top.currentTime > this._elapsedSeconds) {
+                    this._timerHeap.update(top);
+                    continue;
+                }
                 if (top.totalTime <= 0) {
                     console.warn('[TimerModule] Loop timer interval must be greater than 0');
                     this._removeTimer(top);
@@ -431,6 +499,8 @@ export class TimerModule extends Module {
                 this._timerHeap.update(top);
             } else if (!top.isRunning) {
                 this._timerHeap.remove(top);
+            } else if (top.currentTime > this._elapsedSeconds) {
+                this._timerHeap.update(top);
             } else {
                 this._removeTimer(top);
             }
@@ -442,7 +512,7 @@ export class TimerModule extends Module {
     }
 
     private _scheduleTimer(timer: Timer, delay: number): void {
-        timer.currentTime = this._elapsedSeconds + Math.max(0, delay);
+        timer.currentTime = this._elapsedSeconds + this._normalizeDelay(delay);
         timer.isRunning = true;
         if (timer.heapIndex >= 0) {
             this._timerHeap.update(timer);
@@ -457,6 +527,10 @@ export class TimerModule extends Module {
         }
         this._timerMap.delete(timer.id);
         this._recycleTimer(timer);
+    }
+
+    private _normalizeDelay(time: number): number {
+        return Number.isFinite(time) ? Math.max(0, time) : 0;
     }
 }
 

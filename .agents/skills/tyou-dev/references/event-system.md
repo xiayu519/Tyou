@@ -12,6 +12,8 @@
 - 支持 `waitFor`。
 - 支持 `bindEvents/unbindEvents` 批量绑定。
 - emit 期间延迟移除监听，避免遍历被修改。
+- 同一事件嵌套 emit 使用深度计数，只有最外层分发结束才 flush 延迟移除。
+- `waitFor` 在事件模块销毁或 `clear()` 时会释放等待并返回 `null`。
 
 ## API
 
@@ -20,6 +22,7 @@ tyou.event.on("EventName", this.onEvent, this);
 tyou.event.on("EventName", this.onEvent, this, EventPriority.HIGH);
 tyou.event.once("EventName", this.onOnce, this);
 tyou.event.emit("EventName", arg0, arg1);
+tyou.event.emitArray("EventName", [arg0, arg1]);
 tyou.event.off("EventName", this.onEvent, this);
 tyou.event.targetOff(this);
 
@@ -55,6 +58,7 @@ tyou.event.on("EventName", this.onEventName, this);
 ## 规则
 
 - 模块间解耦用 `tyou.event`。
+- 固定参数事件用 `emit`；已有数组或动态转发参数用 `emitArray`。
 - UI 节点按钮用 `onRegisterEvent`。
 - UI 事件监听要能被 `targetOff(this)` 清理。
 - 非 UI 长生命周期对象要在销毁时 `off` 或 `targetOff`。

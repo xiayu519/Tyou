@@ -8,19 +8,19 @@
 | --- | --- | --- |
 | 资源 | 资源加载、bundle、引用计数 | `tyou.res` |
 | UI | 窗口栈、层级、模糊背景、Tip | `tyou.ui` |
-| 事件 | 优先级事件、once、waitFor、批量绑定 | `tyou.event` |
-| 计时器 | 绝对时间 + 最小堆定时任务 | `tyou.timer` |
+| 事件 | 优先级事件、once、waitFor、批量绑定、嵌套 emit 安全 | `tyou.event` |
+| 计时器 | 绝对时间 + 最小堆定时任务、暂停/恢复/诊断 | `tyou.timer` |
 | 音频 | BGM/音效 | `tyou.audio` |
 | 场景 | 场景注册和切换 | `tyou.scene` |
 | 对象池 | Node/Class 池、等待队列诊断 | `tyou.pool` |
 | FSM | 状态机 | `tyou.fsm` |
 | ECS | ECS 根系统 | `tyou.ecs` |
 | HTTP | HTTP 请求、query 参数编码 | `tyou.http` |
-| 存储 | 本地持久化 | `tyou.storage` |
+| 存储 | 本地持久化、安全解析、时间作用域数据 | `tyou.storage` |
 | 配表 | Luban 二进制表 | `tyou.table` |
 | 多语言 | Luban 文本表、切语言、格式化文本 | `tyou.i18n` |
-| Update | Update 回调管理 | `tyou.update` |
-| 世界 | 服务器时间等全局状态 | `tyou.game` |
+| Update | 快照式 Update 回调管理 | `tyou.update` |
+| 世界 | 服务器时间、跨天检测、时间缩放 | `tyou.game` |
 
 ## 生命周期
 
@@ -46,6 +46,7 @@ onDestroy(): void
 await tyou.res.loadAssetAsync("AssetName");
 await tyou.ui.showUIAsync(UIName.TestUI);
 tyou.event.emit("EventName", arg0, arg1);
+tyou.event.emitArray("EventName", [arg0, arg1]);
 const args = await tyou.event.waitFor("EventName", 5000);
 await tyou.scene.loadSceneAsync(SceneEnum.Login);
 tyou.audio.playBGM("BGM_Main");
@@ -59,6 +60,14 @@ AudioSource 池、AudioClip 引用、BGM 切换和销毁顺序见 `audio-lifecyc
 HTTP 请求、小游戏平台 request/WebSocket 适配、错误事件、abort 和网络节点生命周期见 `network-http.md`。
 Scene / Table / Localization 启动顺序与依赖方向见 `startup-chain.md`。
 FSM 异步切换串行化、reset/destroy 生命周期和快照 update 契约见 `fsm-lifecycle.md`。
+
+基础运行时服务补充约定：
+
+- `tyou.timer.addTimer` 的回调参数保持数组语义：`callback(args)`，不要改成展开参数。
+- `tyou.event.emit` 保持最多 5 个显式参数；动态参数数组使用 `emitArray`。
+- `tyou.update.onUpdate` 使用当前帧快照，更新中新增回调从后续帧开始执行。
+- `tyou.storage.get(key)` 未传默认值时保留缺失 key 返回 `null` 的旧语义；解析失败返回 `undefined`。
+- `tyou.game.setServerTime` 可接收 Unix 秒或毫秒，`getServerTime()` 返回 Unix 秒。
 
 ## 框架模块变更
 

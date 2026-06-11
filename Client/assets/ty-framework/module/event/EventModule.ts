@@ -8,6 +8,19 @@ interface EventListenerInfo {
     once: boolean;
 }
 
+interface PendingRemoval {
+    type: string;
+    callback?: Function;
+    target?: any;
+}
+
+interface EventWaiter {
+    type: string;
+    callback: (...args: any[]) => void;
+    timeoutId: any;
+    resolve: (args: any[] | null) => void;
+}
+
 /** 事件优先级 */
 export enum EventPriority {
     LOWEST = 0,
@@ -56,18 +69,21 @@ export class EventModule extends Module {
     private _bindIdCounter: number = 0;
     private _bindingMap: Map<number, { target: any; entries: { event: string; callback: Function }[] }> = new Map();
 
-    /** 正在 emit 中的事件（防止遍历期间直接修改列表） */
-    private _emittingSet: Set<string> = new Set();
+    /** 正在 emit 中的事件深度（支持同事件嵌套 emit） */
+    private _emitDepthMap: Map<string, number> = new Map();
     /** emit 期间的延迟移除请求 */
-    private _pendingRemovals: { type: string; callback?: Function; target?: any }[] = [];
+    private _pendingRemovals: PendingRemoval[] = [];
+    /** waitFor 等待中的一次性监听，用于销毁时释放 */
+    private _waiters: Set<EventWaiter> = new Set();
 
     public onCreate(): void {
     }
 
     public onDestroy(): void {
+        this._cancelAllWaiters();
         this._listeners.clear();
         this._bindingMap.clear();
-        this._emittingSet.clear();
+        this._emitDepthMap.clear();
         this._pendingRemovals.length = 0;
     }
 
@@ -116,8 +132,8 @@ export class EventModule extends Module {
      * - off("event")                   — 移除该事件所有监听
      */
     public off(type: string, callback?: Function, target?: any): void {
-        if (this._emittingSet.has(type)) {
-            this._pendingRemovals.push({type, callback, target});
+        if (this._isEmitting(type)) {
+            this._queueRemoval(type, callback, target);
             return;
         }
         this._removeListeners(type, callback, target);
@@ -131,12 +147,8 @@ export class EventModule extends Module {
         if (!target) return;
 
         for (const [type, list] of this._listeners) {
-            if (this._emittingSet.has(type)) {
-                for (const info of list) {
-                    if (info.target === target) {
-                        this._pendingRemovals.push({type, callback: info.callback, target});
-                    }
-                }
+            if (this._isEmitting(type)) {
+                this._queueRemoval(type, undefined, target);
             } else {
                 for (let i = list.length - 1; i >= 0; i--) {
                     if (list[i].target === target) {
@@ -154,8 +166,8 @@ export class EventModule extends Module {
      */
     public removeAll(typeOrTarget: any): void {
         if (typeof typeOrTarget === 'string') {
-            if (this._emittingSet.has(typeOrTarget)) {
-                this._pendingRemovals.push({type: typeOrTarget});
+            if (this._isEmitting(typeOrTarget)) {
+                this._queueRemoval(typeOrTarget);
             } else {
                 this._listeners.delete(typeOrTarget);
             }
@@ -172,50 +184,47 @@ export class EventModule extends Module {
      * @param args 最多 5 个参数（与原有 emit 签名一致）
      */
     public emit(type: string, arg0?: any, arg1?: any, arg2?: any, arg3?: any, arg4?: any): void {
+        this.emitArray(type, [arg0, arg1, arg2, arg3, arg4]);
+    }
+
+    /**
+     * 触发事件（参数数组形式）
+     * @param type 事件类型
+     * @param args 参数数组
+     */
+    public emitArray(type: string, args: any[] = []): void {
         const list = this._listeners.get(type);
         if (!list || list.length === 0) return;
 
-        this._emittingSet.add(type);
+        this._beginEmit(type);
 
         // 快照遍历：防止 once 移除或回调中 off 影响遍历
         const snapshot = list.slice();
-        const onceIndices: number[] = [];
+        const onceListeners: EventListenerInfo[] = [];
 
-        for (let i = 0; i < snapshot.length; i++) {
-            const info = snapshot[i];
-            try {
-                if (info.target) {
-                    info.callback.call(info.target, arg0, arg1, arg2, arg3, arg4);
-                } else {
-                    (info.callback as Function)(arg0, arg1, arg2, arg3, arg4);
-                }
-            } catch (e) {
-                console.error(`[EventModule] Error in event "${type}":`, e);
-            }
-            if (info.once) {
-                onceIndices.push(i);
-            }
-        }
-
-        this._emittingSet.delete(type);
-
-        // 移除 once 监听器
-        if (onceIndices.length > 0) {
-            const currentList = this._listeners.get(type);
-            if (currentList) {
-                for (let i = onceIndices.length - 1; i >= 0; i--) {
-                    const info = snapshot[onceIndices[i]];
-                    const idx = currentList.indexOf(info);
-                    if (idx !== -1) {
-                        currentList.splice(idx, 1);
+        try {
+            for (let i = 0; i < snapshot.length; i++) {
+                const info = snapshot[i];
+                try {
+                    if (info.target) {
+                        info.callback.call(info.target, ...args);
+                    } else {
+                        (info.callback as Function)(...args);
                     }
+                } catch (e) {
+                    console.error(`[EventModule] Error in event "${type}":`, e);
                 }
-                if (currentList.length === 0) this._listeners.delete(type);
+                if (info.once) {
+                    onceListeners.push(info);
+                }
             }
+        } finally {
+            for (let i = 0; i < onceListeners.length; i++) {
+                const info = onceListeners[i];
+                this._queueRemoval(type, info.callback, info.target);
+            }
+            this._endEmit(type);
         }
-
-        // 处理延迟移除
-        this._flushPendingRemovals(type);
     }
 
     // ─── 查询 ───────────────────────────────────────
@@ -271,24 +280,24 @@ export class EventModule extends Module {
      */
     public waitFor(type: string, timeout: number = 0): Promise<any[] | null> {
         return new Promise((resolve) => {
-            let timeoutId: any = 0;
-            let resolved = false;
-
-            const callback = (...args: any[]) => {
-                if (resolved) return;
-                resolved = true;
-                if (timeoutId) clearTimeout(timeoutId);
-                resolve(args);
+            const waiter: EventWaiter = {
+                type,
+                callback: () => {
+                },
+                timeoutId: 0,
+                resolve
             };
 
-            this.once(type, callback);
+            waiter.callback = (...args: any[]) => {
+                this._finishWaiter(waiter, args);
+            };
+
+            this._waiters.add(waiter);
+            this.once(type, waiter.callback);
 
             if (timeout > 0) {
-                timeoutId = setTimeout(() => {
-                    if (resolved) return;
-                    resolved = true;
-                    this.off(type, callback);
-                    resolve(null);
+                waiter.timeoutId = setTimeout(() => {
+                    this._finishWaiter(waiter, null);
                 }, timeout);
             }
         });
@@ -332,6 +341,24 @@ export class EventModule extends Module {
             this.off(entry.event, entry.callback, binding.target);
         }
         this._bindingMap.delete(bindId);
+    }
+
+    /**
+     * 清空所有事件监听、批量绑定记录和等待中的 waitFor
+     */
+    public clear(): void {
+        this._cancelAllWaiters();
+        if (this._emitDepthMap.size > 0) {
+            for (const type of this._listeners.keys()) {
+                this._queueRemoval(type);
+            }
+            this._bindingMap.clear();
+            return;
+        }
+
+        this._listeners.clear();
+        this._bindingMap.clear();
+        this._pendingRemovals.length = 0;
     }
 
     // ─── 兼容别名 ───────────────────────────────────
@@ -399,14 +426,16 @@ export class EventModule extends Module {
         const list = this._listeners.get(type);
         if (!list) return;
 
-        if (!callback) {
+        if (!callback && target === undefined) {
             this._listeners.delete(type);
             return;
         }
 
         for (let i = list.length - 1; i >= 0; i--) {
             const info = list[i];
-            if (info.callback === callback && (target === undefined || info.target === target)) {
+            const callbackMatched = !callback || info.callback === callback;
+            const targetMatched = target === undefined || info.target === target;
+            if (callbackMatched && targetMatched) {
                 list.splice(i, 1);
             }
         }
@@ -414,17 +443,76 @@ export class EventModule extends Module {
         if (list.length === 0) this._listeners.delete(type);
     }
 
-    private _flushPendingRemovals(emittedType: string): void {
+    private _beginEmit(type: string): void {
+        this._emitDepthMap.set(type, (this._emitDepthMap.get(type) || 0) + 1);
+    }
+
+    private _endEmit(type: string): void {
+        const depth = this._emitDepthMap.get(type) || 0;
+        if (depth <= 1) {
+            this._emitDepthMap.delete(type);
+            this._flushPendingRemovals();
+        } else {
+            this._emitDepthMap.set(type, depth - 1);
+        }
+    }
+
+    private _isEmitting(type: string): boolean {
+        return (this._emitDepthMap.get(type) || 0) > 0;
+    }
+
+    private _queueRemoval(type: string, callback?: Function, target?: any): void {
+        const exists = this._pendingRemovals.some(req =>
+            req.type === type && req.callback === callback && req.target === target
+        );
+        if (!exists) {
+            this._pendingRemovals.push({type, callback, target});
+        }
+    }
+
+    private _flushPendingRemovals(): void {
         if (this._pendingRemovals.length === 0) return;
 
-        const remaining: typeof this._pendingRemovals = [];
+        const remaining: PendingRemoval[] = [];
         for (const req of this._pendingRemovals) {
-            if (this._emittingSet.has(req.type)) {
+            if (this._isEmitting(req.type)) {
                 remaining.push(req);
             } else {
                 this._removeListeners(req.type, req.callback, req.target);
             }
         }
         this._pendingRemovals = remaining;
+    }
+
+    private _finishWaiter(waiter: EventWaiter, args: any[] | null): void {
+        if (!this._waiters.delete(waiter)) {
+            return;
+        }
+
+        if (waiter.timeoutId) {
+            clearTimeout(waiter.timeoutId);
+            waiter.timeoutId = 0;
+        }
+
+        this.off(waiter.type, waiter.callback);
+        waiter.resolve(args);
+    }
+
+    private _cancelAllWaiters(): void {
+        if (this._waiters.size === 0) {
+            return;
+        }
+
+        const waiters = Array.from(this._waiters);
+        this._waiters.clear();
+        for (let i = 0; i < waiters.length; i++) {
+            const waiter = waiters[i];
+            if (waiter.timeoutId) {
+                clearTimeout(waiter.timeoutId);
+                waiter.timeoutId = 0;
+            }
+            this.off(waiter.type, waiter.callback);
+            waiter.resolve(null);
+        }
     }
 }

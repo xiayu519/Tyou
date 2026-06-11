@@ -14,12 +14,16 @@ export class UpdateModule extends Module {
     private _updateCallbacks: Map<any, UpdateCallback> = new Map();
     // 用于批量执行时避免修改影响遍历
     private _pendingRemovals: Set<any> = new Set();
+    private _updateSnapshot: UpdateCallback[] = [];
+    private _pendingClear: boolean = false;
     private _isUpdating: boolean = false;
 
     constructor() {
         super();
         this._updateCallbacks.clear();
         this._pendingRemovals.clear();
+        this._updateSnapshot.length = 0;
+        this._pendingClear = false;
         this._isUpdating = false;
     }
     
@@ -35,30 +39,44 @@ export class UpdateModule extends Module {
      * @param dt 增量时间
      */
     public onUpdate(dt: number): void {
+        if (this._updateCallbacks.size === 0) {
+            return;
+        }
+
         this._isUpdating = true;
 
-        // 执行所有更新回调
-        this._updateCallbacks.forEach((updateCallback, target) => {
-            // 检查是否在待移除列表中
-            if (this._pendingRemovals.has(target)) {
-                return;
+        this._updateSnapshot.length = 0;
+        for (const updateCallback of this._updateCallbacks.values()) {
+            this._updateSnapshot.push(updateCallback);
+        }
+
+        try {
+            for (let i = 0; i < this._updateSnapshot.length; i++) {
+                if (this._pendingClear) {
+                    break;
+                }
+
+                const updateCallback = this._updateSnapshot[i];
+                const target = updateCallback.target;
+                if (this._pendingRemovals.has(target)) {
+                    continue;
+                }
+
+                // 如果回调在本帧被替换，旧快照不再执行，新回调从下一帧开始。
+                if (this._updateCallbacks.get(target) !== updateCallback) {
+                    continue;
+                }
+
+                try {
+                    updateCallback.callback.call(updateCallback.target, dt);
+                } catch (error) {
+                    console.error(`tyUpdate: Error in update callback for target:`, target, error);
+                }
             }
-
-            try {
-                updateCallback.callback.call(updateCallback.target, dt);
-            } catch (error) {
-                console.error(`tyUpdate: Error in update callback for target:`, target, error);
-            }
-        });
-
-        this._isUpdating = false;
-
-        // 处理待移除的回调
-        if (this._pendingRemovals.size > 0) {
-            this._pendingRemovals.forEach(target => {
-                this._updateCallbacks.delete(target);
-            });
-            this._pendingRemovals.clear();
+        } finally {
+            this._isUpdating = false;
+            this._updateSnapshot.length = 0;
+            this._flushPendingChanges();
         }
     }
 
@@ -68,6 +86,9 @@ export class UpdateModule extends Module {
     public onDestroy(): void {
         this._updateCallbacks.clear();
         this._pendingRemovals.clear();
+        this._updateSnapshot.length = 0;
+        this._pendingClear = false;
+        this._isUpdating = false;
     }
 
     /**
@@ -92,7 +113,7 @@ export class UpdateModule extends Module {
         });
 
         // 如果该目标在待移除列表中，从列表中移除
-        if (this._pendingRemovals.has(target)) {
+        if (!this._pendingClear && this._pendingRemovals.has(target)) {
             this._pendingRemovals.delete(target);
         }
     }
@@ -120,7 +141,7 @@ export class UpdateModule extends Module {
      * @param target 目标对象
      */
     public hasUpdate(target: any): boolean {
-        if (this._pendingRemovals.has(target)) {
+        if (this._pendingClear || this._pendingRemovals.has(target)) {
             return false;
         }
         return this._updateCallbacks.has(target);
@@ -130,7 +151,17 @@ export class UpdateModule extends Module {
      * 获取已注册的更新回调数量
      */
     public getUpdateCount(): number {
-        return this._updateCallbacks.size - this._pendingRemovals.size;
+        if (this._pendingClear) {
+            return 0;
+        }
+
+        let count = 0;
+        for (const target of this._updateCallbacks.keys()) {
+            if (!this._pendingRemovals.has(target)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**
@@ -138,13 +169,52 @@ export class UpdateModule extends Module {
      */
     public clearAll(): void {
         if (this._isUpdating) {
-            // 如果在更新过程中，将所有当前的回调标记为待移除
-            this._updateCallbacks.forEach((_, target) => {
-                this._pendingRemovals.add(target);
-            });
+            this._pendingClear = true;
         } else {
             this._updateCallbacks.clear();
+            this._pendingRemovals.clear();
         }
+    }
+
+    /**
+     * 当前是否正在执行 update 分发
+     */
+    public isUpdating(): boolean {
+        return this._isUpdating;
+    }
+
+    /**
+     * 获取当前已注册 target 快照
+     */
+    public getUpdateTargets(): any[] {
+        if (this._pendingClear) {
+            return [];
+        }
+
+        const targets: any[] = [];
+        for (const target of this._updateCallbacks.keys()) {
+            if (!this._pendingRemovals.has(target)) {
+                targets.push(target);
+            }
+        }
+        return targets;
+    }
+
+    private _flushPendingChanges(): void {
+        if (this._pendingClear) {
+            this._updateCallbacks.clear();
+            this._pendingRemovals.clear();
+            this._pendingClear = false;
+            return;
+        }
+
+        if (this._pendingRemovals.size === 0) {
+            return;
+        }
+
+        this._pendingRemovals.forEach(target => {
+            this._updateCallbacks.delete(target);
+        });
         this._pendingRemovals.clear();
     }
 }

@@ -22,6 +22,11 @@ function decode(encryptedText: string, key: string) {
     return decrypted;
 }
 
+interface StorageReadResult<T> {
+    exists: boolean;
+    value: T | null | undefined;
+}
+
 const weekOfYear = function (curDate?: Date) {
     /*
      date1是当前日期
@@ -64,15 +69,19 @@ export class StorageEx {
         secretKey: ''
     };
 
-    private _cache = {};
+    private _cache: Record<string, string> = {};
 
     /**
      * 返回值为false代表调用失败
      */
-    set(key: string, value: unknown) {
+    set(key: string, value: unknown): boolean {
         if (typeof key === 'string' && typeof value !== 'undefined') {
             try {
                 const data = JSON.stringify(value);
+                if (typeof data === 'undefined') {
+                    error('storage set stringify error');
+                    return false;
+                }
                 if (StorageEx.setting.secretKey) {
                     sys.localStorage.setItem(key, encode(data, StorageEx.setting.secretKey));
                 } else {
@@ -89,35 +98,20 @@ export class StorageEx {
     }
 
     /**
-     * 返回值为undefined代表调用失败
+     * 未传 defaultValue 时保持旧语义：缺失 key 返回 null，解析失败返回 undefined。
      */
-    get(key: string) {
-        // 先读取缓存
-        if (typeof this._cache[key] !== 'undefined') {
-            return JSON.parse(this._cache[key]);
+    get<T = any>(key: string, defaultValue?: T): T | null | undefined {
+        const result = this._read<T>(key);
+        if (arguments.length >= 2 && (!result.exists || typeof result.value === 'undefined')) {
+            return defaultValue;
         }
-
-        let result = null;
-        try {
-            let data = sys.localStorage.getItem(key);
-            if (data && typeof data === 'string') {
-                if (StorageEx.setting.secretKey) data = decode(data, StorageEx.setting.secretKey);
-                // 设置缓存
-                this._cache[key] = data;
-                result = JSON.parse(data);
-            } else if (data !== '' && data !== null) {
-                result = undefined;
-            }
-        } catch (e) {
-            result = undefined;
-        }
-        return result;
+        return result.value;
     }
 
     /**
      * 返回值为false代表调用失败
      */
-    add(key: string, value: number = 1) {
+    add(key: string, value: number = 1): number | false {
         let result = this.get(key);
         if (result !== undefined) {
             result = result || 0;
@@ -132,7 +126,7 @@ export class StorageEx {
     /**
      * 返回值为false代表调用失败
      */
-    remove(key: string) {
+    remove(key: string): boolean {
         try {
             sys.localStorage.removeItem(key);
             delete this._cache[key];
@@ -145,7 +139,7 @@ export class StorageEx {
     /**
      * 返回值为false代表调用失败
      */
-    clear() {
+    clear(): boolean {
         try {
             sys.localStorage.clear();
             js.clear(this._cache);
@@ -159,7 +153,7 @@ export class StorageEx {
      * 设置本周数据 [返回值为false代表调用失败]
      * @param {Function} cb 当已存在本周的数据时，会根据cb的返回决定是否存储，true代表存储
      */
-    setWeek(key: string, value: unknown, cb?: (oldValue: unknown, newValue: unknown) => boolean) {
+    setWeek(key: string, value: unknown, cb?: (oldValue: unknown, newValue: unknown) => boolean): boolean {
         const updateTime = getWeekUpdateTime();
 
         if (cb) {
@@ -185,7 +179,7 @@ export class StorageEx {
     /**
      * 获取本周数据 [返回值为undefined代表调用失败]
      */
-    getWeek(key: string) {
+    getWeek<T = any>(key: string): T | null | undefined {
         const data = this.get(key);
         if (data && data.updateTime == getWeekUpdateTime()) {
             return data.data;
@@ -197,7 +191,7 @@ export class StorageEx {
      * 设置本天数据 [返回值为false代表调用失败]
      * @param {Function} cb 当已存在本天的数据时，会根据cb的返回决定是否存储，true代表存储
      */
-    setDay(key: string, value: unknown, cb?: (oldValue: unknown, newValue: unknown) => boolean) {
+    setDay(key: string, value: unknown, cb?: (oldValue: unknown, newValue: unknown) => boolean): boolean {
         const updateTime = getDayUpdateTime();
 
         if (cb) {
@@ -224,11 +218,87 @@ export class StorageEx {
      * 获取本天数据 [返回值为undefined代表调用失败]
      * @param {*} key
      */
-    getDay(key: string) {
+    getDay<T = any>(key: string): T | null | undefined {
         const data = this.get(key);
         if (data && data.updateTime == getDayUpdateTime()) {
             return data.data;
         }
         return data && null;
+    }
+
+    /**
+     * 判断 key 是否存在于缓存或 localStorage。
+     */
+    has(key: string): boolean {
+        if (this._hasCache(key)) {
+            return true;
+        }
+
+        try {
+            return sys.localStorage.getItem(key) !== null;
+        } catch (err) {
+            return false;
+        }
+    }
+
+    /**
+     * 清理内存缓存，不删除 localStorage 持久化数据。
+     */
+    clearCache(key?: string): void {
+        if (typeof key === 'string') {
+            delete this._cache[key];
+            return;
+        }
+        js.clear(this._cache);
+    }
+
+    private _read<T>(key: string): StorageReadResult<T> {
+        if (typeof key !== 'string') {
+            return {exists: false, value: undefined};
+        }
+
+        if (this._hasCache(key)) {
+            return {
+                exists: true,
+                value: this._parse<T>(key, this._cache[key])
+            };
+        }
+
+        try {
+            let data = sys.localStorage.getItem(key);
+            if (data === null) {
+                return {exists: false, value: null};
+            }
+
+            if (data === '') {
+                return {exists: true, value: null};
+            }
+
+            if (StorageEx.setting.secretKey) {
+                data = decode(data, StorageEx.setting.secretKey);
+            }
+
+            const value = this._parse<T>(key, data);
+            if (typeof value !== 'undefined') {
+                this._cache[key] = data;
+            }
+            return {exists: true, value};
+        } catch (e) {
+            delete this._cache[key];
+            return {exists: true, value: undefined};
+        }
+    }
+
+    private _parse<T>(key: string, data: string): T | undefined {
+        try {
+            return JSON.parse(data) as T;
+        } catch (e) {
+            delete this._cache[key];
+            return undefined;
+        }
+    }
+
+    private _hasCache(key: string): boolean {
+        return Object.prototype.hasOwnProperty.call(this._cache, key);
     }
 }
