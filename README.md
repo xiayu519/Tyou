@@ -1292,7 +1292,7 @@ ex.setDay("firstLogin", true, (oldValue) => {
 1. 在 `Design/tools/Defines` 中定义 Excel 数据结构
 2. 运行 `Design/tools/genBin.bat` 生成 TypeScript 类型代码 + 二进制数据文件
 3. 二进制文件放入 `config` Bundle
-4. `tyou.table.onCreate()` 自动加载并解析所有配置
+4. 启动阶段调用 `tyou.loadTablesAsync()` 加载并解析所有配置；`TableModule` 本身只负责配表加载
 
 ### API
 
@@ -1312,7 +1312,7 @@ tables.TbItem.getDataList().forEach(item => {
 
 ### 多语言
 
-多语言文本来自 Luban 配表，导表后由 `tyou.table.onCreate()` 自动加载，再重载 `tyou.i18n`。
+多语言文本来自 Luban 配表，导表后由启动链调用 `tyou.loadTablesAsync()` 加载配置，并在成功后刷新 `tyou.i18n`。
 
 ```typescript
 tyou.i18n.get("common_ok");
@@ -1445,7 +1445,7 @@ onLoad() → 创建 pool, audio, scene, ui, table; 挂载 GameWorld 组件
     ↓
 onCreate() → 依次调用 pool, res, audio, scene, storage, ui 的 onCreate()
     ↓
-appStart() → table.onCreate() 加载 Luban 配表并重载 i18n
+appStart() → tyou.loadTablesAsync() 加载 Luban 配表并刷新 i18n
 ```
 
 ### 启动节点契约

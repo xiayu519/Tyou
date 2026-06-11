@@ -1,6 +1,6 @@
 import {Module} from "../Module";
 import {GameEvent} from "../../core/GameEvent";
-import {TableLocalizationText} from "../../../scripts/proto/config/bin/schema";
+import type {TableLocalizationText} from "../../../scripts/proto/config/bin/schema";
 
 type LocalizationRecord = TableLocalizationText & { [key: string]: any };
 
@@ -8,6 +8,7 @@ export class LocalizationModule extends Module {
     private _language: string = "zh_cn";
     private _fallbackLanguage: string = "zh_cn";
     private _textMap: Map<string, LocalizationRecord> = new Map();
+    private _isReady = false;
 
     public onCreate(): void {
         this.reloadFromTable();
@@ -15,18 +16,34 @@ export class LocalizationModule extends Module {
 
     public onDestroy(): void {
         this._textMap.clear();
+        this._isReady = false;
     }
 
-    public reloadFromTable(): void {
+    public reloadFromTable(): boolean {
         this._textMap.clear();
+        this._isReady = false;
+
         const tables = tyou.table?.getConfig();
-        const list = tables?.TbTableLocalizationText?.getDataList?.() || [];
+        const table = tables?.TbTableLocalizationText;
+        const list = table?.getDataList?.();
+        if (!table || !list) {
+            return false;
+        }
+
         for (const item of list) {
             if (!item || !item.key) {
                 continue;
             }
             this._textMap.set(item.key, item as LocalizationRecord);
         }
+
+        this._isReady = true;
+        tyou.event.emit(GameEvent.LANGUAGE_CHANGED, this._language, this._language);
+        return true;
+    }
+
+    public isReady(): boolean {
+        return this._isReady;
     }
 
     public switchLanguage(language: string): void {

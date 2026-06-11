@@ -70,7 +70,13 @@ export class Main extends Component {
     async appStart() {
         LoadingUI.Instance.updateProgress(0, 1, 1, "加载中...");
         tyou.audio.playBGM("BGM_Main");
-        await tyou.table.onCreate();
+        const tableLoaded = await tyou.loadTablesAsync((finish, total) => {
+            LoadingUI.Instance.updateProgress(2, finish, total, "开始加载表格...");
+        });
+        if (!tableLoaded) {
+            console.error("[Main] 配表加载失败");
+            return;
+        }
         await tyou.scene.loadSceneAsync(SceneEnum.Login)
        // await tyou.ui.showUIAsync(UIName.LoginUI);
         await tyou.ui.showUIAsync(UIName.TestUI);

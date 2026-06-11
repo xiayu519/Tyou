@@ -10,6 +10,7 @@ import {PoolModule} from "./module/pool/PoolModule";
 import {SceneModule} from "./module/scene/SceneModule";
 import {StorageModule} from "./module/storage/StorageModule";
 import {TableModule} from "./module/table/TableModule";
+import type {TableLoadProgress} from "./module/table/TableModule";
 import {TimerModule} from "./module/timer/TimerModule";
 import {UIModule} from "./module/ui/UIModule";
 import {UpdateModule} from "./module/update/UpdateModule";
@@ -59,6 +60,16 @@ class Tyou {
         this.scene.onCreate();
         this.storage.onCreate();
         await this.ui.onCreate();
+    }
+
+    public async loadTablesAsync(onProgress?: TableLoadProgress): Promise<boolean> {
+        const loaded = await this.table.loadAsync(onProgress);
+        if (!loaded) {
+            return false;
+        }
+
+        this.i18n.reloadFromTable();
+        return true;
     }
 
     public onUpdate(dt: number): void {

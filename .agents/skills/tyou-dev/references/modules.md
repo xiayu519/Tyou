@@ -32,7 +32,7 @@ onUpdate(dt: number): void
 onDestroy(): void
 ```
 
-新增模块时保持与 `Module` 基类风格一致，并在 `Tyou.ts` 的 `onCreate/onUpdate/onDestroy` 中接入。依赖 Luban 表的模块不要把解析逻辑塞进 `TableModule`；`TableModule.onCreate()` 完成后可触发对应模块重载。
+新增模块时保持与 `Module` 基类风格一致，并在 `Tyou.ts` 的 `onCreate/onUpdate/onDestroy` 中接入。依赖 Luban 表的模块不要把解析逻辑塞进 `TableModule`；启动阶段由 `Tyou` 编排 `tyou.loadTablesAsync()`，成功后再刷新依赖表的模块。
 
 启动场景约定：
 
@@ -57,6 +57,7 @@ tyou.i18n.get("common_ok");
 AudioSource 池、AudioClip 引用、BGM 切换和销毁顺序见 `audio-lifecycle.md`。
 
 HTTP 请求、小游戏平台 request/WebSocket 适配、错误事件、abort 和网络节点生命周期见 `network-http.md`。
+Scene / Table / Localization 启动顺序与依赖方向见 `startup-chain.md`。
 
 ## 框架模块变更
 

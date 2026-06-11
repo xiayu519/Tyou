@@ -13,11 +13,12 @@
 
 ## 运行时加载
 
-`TableModule.onCreate()`：
+`tyou.loadTablesAsync(onProgress?)` 启动编排：
 
 1. `tyou.res.loadDirAsync({ path: "game", bundle: "config", type: BufferAsset })`
 2. 将每个 bin 放入 `_dataMap`
 3. `new Tables((file_name) => new ByteBuf(this._dataMap.get(file_name)))`
+4. 加载成功后由 `Tyou` 调用 `tyou.i18n.reloadFromTable()`
 
 业务访问：
 
@@ -28,7 +29,7 @@ const tables = tyou.table.getConfig();
 框架文本能力：
 
 - 多语言表由 Luban 生成，运行时通过 `tyou.i18n` 访问，不走手写字典作为主路径。
-- `TableModule.onCreate()` 完成 `Tables` 构建后会重载 `tyou.i18n`。
+- `TableModule` 只负责 `Tables` 构建；多语言刷新由 `tyou.loadTablesAsync()` 成功后编排。
 
 ## 导表
 

@@ -31,6 +31,8 @@ export class SceneModule extends Module {
     private _currentScene: SceneBase | null = null;
     private _isSwitching: boolean = false;
     private _sceneCache: Map<string, SceneBase> = new Map();
+    private _switchToken = 0;
+    private _destroyed = false;
 
     /** 场景切换前回调（可用于显示过渡画面） */
     public onBeforeSwitch: SceneTransitionCallback | null = null;
@@ -38,12 +40,22 @@ export class SceneModule extends Module {
     public onAfterSwitch: SceneTransitionCallback | null = null;
 
     public onCreate(): void {
+        this._destroyed = false;
         this._isSwitching = false;
         this._sceneCache.set(SceneEnum.Login, new LoginScene(SceneEnum.Login));
         this._sceneCache.set(SceneEnum.Game, new GameScene(SceneEnum.Game));
     }
 
     public onDestroy(): void {
+        this._destroyed = true;
+        this._switchToken++;
+        if (this._currentScene) {
+            try {
+                this._currentScene.onLeave();
+            } catch (e) {
+                console.error("[SceneModule] current scene onLeave error:", e);
+            }
+        }
         this._sceneCache.clear();
         this._currentScene = null;
         this._isSwitching = false;
@@ -71,72 +83,108 @@ export class SceneModule extends Module {
     public async loadSceneAsync(path: string, data?: any): Promise<boolean> {
         this.log("loadSceneAsync path", path, this._sceneCache.size, this._sceneCache.has(path));
 
+        if (this._destroyed) {
+            this.error("SceneModule already destroyed", path);
+            return false;
+        }
+
         if (this._isSwitching) {
-            this.log("上个场景还在加载中");
+            this.log("Scene switch is already in progress");
             return false;
         }
 
         if (this._currentScene && this._currentScene.sceneName === path) {
-            this.log("加载同样的场景", path);
+            this.log("Scene is already current", path);
             return false;
         }
 
         const newScene = this._sceneCache.get(path);
         if (!newScene) {
-            this.error("场景没有注册", path);
+            this.error("Scene is not registered", path);
             return false;
         }
 
         this._isSwitching = true;
+        const token = ++this._switchToken;
         const fromName = this._currentScene?.sceneName ?? "";
 
         try {
-            // 过渡前回调
             if (this.onBeforeSwitch) {
-                try { this.onBeforeSwitch(fromName, path); } catch (e) {
+                try {
+                    this.onBeforeSwitch(fromName, path);
+                } catch (e) {
                     console.error("[SceneModule] onBeforeSwitch error:", e);
                 }
             }
 
-            // 离开当前场景
-            if (this._currentScene) {
-                this._currentScene.onLeave();
-            }
-
-            // 加载场景资源
             const asset = await tyou.res.loadAssetAsync(path) as unknown as SceneAsset;
-            if (!asset) {
-                this.error("场景资源加载失败", path);
-                this._isSwitching = false;
+            if (this.isStaleSwitch(token)) {
                 return false;
             }
 
-            // 执行切换
+            if (!asset) {
+                this.error("Scene asset load failed", path);
+                return false;
+            }
+
+            if (this._currentScene) {
+                try {
+                    this._currentScene.onLeave();
+                } catch (e) {
+                    console.error("[SceneModule] current scene onLeave error:", e);
+                }
+            }
+
             await new Promise<void>((resolve) => {
                 director.runSceneImmediate(asset, null, () => {
-                    this.log(`切换场景: ${path}`);
-                    newScene.onInit(asset);
-                    newScene.onEnter(data);
+                    if (this.isStaleSwitch(token)) {
+                        resolve();
+                        return;
+                    }
+
+                    this.log(`Switch scene: ${path}`);
+                    try {
+                        newScene.onInit(asset);
+                    } catch (e) {
+                        console.error("[SceneModule] scene onInit error:", e);
+                    }
+
                     this._currentScene = newScene;
+                    try {
+                        newScene.onEnter(data);
+                    } catch (e) {
+                        console.error("[SceneModule] scene onEnter error:", e);
+                    }
+
                     resolve();
                 });
             });
 
-            this._isSwitching = false;
+            if (this.isStaleSwitch(token)) {
+                return false;
+            }
 
-            // 过渡后回调
             if (this.onAfterSwitch) {
-                try { this.onAfterSwitch(fromName, path); } catch (e) {
+                try {
+                    this.onAfterSwitch(fromName, path);
+                } catch (e) {
                     console.error("[SceneModule] onAfterSwitch error:", e);
                 }
             }
 
             return true;
         } catch (e) {
-            this.error("场景切换异常", path, e);
-            this._isSwitching = false;
+            this.error("Scene switch failed", path, e);
             return false;
+        } finally {
+            if (this._switchToken === token) {
+                this._isSwitching = false;
+            }
         }
+    }
+
+    private isStaleSwitch(token: number): boolean {
+        return this._destroyed || token !== this._switchToken;
     }
 
     /**
