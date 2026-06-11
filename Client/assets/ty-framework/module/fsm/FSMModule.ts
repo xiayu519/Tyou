@@ -1,612 +1,622 @@
 import {Module} from "../Module";
 
-/**
- * 状态机状态接口
- */
+export type FSMStateResult = void | Promise<void>;
+
 export interface IFSMState<T> {
     type: T;
     isEntered: boolean;
-
-    /**
-     * 状态进入
-     * @param previousState 上一个状态
-     * @param data 进入数据
-     */
-    onEnter(previousState: T | null, data?: any): Promise<void>;
-
-    /**
-     * 状态退出
-     * @param nextState 下一个状态
-     */
-    onExit(nextState: T): Promise<void>;
-
-    /**
-     * 状态更新
-     * @param dt 帧时间
-     */
+    onEnter(previousState: T | null, data?: any): FSMStateResult;
+    onExit(nextState: T): FSMStateResult;
     onUpdate(dt: number): void;
 }
 
-/**
- * 有限状态机类
- */
+export interface FSMInfo<T> {
+    id: string;
+    ownerType: string;
+    currentState: T | null;
+    previousState: T | null;
+    isActive: boolean;
+    isTransitioning: boolean;
+    isDestroyed: boolean;
+    stateCount: number;
+}
+
 export class FSM<T extends string | number> {
-    // 状态存储
+    public waitUntilTimeout: number = 10;
+
     private _states: Map<T, IFSMState<T>> = new Map();
     private _currentState: T | null = null;
     private _previousState: T | null = null;
     private _id: string;
     private _owner: any;
     private _isActive: boolean = true;
+    private _isDestroyed: boolean = false;
+    private _isTransitioning: boolean = false;
+    private _transitionVersion: number = 0;
+    private _transitionQueue: Promise<void> = Promise.resolve();
+    private _onDestroyed: ((fsm: FSM<T>) => void) | null;
 
-    constructor(id: string, owner: any) {
-        this._id = id;
-        this._owner = owner;
-    }
-
-    /**
-     * 注册状态
-     */
-    public registerState(key: T, state: IFSMState<T>): void {
-        if (this._states.has(key)) {
-            console.warn(`[FSM:${this._id}] 状态 ${key} 已注册，将被覆盖`);
-        }
-        state.type = key;
-        this._states.set(key, state);
-    }
-
-    /**
-     * 批量注册状态
-     */
-    public registerStates(states: Map<T, IFSMState<T>>): void {
-        states.forEach((state, key) => {
-            state.type = key;
-            this.registerState(key, state);
-        });
-    }
-
-
-    public getCurrStateObj(): IFSMState<T> {
-        if (this._currentState !== null) {
-            return this._states.get(this._currentState);
-        }
-        return null;
-    }
-
-    /** waitUntil 超时时间（秒），默认 10 秒。设为 0 表示不限时 */
-    public waitUntilTimeout: number = 10;
-
-    // 超时等待内部状态
     private _waitResolve: ((value: boolean) => void) | null = null;
     private _waitCondition: (() => boolean) | null = null;
     private _waitElapsed: number = 0;
     private _waitTimeout: number = 0;
-    private _waitDesc: string = '';
+    private _waitDesc: string = "";
+    private _waitVersion: number = 0;
 
-    /**
-     * 切换状态
-     */
-    public async changeState(newState: T, data?: any): Promise<boolean> {
-        if (!this._isActive) {
-            console.warn(`[FSM:${this._id}] 状态机未激活，无法切换状态`);
-            return false;
-        }
-
-        if (!this._states.has(newState)) {
-            console.error(`[FSM:${this._id}] 未注册的状态: ${newState}`);
-            return false;
-        }
-
-        // 退出当前状态
-        if (this._currentState !== null) {
-            const currentStateObj = this._states.get(this._currentState);
-            if (currentStateObj) {
-                //这里有可能多地方调用导致 异部enter还没执行完
-                const entered = await this._waitUntilWithTimeout(
-                    () => currentStateObj.isEntered,
-                    this.waitUntilTimeout,
-                    `等待状态 ${this._currentState} onEnter 完成`
-                );
-                if (!entered) {
-                    console.error(`[FSM:${this._id}] 等待状态 ${this._currentState} onEnter 超时(${this.waitUntilTimeout}s)，强制切换到 ${newState}`);
-                }
-                await currentStateObj.onExit(newState);
-            }
-            this._previousState = this._currentState;
-        }
-        //先赋值 要不然会出现空白期
-        this._currentState = newState;
-        // 进入新状态
-        const newStateObj = this._states.get(newState)!;
-        await newStateObj.onEnter(this._previousState, data);
-       // console.log(`[FSM:${this._id}] 状态切换: ${this._previousState} -> ${newState}`);
-        return true;
+    constructor(id: string, owner: any, onDestroyed?: (fsm: FSM<T>) => void) {
+        this._id = id;
+        this._owner = owner;
+        this._onDestroyed = onDestroyed || null;
     }
 
-    /**
-     * 带超时的条件等待，基于帧驱动计时（不依赖 setTimeout/requestAnimationFrame）
-     * 超时返回 false 而不是永久阻塞
-     */
-    private _waitUntilWithTimeout(condition: () => boolean, timeout: number, desc?: string): Promise<boolean> {
-        if (condition()) return Promise.resolve(true);
-        if (timeout <= 0) {
-            return Unitask.waitUntil(condition).then(() => true);
-        }
-        return new Promise<boolean>((resolve) => {
-            this._waitResolve = resolve;
-            this._waitCondition = condition;
-            this._waitElapsed = 0;
-            this._waitTimeout = timeout;
-            this._waitDesc = desc || '';
-        });
-    }
-
-    /**
-     * 驱动超时等待检查（由 update 每帧调用）
-     */
-    private _tickWait(dt: number): void {
-        if (!this._waitResolve) return;
-
-        if (this._waitCondition!()) {
-            const resolve = this._waitResolve;
-            this._clearWait();
-            resolve(true);
+    public registerState(key: T, state: IFSMState<T>): void {
+        if (this._isDestroyed) {
+            console.warn(`[FSM:${this._id}] cannot register state after destroy: ${String(key)}`);
             return;
         }
 
-        this._waitElapsed += dt;
-        if (this._waitElapsed >= this._waitTimeout) {
-            console.warn(`[FSM:${this._id}] waitUntil 超时: ${this._waitDesc}`);
-            const resolve = this._waitResolve;
-            this._clearWait();
-            resolve(false);
+        if (this._states.has(key)) {
+            console.warn(`[FSM:${this._id}] state already registered and will be replaced: ${String(key)}`);
         }
+
+        state.type = key;
+        state.isEntered = false;
+        this._states.set(key, state);
     }
 
-    private _clearWait(): void {
-        this._waitResolve = null;
-        this._waitCondition = null;
-        this._waitElapsed = 0;
-        this._waitTimeout = 0;
-        this._waitDesc = '';
+    public registerStates(states: Map<T, IFSMState<T>> | Record<string, IFSMState<T>>): void {
+        if (states instanceof Map) {
+            states.forEach((state, key) => this.registerState(key, state));
+            return;
+        }
+
+        Object.keys(states).forEach(key => {
+            this.registerState(key as unknown as T, states[key]);
+        });
     }
 
-    /**
-     * 更新当前状态
-     */
+    public unregisterState(key: T): boolean {
+        if (!this._states.has(key)) {
+            return false;
+        }
+
+        if (this._currentState === key) {
+            console.warn(`[FSM:${this._id}] cannot unregister current state: ${String(key)}`);
+            return false;
+        }
+
+        return this._states.delete(key);
+    }
+
+    public hasState(key: T): boolean {
+        return this._states.has(key);
+    }
+
+    public getState(key: T): IFSMState<T> | null {
+        return this._states.get(key) || null;
+    }
+
+    public getCurrStateObj(): IFSMState<T> | null {
+        return this._currentState === null ? null : this.getState(this._currentState);
+    }
+
+    public changeState(newState: T, data?: any): Promise<boolean> {
+        if (!this.canQueueTransition(newState)) {
+            return Promise.resolve(false);
+        }
+
+        const version = this._transitionVersion;
+        const task = this._transitionQueue.then(() => this.doChangeState(newState, data, version));
+        this._transitionQueue = task.then(() => undefined, () => undefined);
+        return task;
+    }
+
+    public reset(initialState?: T): void {
+        void this.resetAsync(initialState);
+    }
+
+    public resetAsync(initialState?: T): Promise<boolean> {
+        if (this._isDestroyed) {
+            return Promise.resolve(false);
+        }
+
+        if (initialState !== undefined && !this._states.has(initialState)) {
+            console.error(`[FSM:${this._id}] unregistered reset state: ${String(initialState)}`);
+            return Promise.resolve(false);
+        }
+
+        const version = this.invalidateTransitions();
+        const task = this._transitionQueue.then(() => this.doReset(initialState, version));
+        this._transitionQueue = task.then(() => undefined, () => undefined);
+        return task;
+    }
+
+    public destroy(): void {
+        if (this._isDestroyed) {
+            return;
+        }
+
+        this._isDestroyed = true;
+        this._isActive = false;
+        this.invalidateTransitions();
+
+        const currentState = this._currentState;
+        const currentStateObj = this.getCurrStateObj();
+        this._currentState = null;
+        this._previousState = null;
+        this._transitionQueue = Promise.resolve();
+
+        if (currentState !== null && currentStateObj) {
+            currentStateObj.isEntered = false;
+            void this.callExit(currentStateObj, currentState);
+        }
+
+        this._states.clear();
+        this._owner = null;
+        const onDestroyed = this._onDestroyed;
+        this._onDestroyed = null;
+        onDestroyed?.(this);
+        console.log(`[FSM:${this._id}] destroyed`);
+    }
+
     public update(dt: number): void {
-        // 驱动超时等待检查
-        this._tickWait(dt);
+        this.tickWait(dt);
 
-        if (!this._isActive || this._currentState === null) {
+        if (!this._isActive || this._isDestroyed || this._currentState === null) {
             return;
         }
 
         const currentStateObj = this._states.get(this._currentState);
-        if (currentStateObj) {
+        if (!currentStateObj) {
+            return;
+        }
+
+        try {
             currentStateObj.onUpdate(dt);
+        } catch (error) {
+            console.error(`[FSM:${this._id}] state update failed: ${String(this._currentState)}`, error);
         }
     }
 
-    /**
-     * 获取当前状态
-     */
     public getCurrentState(): T | null {
         return this._currentState;
     }
 
-    /**
-     * 获取上一个状态
-     */
     public getPreviousState(): T | null {
         return this._previousState;
     }
 
-    /**
-     * 检查是否在指定状态
-     */
     public isInState(state: T): boolean {
         return this._currentState === state;
     }
 
-    /**
-     * 重置状态机
-     */
-    public reset(initialState?: T): void {
-        if (this._currentState !== null) {
-            const currentStateObj = this._states.get(this._currentState);
-            if (currentStateObj) {
-                currentStateObj.onExit(this._currentState);
-            }
-        }
-
-        this._currentState = null;
-        this._previousState = null;
-
-        if (initialState !== undefined && this._states.has(initialState)) {
-            const stateObj = this._states.get(initialState)!;
-            stateObj.onEnter(null);
-            this._currentState = initialState;
-        }
-    }
-
-    /**
-     * 销毁状态机
-     */
-    public destroy(): void {
-        // 取消等待中的超时
-        if (this._waitResolve) {
-            const resolve = this._waitResolve;
-            this._clearWait();
-            resolve(false);
-        }
-
-        if (this._currentState !== null) {
-            const currentStateObj = this._states.get(this._currentState);
-            if (currentStateObj) {
-                currentStateObj.onExit(this._currentState);
-            }
-        }
-
-        this._states.clear();
-        this._currentState = null;
-        this._previousState = null;
-        this._isActive = false;
-
-        console.log(`[FSM:${this._id}] 状态机已销毁`);
-    }
-
-    /**
-     * 设置激活状态
-     */
     public setActive(active: boolean): void {
+        if (this._isDestroyed && active) {
+            console.warn(`[FSM:${this._id}] cannot reactivate destroyed FSM`);
+            return;
+        }
         this._isActive = active;
     }
 
-    /**
-     * 检查是否激活
-     */
     public isActive(): boolean {
-        return this._isActive;
+        return this._isActive && !this._isDestroyed;
     }
 
-    /**
-     * 获取状态机ID
-     */
+    public isTransitioning(): boolean {
+        return this._isTransitioning;
+    }
+
+    public isDestroyed(): boolean {
+        return this._isDestroyed;
+    }
+
     public getId(): string {
         return this._id;
     }
 
-    /**
-     * 获取所有者
-     */
     public getOwner(): any {
         return this._owner;
     }
 
-    /**
-     * 获取所有注册的状态
-     */
     public getAllStates(): T[] {
         return Array.from(this._states.keys());
     }
 
-    /**
-     * 获取状态机信息
-     */
-    public getInfo(): {
-        id: string;
-        ownerType: string;
-        currentState: T | null;
-        previousState: T | null;
-        isActive: boolean;
-        stateCount: number;
-    } {
+    public getStateCount(): number {
+        return this._states.size;
+    }
+
+    public getInfo(): FSMInfo<T> {
         return {
             id: this._id,
             ownerType: this._owner?.constructor?.name || typeof this._owner,
             currentState: this._currentState,
             previousState: this._previousState,
-            isActive: this._isActive,
-            stateCount: this._states.size
+            isActive: this.isActive(),
+            isTransitioning: this._isTransitioning,
+            isDestroyed: this._isDestroyed,
+            stateCount: this._states.size,
         };
+    }
+
+    private canQueueTransition(newState: T): boolean {
+        if (this._isDestroyed) {
+            console.warn(`[FSM:${this._id}] cannot change state after destroy`);
+            return false;
+        }
+
+        if (!this._isActive) {
+            console.warn(`[FSM:${this._id}] cannot change state while inactive`);
+            return false;
+        }
+
+        if (!this._states.has(newState)) {
+            console.error(`[FSM:${this._id}] unregistered state: ${String(newState)}`);
+            return false;
+        }
+
+        return true;
+    }
+
+    private async doChangeState(newState: T, data: any, version: number): Promise<boolean> {
+        if (this.isTransitionStale(version) || !this.canRunTransition(newState)) {
+            return false;
+        }
+
+        this._isTransitioning = true;
+        try {
+            const fromState = this._currentState;
+            const fromStateObj = fromState === null ? null : this._states.get(fromState);
+
+            if (fromState !== null && fromStateObj) {
+                const entered = await this.waitUntilWithTimeout(
+                    () => fromStateObj.isEntered,
+                    this.waitUntilTimeout,
+                    `waiting ${String(fromState)} onEnter`,
+                    version
+                );
+                if (this.isTransitionStale(version)) {
+                    return false;
+                }
+                if (!entered) {
+                    console.warn(`[FSM:${this._id}] wait for ${String(fromState)} onEnter timeout, force transition to ${String(newState)}`);
+                }
+
+                const exited = await this.callExit(fromStateObj, newState);
+                if (this.isTransitionStale(version)) {
+                    return false;
+                }
+                if (!exited) {
+                    return false;
+                }
+
+                fromStateObj.isEntered = false;
+                this._previousState = fromState;
+            } else {
+                this._previousState = fromState;
+            }
+
+            const newStateObj = this._states.get(newState);
+            if (!newStateObj || this.isTransitionStale(version)) {
+                return false;
+            }
+
+            this._currentState = newState;
+            newStateObj.type = newState;
+            newStateObj.isEntered = false;
+
+            const entered = await this.callEnter(newStateObj, this._previousState, data);
+            if (this.isTransitionStale(version)) {
+                return false;
+            }
+
+            newStateObj.isEntered = true;
+            return entered;
+        } finally {
+            this._isTransitioning = false;
+        }
+    }
+
+    private canRunTransition(newState: T): boolean {
+        return !this._isDestroyed && this._isActive && this._states.has(newState);
+    }
+
+    private async doReset(initialState: T | undefined, version: number): Promise<boolean> {
+        if (this._isDestroyed || this.isTransitionStale(version)) {
+            return false;
+        }
+
+        this._isTransitioning = true;
+        try {
+            const currentState = this._currentState;
+            const currentStateObj = currentState === null ? null : this._states.get(currentState);
+            const nextState = initialState ?? currentState;
+
+            if (currentState !== null && currentStateObj && nextState !== null) {
+                const exited = await this.callExit(currentStateObj, nextState);
+                if (this.isTransitionStale(version)) {
+                    return false;
+                }
+                if (!exited) {
+                    return false;
+                }
+                currentStateObj.isEntered = false;
+            }
+
+            this._currentState = null;
+            this._previousState = null;
+
+            if (initialState === undefined) {
+                return true;
+            }
+
+            const initialStateObj = this._states.get(initialState);
+            if (!initialStateObj || this.isTransitionStale(version)) {
+                return false;
+            }
+
+            this._currentState = initialState;
+            initialStateObj.type = initialState;
+            initialStateObj.isEntered = false;
+
+            const entered = await this.callEnter(initialStateObj, null);
+            if (this.isTransitionStale(version)) {
+                return false;
+            }
+
+            initialStateObj.isEntered = true;
+            return entered;
+        } finally {
+            this._isTransitioning = false;
+        }
+    }
+
+    private async callEnter(state: IFSMState<T>, previousState: T | null, data?: any): Promise<boolean> {
+        try {
+            await Promise.resolve(state.onEnter(previousState, data));
+            return true;
+        } catch (error) {
+            console.error(`[FSM:${this._id}] onEnter failed: ${String(state.type)}`, error);
+            return false;
+        }
+    }
+
+    private async callExit(state: IFSMState<T>, nextState: T): Promise<boolean> {
+        try {
+            await Promise.resolve(state.onExit(nextState));
+            return true;
+        } catch (error) {
+            console.error(`[FSM:${this._id}] onExit failed: ${String(state.type)} -> ${String(nextState)}`, error);
+            return false;
+        }
+    }
+
+    private waitUntilWithTimeout(condition: () => boolean, timeout: number, desc: string, version: number): Promise<boolean> {
+        if (this.isTransitionStale(version)) {
+            return Promise.resolve(false);
+        }
+
+        if (condition()) {
+            return Promise.resolve(true);
+        }
+
+        this.resolveWait(false);
+
+        return new Promise<boolean>((resolve) => {
+            this._waitResolve = resolve;
+            this._waitCondition = condition;
+            this._waitElapsed = 0;
+            this._waitTimeout = timeout;
+            this._waitDesc = desc;
+            this._waitVersion = version;
+        });
+    }
+
+    private tickWait(dt: number): void {
+        if (!this._waitResolve || !this._waitCondition) {
+            return;
+        }
+
+        if (this.isTransitionStale(this._waitVersion)) {
+            this.resolveWait(false);
+            return;
+        }
+
+        if (this._waitCondition()) {
+            this.resolveWait(true);
+            return;
+        }
+
+        if (this._waitTimeout <= 0) {
+            return;
+        }
+
+        this._waitElapsed += dt;
+        if (this._waitElapsed >= this._waitTimeout) {
+            console.warn(`[FSM:${this._id}] waitUntil timeout: ${this._waitDesc}`);
+            this.resolveWait(false);
+        }
+    }
+
+    private resolveWait(value: boolean): void {
+        if (!this._waitResolve) {
+            this.clearWait();
+            return;
+        }
+
+        const resolve = this._waitResolve;
+        this.clearWait();
+        resolve(value);
+    }
+
+    private clearWait(): void {
+        this._waitResolve = null;
+        this._waitCondition = null;
+        this._waitElapsed = 0;
+        this._waitTimeout = 0;
+        this._waitDesc = "";
+        this._waitVersion = 0;
+    }
+
+    private invalidateTransitions(): number {
+        this._transitionVersion++;
+        this.resolveWait(false);
+        return this._transitionVersion;
+    }
+
+    private isTransitionStale(version: number): boolean {
+        return this._isDestroyed || version !== this._transitionVersion;
     }
 }
 
-/**
- * 有限状态机模块
- */
 export class FSMModule extends Module {
-    // 状态机存储
     private _fsms: Map<string, FSM<any>> = new Map();
     private _nextFsmId: number = 0;
 
-    /**
-     * 创建状态机
-     * @param owner 所有者（通常传入this）
-     * @returns 状态机实例和ID
-     */
+    public onCreate(): void {
+        console.log("[FSMModule] initialized");
+    }
+
+    public onDestroy(): void {
+        const fsms = Array.from(this._fsms.values());
+        for (const fsm of fsms) {
+            fsm.destroy();
+        }
+
+        const destroyedCount = fsms.length;
+        this._fsms.clear();
+        this._nextFsmId = 0;
+
+        console.log(`[FSMModule] destroyed, fsm count: ${destroyedCount}`);
+    }
+
     public createFSM<T extends string | number>(owner: any): FSM<T> {
         const fsmId = `fsm_${++this._nextFsmId}`;
-        const fsm = new FSM<T>(fsmId, owner);
-
+        const fsm = new FSM<T>(fsmId, owner, (destroyedFsm) => {
+            if (this._fsms.get(fsmId) === destroyedFsm) {
+                this._fsms.delete(fsmId);
+            }
+        });
         this._fsms.set(fsmId, fsm);
-
-        console.log(`[FSMModule] 创建状态机: ${fsmId}, 所有者: ${owner?.constructor?.name || typeof owner}`);
+        console.log(`[FSMModule] create FSM: ${fsmId}, owner: ${owner?.constructor?.name || typeof owner}`);
         return fsm;
     }
 
-    /**
-     * 通过ID获取状态机
-     * @param fsmId 状态机ID
-     */
     public getFSM<T extends string | number>(fsmId: string): FSM<T> | null {
         return this._fsms.get(fsmId) as FSM<T> || null;
     }
 
-    /**
-     * 通过ID销毁状态机
-     */
-    public destroyFSM<T extends string | number>(fsm: FSM<T>): boolean {
-        const fsmId = fsm.getId();
-        if (this._fsms.has(fsmId)) {
-            fsm.destroy();
-            this._fsms.delete(fsmId);
-
-            console.log(`[FSMModule] 销毁状态机: ${fsmId}`);
-            return true;
-        }
-
-        console.warn(`[FSMModule] 未找到状态机: ${fsmId}`);
-        return false;
+    public hasFSM(fsmId: string): boolean {
+        return this._fsms.has(fsmId);
     }
 
-    /**
-     * 销毁指定所有者的所有状态机
-     * @param owner 所有者
-     */
-    public destroyAllFSMByOwner(owner: any): number {
-        let destroyedCount = 0;
-        const ownerName = owner?.constructor?.name || typeof owner;
+    public destroyFSM<T extends string | number>(fsm: FSM<T>): boolean;
+    public destroyFSM(fsmId: string): boolean;
+    public destroyFSM<T extends string | number>(target: FSM<T> | string): boolean {
+        const fsmId = typeof target === "string" ? target : target.getId();
+        return this.destroyFSMById(fsmId);
+    }
 
-        for (const [fsmId, fsm] of this._fsms) {
-            if (fsm.getOwner() === owner) {
-                fsm.destroy();
-                this._fsms.delete(fsmId);
-                destroyedCount++;
+    public destroyFSMById(fsmId: string): boolean {
+        const fsm = this._fsms.get(fsmId);
+        if (!fsm) {
+            console.warn(`[FSMModule] FSM not found: ${fsmId}`);
+            return false;
+        }
+
+        fsm.destroy();
+        this._fsms.delete(fsmId);
+        console.log(`[FSMModule] destroy FSM: ${fsmId}`);
+        return true;
+    }
+
+    public destroyAllFSMByOwner(owner: any): number {
+        const entries = Array.from(this._fsms.entries());
+        let destroyedCount = 0;
+
+        for (const [fsmId, fsm] of entries) {
+            if (fsm.getOwner() !== owner) {
+                continue;
             }
+
+            fsm.destroy();
+            this._fsms.delete(fsmId);
+            destroyedCount++;
         }
 
         if (destroyedCount > 0) {
-            console.log(`[FSMModule] 销毁所有者 ${ownerName} 的所有状态机，共 ${destroyedCount} 个`);
+            const ownerName = owner?.constructor?.name || typeof owner;
+            console.log(`[FSMModule] destroy owner FSMs: ${ownerName}, count: ${destroyedCount}`);
         }
 
         return destroyedCount;
     }
 
-    /**
-     * 重置指定状态机
-     * @param fsmId 状态机ID
-     * @param initialState 初始状态（可选）
-     */
     public resetFSM(fsmId: string, initialState?: any): boolean {
         const fsm = this._fsms.get(fsmId);
-
-        if (fsm) {
-            fsm.reset(initialState);
-            console.log(`[FSMModule] 重置状态机: ${fsmId}`);
-            return true;
+        if (!fsm) {
+            return false;
         }
 
-        return false;
+        fsm.reset(initialState);
+        console.log(`[FSMModule] reset FSM: ${fsmId}`);
+        return true;
     }
 
-    /**
-     * 切换状态机的激活状态
-     * @param fsmId 状态机ID
-     * @param active 是否激活
-     */
+    public resetFSMAsync(fsmId: string, initialState?: any): Promise<boolean> {
+        const fsm = this._fsms.get(fsmId);
+        if (!fsm) {
+            return Promise.resolve(false);
+        }
+
+        return fsm.resetAsync(initialState);
+    }
+
     public setFSMActive(fsmId: string, active: boolean): boolean {
         const fsm = this._fsms.get(fsmId);
-
-        if (fsm) {
-            fsm.setActive(active);
-            return true;
+        if (!fsm) {
+            return false;
         }
 
-        return false;
+        fsm.setActive(active);
+        return true;
     }
 
-    /**
-     * 更新所有状态机
-     */
     public onUpdate(dt: number): void {
-        this._fsms.forEach(fsm => {
-            if (fsm.isActive()) {
-                fsm.update(dt);
-            }
-        });
+        const fsms = Array.from(this._fsms.values());
+        for (const fsm of fsms) {
+            fsm.update(dt);
+        }
     }
 
-    /**
-     * 初始化模块
-     */
-    public onCreate(): void {
-        console.log("[FSMModule] 状态机模块初始化");
+    public getAllFSMInfo(): Array<FSMInfo<any>> {
+        return Array.from(this._fsms.values(), fsm => fsm.getInfo());
     }
 
-    /**
-     * 销毁模块
-     */
-    public onDestroy(): void {
-        // 销毁所有状态机
-        let destroyedCount = 0;
-
-        this._fsms.forEach((fsm, fsmId) => {
-            fsm.destroy();
-            destroyedCount++;
-        });
-
-        this._fsms.clear();
-        this._nextFsmId = 0;
-
-        console.log(`[FSMModule] 模块销毁，共销毁 ${destroyedCount} 个状态机`);
-    }
-
-    /**
-     * 获取所有状态机信息
-     */
-    public getAllFSMInfo(): Array<{
-        id: string;
-        ownerType: string;
-        currentState: any;
-        previousState: any;
-        isActive: boolean;
-        stateCount: number;
-    }> {
-        const result: Array<{
-            id: string;
-            ownerType: string;
-            currentState: any;
-            previousState: any;
-            isActive: boolean;
-            stateCount: number;
-        }> = [];
-
-        this._fsms.forEach(fsm => {
-            const info = fsm.getInfo();
-            result.push(info);
-        });
-
-        return result;
-    }
-
-    /**
-     * 获取状态机统计信息
-     */
     public getStats(): {
         totalFsmCount: number;
         activeFsmCount: number;
         inactiveFsmCount: number;
+        transitioningFsmCount: number;
     } {
         let activeCount = 0;
+        let transitioningCount = 0;
+
         this._fsms.forEach(fsm => {
             if (fsm.isActive()) {
                 activeCount++;
             }
+            if (fsm.isTransitioning()) {
+                transitioningCount++;
+            }
         });
 
         const totalCount = this._fsms.size;
-
         return {
             totalFsmCount: totalCount,
             activeFsmCount: activeCount,
-            inactiveFsmCount: totalCount - activeCount
+            inactiveFsmCount: totalCount - activeCount,
+            transitioningFsmCount: transitioningCount,
         };
     }
 }
-
-/*
-
-export class StateMachineWrapper<T extends string | number> {
-    private _fsmId: string;
-    private _fsmModule: FSMModule;
-
-    constructor(fsmModule: FSMModule, owner: any) {
-        const {id, fsm} = fsmModule.createFSM<T>(owner);
-        this._fsmId = id;
-        this._fsmModule = fsmModule;
-    }
-
-    /!**
-     * 注册状态
-     *!/
-    public registerState(key: T, state: IFSMState<T>): void {
-        const fsm = this._fsmModule.getFSM<T>(this._fsmId);
-        if (fsm) {
-            fsm.registerState(key, state);
-        }
-    }
-
-    /!**
-     * 切换状态
-     *!/
-    public changeState(newState: T, data?: any): boolean {
-        const fsm = this._fsmModule.getFSM<T>(this._fsmId);
-        if (fsm) {
-            return fsm.changeState(newState, data);
-        }
-        return false;
-    }
-
-    /!**
-     * 获取当前状态
-     *!/
-    public getCurrentState(): T | null {
-        const fsm = this._fsmModule.getFSM<T>(this._fsmId);
-        return fsm ? fsm.getCurrentState() : null;
-    }
-
-    /!**
-     * 获取上一个状态
-     *!/
-    public getPreviousState(): T | null {
-        const fsm = this._fsmModule.getFSM<T>(this._fsmId);
-        return fsm ? fsm.getPreviousState() : null;
-    }
-
-    /!**
-     * 检查是否在指定状态
-     *!/
-    public isInState(state: T): boolean {
-        const fsm = this._fsmModule.getFSM<T>(this._fsmId);
-        return fsm ? fsm.isInState(state) : false;
-    }
-
-    /!**
-     * 重置状态机
-     *!/
-    public reset(initialState?: T): void {
-        const fsm = this._fsmModule.getFSM<T>(this._fsmId);
-        if (fsm) {
-            fsm.reset(initialState);
-        }
-    }
-
-    /!**
-     * 设置激活状态
-     *!/
-    public setActive(active: boolean): void {
-        this._fsmModule.setFSMActive(this._fsmId, active);
-    }
-
-    /!**
-     * 检查是否激活
-     *!/
-    public isActive(): boolean {
-        const fsm = this._fsmModule.getFSM<T>(this._fsmId);
-        return fsm ? fsm.isActive() : false;
-    }
-
-    /!**
-     * 销毁状态机
-     *!/
-    public destroy(): void {
-        this._fsmModule.destroyFSM(this._fsmId);
-    }
-
-    /!**
-     * 获取状态机ID
-     *!/
-    public getId(): string {
-        return this._fsmId;
-    }
-
-    /!**
-     * 获取状态机信息
-     *!/
-    public getInfo(): any {
-        const fsm = this._fsmModule.getFSM<T>(this._fsmId);
-        return fsm ? fsm.getInfo() : null;
-    }
-}*/

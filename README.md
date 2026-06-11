@@ -974,7 +974,7 @@ class GameScene extends SceneBase {
 
 ## 有限状态机模块
 
-支持 **异步状态切换**（`onEnter`/`onExit` 返回 `Promise`），安全处理并发切换。通过 `FSMModule` 统一管理所有 FSM 实例，支持按 Owner 批量销毁。
+支持 **串行异步状态切换**（`onEnter`/`onExit` 可同步或返回 `Promise`），同一个 FSM 内的连续 `changeState()` 会按调用顺序执行，避免 enter/exit 交叠。通过 `FSMModule` 统一管理所有 FSM 实例，支持按 ID 或 Owner 批量销毁。
 
 ### API
 
@@ -998,22 +998,28 @@ fsm.getCurrentState();   // "run"
 fsm.getPreviousState();  // "idle"
 fsm.isInState("idle");   // false
 fsm.getAllStates();       // ["idle", "run", "attack"]
+fsm.hasState("attack");  // true
+fsm.getState("idle");    // IFSMState | null
+fsm.isTransitioning();   // 是否正在切换
 
 // 控制
 fsm.setActive(false);    // 暂停
 fsm.reset("idle");       // 重置到指定状态
-fsm.destroy();           // 销毁
+await fsm.resetAsync("idle"); // 需要等待 reset 完成时使用
+fsm.destroy();           // 销毁并从 tyou.fsm 移除
 
 // 模块级管理
 tyou.fsm.getFSM(fsmId);
 tyou.fsm.destroyFSM(fsm);
+tyou.fsm.destroyFSM(fsmId);
+tyou.fsm.destroyFSMById(fsmId);
 tyou.fsm.destroyAllFSMByOwner(this); // 批量销毁
 tyou.fsm.getStats();     // 统计信息
 ```
 
 ### 状态接口
 
-状态需实现 `IFSMState<T>` 接口，`onEnter` / `onExit` 支持 async：
+状态需实现 `IFSMState<T>` 接口，`onEnter` / `onExit` 支持同步或 async：
 
 ```typescript
 class IdleState implements IFSMState<MyEntity> {

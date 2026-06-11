@@ -58,6 +58,7 @@ AudioSource 池、AudioClip 引用、BGM 切换和销毁顺序见 `audio-lifecyc
 
 HTTP 请求、小游戏平台 request/WebSocket 适配、错误事件、abort 和网络节点生命周期见 `network-http.md`。
 Scene / Table / Localization 启动顺序与依赖方向见 `startup-chain.md`。
+FSM 异步切换串行化、reset/destroy 生命周期和快照 update 契约见 `fsm-lifecycle.md`。
 
 ## 框架模块变更
 
