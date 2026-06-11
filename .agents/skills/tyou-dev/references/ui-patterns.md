@@ -42,6 +42,8 @@
 | `m_eb` | EditBox | `EditBox` |
 | `m_rt` | RichText | `RichText` |
 
+运行时绑定扫描必须和本表保持一致。新增或修改前缀时，同时更新 `Client/assets/editor/ui-component-config.json` 和运行时扫描配置。
+
 ## 组件检查
 
 层级菜单“检查前缀组件”分两阶段执行：
@@ -75,3 +77,13 @@ UI 预制体对应的 UI 脚本原则上不手写创建。必须优先使用 `ui
 4. `UIName.ts` 是否有枚举。
 5. `UIImportAll.ts` 是否有 side-effect import。
 6. 预制体内是否有重名节点。
+
+## 重名节点
+
+参与绑定的 `m_` 前缀节点名应优先保持唯一。运行时发现同名绑定节点时：
+
+- `this.get(name)` 返回第一个扫描到的节点，保持兼容。
+- 控制台输出包含所有重复节点路径的 warning。
+- `this.getAll(name)` 返回所有同名节点。
+- `this.getByPath(path)` 可按相对路径取具体节点。
+- `this.getRequired(name)` 找不到时会报出包含 UI 名称和节点名的明确错误。

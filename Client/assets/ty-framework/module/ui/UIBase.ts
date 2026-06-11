@@ -1,5 +1,4 @@
-import {_decorator, Asset, Button, Component, isValid, Node, Sprite, SpriteFrame, UITransform} from "cc";
-import Dictionary from "../../core/collections/Dictionary";
+import {Asset, Button, isValid, Node, Sprite, UITransform} from "cc";
 import {ViewUtil} from "../../core/util/ViewUtil";
 
 
@@ -16,6 +15,10 @@ export class UIBase {
 
     /** 摊平的节点集合（不能重名） */
     private _nodes: Map<string, Node> = new Map();
+    private _nodesByName: Map<string, Node[]> = new Map();
+    private _nodesByPath: Map<string, Node> = new Map();
+    private _nodePaths: WeakMap<Node, string> = new WeakMap();
+    private _duplicateNodeNames: Set<string> = new Set();
 
     /** 自动释放资源 */
     private _dynamicsAssets: Set<Asset> = new Set();
@@ -25,8 +28,9 @@ export class UIBase {
 
     private _canTouch: boolean = true;
     private _touchCd: number = 0.2;
+    private _touchTimerId: number = 0;
 
-    private _transform: UITransform;
+    private _transform: UITransform | null = null;
     public get transform() {
         if (!this._transform) {
             this._transform = this.node.getComponent(UITransform);
@@ -125,10 +129,11 @@ export class UIBase {
             }
 
             this._canTouch = false;
-
-            setTimeout(() => {
+            this.clearTouchTimer();
+            this._touchTimerId = tyou.timer.addTimer(() => {
                 this._canTouch = true;
-            }, this._touchCd * 1000);
+                this._touchTimerId = 0;
+            }, this._touchCd);
 
             // 传递参数给回调
             callback.call(this, btn!, param);
@@ -163,9 +168,49 @@ export class UIBase {
         return this._nodes.get(name);
     }
 
+    public getRequired(name: string): Node {
+        const node = this.get(name);
+        if (node) {
+            return node;
+        }
+
+        const message = `[UIBase] Required bind node "${name}" not found in ${this.getUIDebugName()}`;
+        console.error(message);
+        throw new Error(message);
+    }
+
+    public getAll(name: string): Node[] {
+        const nodes = this._nodesByName.get(name);
+        if (!nodes) {
+            return [];
+        }
+        return nodes.filter(node => node && node.isValid);
+    }
+
+    public getByPath(path: string): Node | undefined {
+        const normalizedPath = path.replace(/\\/g, "/");
+        const direct = this._nodesByPath.get(normalizedPath);
+        if (direct && direct.isValid) {
+            return direct;
+        }
+
+        if (this.node) {
+            const node = this._nodesByPath.get(`${this.node.name}/${normalizedPath}`);
+            return node && node.isValid ? node : undefined;
+        }
+
+        return undefined;
+    }
+
     /** 脚本生成（收集节点） */
     protected scriptGenerator(): void {
-        ViewUtil.nodeTreeInfoLite(this.node, this._nodes);
+        const scan = ViewUtil.collectBindNodes(this.node);
+        this._nodes = scan.nodes;
+        this._nodesByName = scan.nodesByName;
+        this._nodesByPath = scan.nodesByPath;
+        this._nodePaths = scan.nodePaths;
+        this._duplicateNodeNames = scan.duplicateNames;
+        this.reportDuplicateBindNodes();
     }
 
     protected registerEvent(): void {
@@ -188,14 +233,23 @@ export class UIBase {
 
     }
 
-    protected async onRelease() {
+    protected onRelease() {
+        this.clearTouchTimer();
         this._nodes.clear();
+        this._nodesByName.clear();
+        this._nodesByPath.clear();
+        this._duplicateNodeNames.clear();
         // 清理事件监听
         this._registerEventList.forEach((eventInfo, uuid) => {
-            eventInfo.node.off(eventInfo.type, eventInfo.handler, this);
+            if (eventInfo.node && eventInfo.node.isValid) {
+                eventInfo.node.off(eventInfo.type, eventInfo.handler, this);
+            }
         });
         this._registerEventList.clear();
         this.onClosed();
+        this._parent = null;
+        this._userDatas.length = 0;
+        this._transform = null;
         this.unLoadRes();
         tyou.event.targetOff(this);
     }
@@ -215,6 +269,32 @@ export class UIBase {
 
     protected onSetVisible(visible: boolean): void {
         // 子类实现
+    }
+
+    private clearTouchTimer(): void {
+        if (this._touchTimerId > 0) {
+            tyou.timer.removeTimer(this._touchTimerId);
+            this._touchTimerId = 0;
+        }
+    }
+
+    private reportDuplicateBindNodes(): void {
+        if (this._duplicateNodeNames.size === 0) {
+            return;
+        }
+
+        this._duplicateNodeNames.forEach((name) => {
+            const nodes = this._nodesByName.get(name) || [];
+            const paths = nodes.map((node, index) => {
+                const path = this._nodePaths.get(node) || node.name;
+                return `${index + 1}. ${path}`;
+            });
+            console.warn(`[UIBase] Duplicate bind node "${name}" in ${this.getUIDebugName()}:\n${paths.join("\n")}`);
+        });
+    }
+
+    private getUIDebugName(): string {
+        return (this as any).windowName || this.node?.name || this.constructor.name;
     }
 
 }

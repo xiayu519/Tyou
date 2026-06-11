@@ -8,6 +8,13 @@ import {UIRegistry} from "./UIRegistry";
 import {UIWindow} from "./UIWindow";
 import {IWindowAttribute, UILayer} from "./WindowAttribute";
 
+interface IWindowLoadingRecord {
+    window: UIWindow;
+    promise: Promise<UIWindow | null>;
+    args: any[];
+    canceled: boolean;
+}
+
 /**
  * UI模块
  */
@@ -19,9 +26,11 @@ export class UIModule extends Module {
     private _layerNodes: Map<number, Node> = new Map();
     private _blurBg: UIBlurBackground | null = null;
     private _blurBgTopKey: string = "";
+    private _blurBgRefreshVersion: number = 0;
 
     // 窗口实例映射（窗口名 -> UIWindow实例）
     private _windowInstances: Map<string, UIWindow> = new Map();
+    private _loadingWindows: Map<string, IWindowLoadingRecord> = new Map();
 
     private static readonly LAYER_DEEP: number = 2000;
     private static readonly WINDOW_DEEP: number = 100;
@@ -131,13 +140,18 @@ export class UIModule extends Module {
         if (!resolved) return null;
         const [type, wndClass] = resolved;
 
-        // 检查是否已存在
+        const loadingRecord = this._loadingWindows.get(type);
+        if (loadingRecord) {
+            loadingRecord.args = args;
+            return loadingRecord.promise;
+        }
+
         let window = this._windowInstances.get(type);
-        if (window) {
-            // 如果窗口已存在，移动到栈顶并刷新
+        if (window && !window.isDestroyed) {
             this.popWindow(window);
             this.pushWindow(window);
             window.tryInvoke(this.onWindowPrepare.bind(this), ...args);
+            this.refreshWindowState(window.windowLayer);
             return window;
         }
 
@@ -155,32 +169,22 @@ export class UIModule extends Module {
         this.pushWindow(window);
         this._windowInstances.set(type, window);
 
-        try {
-            await window.baseLoad(windowName, this.onWindowPrepare.bind(this), ...args);
-        } catch (e) {
-            console.error(`[UIModule] Failed to load window "${windowName}":`, e);
-            // 加载失败时清理：从栈和实例表中移除，防止残留状态
-            this.popWindow(window);
-            this._windowInstances.delete(type);
-            this.onSortWindowDepth(window.windowLayer);
-            this.onSetWindowVisible();
-            this.refreshBlurBg().then();
-            return null;
-        }
-
-        return window;
+        const record: IWindowLoadingRecord = {
+            window,
+            args,
+            canceled: false,
+            promise: Promise.resolve(null)
+        };
+        record.promise = this.loadWindowRecord(type, windowName, record);
+        this._loadingWindows.set(type, record);
+        return record.promise;
     }
 
     /** 关闭窗口 */
     public closeWindow(wnd: string): void {
         const window = this._windowInstances.get(wnd);
         if (window) {
-            window.baseDestroy();
-            this.popWindow(window);
-            this._windowInstances.delete(wnd);
-            this.onSortWindowDepth(window.windowLayer);
-            this.onSetWindowVisible();
-            this.refreshBlurBg().then();
+            this.destroyWindow(wnd, window);
         }
     }
 
@@ -194,27 +198,29 @@ export class UIModule extends Module {
             return;
         }
 
-        window.cancelHideToCloseTimer();
         window.visible = false;
         window.isHide = true;
 
-        // 设置隐藏计时器
-        window.hideTimerId = tyou.timer.addTimer(() => {
+        window.startHideToCloseTimer(() => {
             this.closeWindow(wnd);
-        }, window.hideTimeToClose);
+        });
+        window.isHide = true;
 
-        if (window.fullScreen) {
-            this.onSetWindowVisible();
-        }
-        this.refreshBlurBg().then();
+        this.refreshWindowState(window.windowLayer);
     }
 
     /** 关闭所有窗口 */
     public closeAll(isShutdown: boolean = false): void {
-        this._uiStack.forEach(window => {
+        for (const record of this._loadingWindows.values()) {
+            record.canceled = true;
+        }
+
+        for (const window of Array.from(this._windowInstances.values())) {
             window.baseDestroy(isShutdown);
-            this._windowInstances.delete(window.windowName);
-        });
+        }
+
+        this._loadingWindows.clear();
+        this._windowInstances.clear();
         this._uiStack.clear();
         this.refreshBlurBg().then();
     }
@@ -261,14 +267,7 @@ export class UIModule extends Module {
 
     /** 是否有任意窗口正在加载 */
     public isAnyLoading(): boolean {
-        let isLoading = false;
-        this._uiStack.forEach((window) => {
-            if (!window.isLoadDone) {
-                isLoading = true;
-                return false; // 停止遍历
-            }
-        });
-        return isLoading;
+        return this._loadingWindows.size > 0;
     }
 
     /** 更新方法 */
@@ -329,6 +328,10 @@ export class UIModule extends Module {
 
     /** 窗口准备回调 */
     private onWindowPrepare(window: UIWindow): void {
+        if (!window || window.isDestroyed || this._windowInstances.get(window.windowName) !== window) {
+            return;
+        }
+
         this.onSortWindowDepth(window.windowLayer);
         window.baseCreate();
         window.baseRefresh();
@@ -376,6 +379,53 @@ export class UIModule extends Module {
         this._blurBg = null;
     }
 
+    private async loadWindowRecord(type: string, windowName: string, record: IWindowLoadingRecord): Promise<UIWindow | null> {
+        const window = record.window;
+        try {
+            const loaded = await window.baseLoad(windowName, ...record.args);
+            if (!loaded || record.canceled || window.isDestroyed) {
+                this.cleanupWindowRecord(type, window);
+                return null;
+            }
+
+            window.tryInvoke(this.onWindowPrepare.bind(this), ...record.args);
+            return window;
+        } catch (e) {
+            console.error(`[UIModule] Failed to load window "${windowName}":`, e);
+            this.destroyWindow(type, window);
+            return null;
+        } finally {
+            if (this._loadingWindows.get(type) === record) {
+                this._loadingWindows.delete(type);
+            }
+        }
+    }
+
+    private destroyWindow(wnd: string, window: UIWindow, isShutdown: boolean = false): void {
+        const loading = this._loadingWindows.get(wnd);
+        if (loading && loading.window === window) {
+            loading.canceled = true;
+            this._loadingWindows.delete(wnd);
+        }
+
+        window.baseDestroy(isShutdown);
+        this.cleanupWindowRecord(wnd, window);
+    }
+
+    private cleanupWindowRecord(wnd: string, window: UIWindow): void {
+        this.popWindow(window);
+        if (this._windowInstances.get(wnd) === window) {
+            this._windowInstances.delete(wnd);
+        }
+        this.refreshWindowState(window.windowLayer);
+    }
+
+    private refreshWindowState(layer: number): void {
+        this.onSortWindowDepth(layer);
+        this.onSetWindowVisible();
+        this.refreshBlurBg().then();
+    }
+
     private _tipManager: TipManager;
 
     tip(msg: string) {
@@ -407,22 +457,34 @@ export class UIModule extends Module {
     }
 
     private async refreshBlurBg(): Promise<void> {
-        if (!this._blurBg) {
+        const version = ++this._blurBgRefreshVersion;
+        const blurBg = this._blurBg;
+        if (!blurBg) {
             return;
         }
         const top = this.getTopNonFullScreenWindowInstance();
         if (!top) {
-            this._blurBg.hide();
-            this._blurBgTopKey = "";
+            if (version === this._blurBgRefreshVersion) {
+                blurBg.hide();
+                this._blurBgTopKey = "";
+            }
             return;
         }
         const key = `${top.windowLayer}_${top.windowName}`;
-        if (key !== this._blurBgTopKey) {
-            this._blurBgTopKey = key;
-            await this._blurBg.showBehindWindow(top);
-        } else {
-            await this._blurBg.showBehindWindow(top);
+        await blurBg.showBehindWindow(top);
+
+        if (version !== this._blurBgRefreshVersion) {
+            return;
         }
+
+        const currentTop = this.getTopNonFullScreenWindowInstance();
+        const currentKey = currentTop ? `${currentTop.windowLayer}_${currentTop.windowName}` : "";
+        if (currentKey !== key) {
+            this.refreshBlurBg().then();
+            return;
+        }
+
+        this._blurBgTopKey = key;
     }
 
     private _syncWindowSiblingIndex(): void {

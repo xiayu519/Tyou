@@ -1,10 +1,69 @@
-import {Button, EditBox, EventTouch, Label, Layout, Node, Prefab, Size, Sprite, UITransform, v3, Vec3} from "cc";
+import {
+    Button,
+    EditBox,
+    EventTouch,
+    Label,
+    Layout,
+    Node,
+    Prefab,
+    ProgressBar,
+    RichText,
+    ScrollView,
+    Size,
+    Slider,
+    Sprite,
+    Toggle,
+    UITransform,
+    v3,
+    Vec3
+} from "cc";
 import ListView from "../../../scripts/logic/core/loop-list/ListView";
 
 //import { oops } from "../Oops";
 
+export interface IBindNodeScanResult {
+    nodes: Map<string, Node>;
+    nodesByName: Map<string, Node[]>;
+    nodesByPath: Map<string, Node>;
+    nodePaths: WeakMap<Node, string>;
+    duplicateNames: Set<string>;
+}
+
 /** 显示对象工具 */
 export class ViewUtil {
+    static readonly UI_BIND_COMPONENT_CONFIG = [
+        {prefix: "m_go", component: null},
+        {prefix: "m_tf", component: UITransform},
+        {prefix: "m_text", component: Label},
+        {prefix: "m_btn", component: Button},
+        {prefix: "m_img", component: Sprite},
+        {prefix: "m_grid", component: Layout},
+        {prefix: "m_list", component: ListView},
+        {prefix: "m_scroll", component: ScrollView},
+        {prefix: "m_toggle", component: Toggle},
+        {prefix: "m_slider", component: Slider},
+        {prefix: "m_progress", component: ProgressBar},
+        {prefix: "m_eb", component: EditBox},
+        {prefix: "m_rt", component: RichText},
+    ];
+
+    static collectBindNodes(parent: Node): IBindNodeScanResult {
+        const result: IBindNodeScanResult = {
+            nodes: new Map(),
+            nodesByName: new Map(),
+            nodesByPath: new Map(),
+            nodePaths: new WeakMap(),
+            duplicateNames: new Set(),
+        };
+
+        if (!parent) {
+            return result;
+        }
+
+        ViewUtil.collectBindNodesInternal(parent, parent.name, result);
+        return result;
+    }
+
     /**
      * 把Node当前的节点树结构根据Node命名转成一个js对象,重名的组件会覆盖，
      * Node的name不应该包含空格键，否则将跳过
@@ -12,29 +71,48 @@ export class ViewUtil {
      * @param obj    绑定的js对象 (可选)
      */
     static nodeTreeInfoLite(parent: Node, obj?: Map<string, Node>): Map<string, Node> | null {
+        const scan = ViewUtil.collectBindNodes(parent);
         let map: Map<string, Node> = obj || new Map();
-        let items = parent.children;
+        scan.nodes.forEach((node, name) => {
+            if (!map.has(name)) {
+                map.set(name, node);
+            }
+        });
+        return map;
+    }
 
-        const componentConfig = [
-            {prefix: "m_go", component: null}, // 对应 Node 本身
-            {prefix: "m_tf", component: UITransform},
-            {prefix: "m_text", component: Label},
-            {prefix: "m_btn", component: null},
-            {prefix: "m_img", component: Sprite},
-            {prefix: "m_grid", component: Layout},
-            {prefix: "m_list", component: ListView},
-            {prefix: "m_eb", "component": EditBox},
-        ];
+    private static collectBindNodesInternal(parent: Node, parentPath: string, result: IBindNodeScanResult): void {
+        const items = parent.children;
         for (let i = 0; i < items.length; i++) {
-            let _node = items[i];
-            for (const config of componentConfig) {
-                if (_node.name.startsWith(config.prefix)) {
-                    map.set(_node.name, _node);
+            const node = items[i];
+            const path = `${parentPath}/${node.name}`;
+
+            if (ViewUtil.isBindNode(node)) {
+                result.nodePaths.set(node, path);
+                result.nodesByPath.set(path, node);
+
+                const nodes = result.nodesByName.get(node.name) || [];
+                nodes.push(node);
+                result.nodesByName.set(node.name, nodes);
+
+                if (!result.nodes.has(node.name)) {
+                    result.nodes.set(node.name, node);
+                } else {
+                    result.duplicateNames.add(node.name);
                 }
             }
-            ViewUtil.nodeTreeInfoLite(_node, map);
+
+            ViewUtil.collectBindNodesInternal(node, path, result);
         }
-        return map;
+    }
+
+    private static isBindNode(node: Node): boolean {
+        for (const config of ViewUtil.UI_BIND_COMPONENT_CONFIG) {
+            if (node.name.startsWith(config.prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static findNode(parent: Node, name: string): Node | null {

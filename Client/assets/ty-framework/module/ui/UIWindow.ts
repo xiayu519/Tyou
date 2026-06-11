@@ -1,5 +1,5 @@
 import {UIBase} from "./UIBase";
-import {IWindowAttribute, UILayer} from "./WindowAttribute";
+import {IWindowAttribute} from "./WindowAttribute";
 import {Node} from "cc";
 
 /**
@@ -19,7 +19,6 @@ export class UIWindow extends UIBase {
     public isDestroyed: boolean = false;
     public isHide: boolean = false;
 
-    private _prepareCallback: ((window: UIWindow) => void) | null = null;
     private _isCreate: boolean = false;
     private _depth: number = 0;
 
@@ -50,6 +49,7 @@ export class UIWindow extends UIBase {
 
     public set visible(value: boolean) {
         if (!this.node) return;
+        if (this.isDestroyed) return;
         if (this.node.active === value) return;
 
         this.node.active = value;
@@ -69,26 +69,37 @@ export class UIWindow extends UIBase {
 
     /** 尝试调用准备回调 */
     public tryInvoke(prepareCallback: (window: UIWindow) => void, ...args: any[]): void {
+        if (this.isDestroyed) {
+            return;
+        }
+
         this.cancelHideToCloseTimer();
         this._userDatas = args;
 
-        if (this.isPrepare) {
+        if (this.isPrepare && this.node && this.node.isValid) {
             prepareCallback?.(this);
-        } else {
-            this._prepareCallback = prepareCallback;
         }
     }
 
     /** 内部加载 */
-    public async baseLoad(location: string, prepareCallback: (window: UIWindow) => void, ...args: any[]): Promise<void> {
-        this._prepareCallback = prepareCallback;
+    public async baseLoad(location: string, ...args: any[]): Promise<boolean> {
+        if (this.isDestroyed) {
+            return false;
+        }
+
         this._userDatas = args;
+        this.isLoadDone = false;
+        this.isPrepare = false;
         const uiInstance = await tyou.res.loadGameObjectAsync(location, tyou.ui.getLayerNode(this.windowLayer));
-        this.handleCompleted(uiInstance);
+        return this.handleCompleted(uiInstance);
     }
 
     /** 内部创建 */
     public baseCreate(): void {
+        if (this.isDestroyed || !this.isPrepare) {
+            return;
+        }
+
         if (!this._isCreate) {
             this._isCreate = true;
             this.scriptGenerator();
@@ -100,6 +111,10 @@ export class UIWindow extends UIBase {
 
     /** 内部刷新 */
     public baseRefresh(): void {
+        if (this.isDestroyed || !this.isPrepare) {
+            return;
+        }
+
         this.onRefresh();
     }
 
@@ -115,15 +130,22 @@ export class UIWindow extends UIBase {
 
     /** 内部销毁 */
     public baseDestroy(isShutdown: boolean = false): void {
-        this._isCreate = false;
-        this._prepareCallback = null;
-        this.onRelease();
-        if (this.node) {
-            this.node.destroy();
+        if (this.isDestroyed) {
+            return;
         }
+
         this.isDestroyed = true;
-        if (!isShutdown) {
-            this.cancelHideToCloseTimer();
+        this.isHide = false;
+        this.isPrepare = false;
+        this.isLoadDone = false;
+        this._isCreate = false;
+        this.cancelHideToCloseTimer();
+        this.onRelease();
+
+        const node = this.node;
+        this.node = null;
+        if (node && node.isValid) {
+            node.destroy();
         }
     }
 
@@ -139,7 +161,6 @@ export class UIWindow extends UIBase {
 
     /** 取消隐藏关闭计时器 */
     public cancelHideToCloseTimer(): void {
-        Log.info("取消窗口的计时器",this.hideTimerId)
         this.isHide = false;
         if (this.hideTimerId > 0) {
             tyou.timer.removeTimer(this.hideTimerId);
@@ -147,22 +168,31 @@ export class UIWindow extends UIBase {
         }
     }
 
-    /** 处理加载完成 */
-    private handleCompleted(panel: Node): void {
-        if (panel === null) {
+    public startHideToCloseTimer(callback: () => void): void {
+        this.cancelHideToCloseTimer();
+        if (this.hideTimeToClose <= 0 || this.isDestroyed) {
             return;
+        }
+
+        this.hideTimerId = tyou.timer.addTimer(callback, this.hideTimeToClose);
+    }
+
+    /** 处理加载完成 */
+    private handleCompleted(panel: Node | null): boolean {
+        if (panel === null) {
+            throw new Error(`UI Prefab load returned null: ${this.windowName}`);
         }
 
         this.isLoadDone = true;
         if (this.isDestroyed) {
             panel.destroy();
-            return;
+            return false;
         }
 
         panel.name = this.windowName;
         this.node = panel;
         this.isPrepare = true;
-        this._prepareCallback?.(this);
+        return true;
     }
 
     protected bindMemberProperty(): void {
