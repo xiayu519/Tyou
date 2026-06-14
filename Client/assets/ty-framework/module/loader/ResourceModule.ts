@@ -44,7 +44,7 @@ export class ResourceModule extends Module {
         this._resolver = new AssetPathResolver(this._typeRegistry);
         this._bundleService = new BundleService();
         this._releaseScheduler = new ReleaseScheduler(
-            (asset) => this._loader.releaseCache(asset),
+            (asset) => this._loader.releaseManagedAsset(asset),
             (...args) => this.log(...args)
         );
         this._loader = new ManagedAssetLoader(this._bundleService, this._releaseScheduler);
@@ -228,18 +228,32 @@ export class ResourceModule extends Module {
         version?: string,
         onProgress?: (finish: number, total: number, item: AssetManager.RequestItem) => void
     ) {
+        let asset: Asset | null = null;
+        let prefab: Node | null = null;
+        let holderInitialized = false;
         try {
-            const asset = await this.loadAssetAsync(path, version, onProgress);
+            asset = await this.loadAssetAsync(path, version, onProgress);
             if (!asset) return null;
 
-            const prefab = instantiate(asset as unknown as Prefab);
+            prefab = instantiate(asset as unknown as Prefab);
             const holder = prefab.addComponent(ResourceHolder);
             holder.init(asset);
+            holderInitialized = true;
+            if (parent && !parent.isValid) {
+                prefab.destroy();
+                return null;
+            }
             if (parent) {
                 prefab.parent = parent;
             }
             return prefab;
         } catch (error) {
+            if (prefab && prefab.isValid) {
+                prefab.destroy();
+            }
+            if (asset && !holderInitialized) {
+                this.decRef(asset);
+            }
             console.error("LoadGameObjectAsync", path, error);
             return null;
         }
@@ -295,8 +309,11 @@ export class ResourceModule extends Module {
         const spriteFrame = atlas.getSpriteFrame(spriteFrameName);
         if (!spriteFrame) {
             console.warn("loadSpriteFromAtlas: spriteFrame not found", atlasName, spriteFrameName);
+            this.decRef(atlas);
             return null;
         }
+        this.addRef(spriteFrame);
+        this.decRef(atlas);
         return spriteFrame;
     }
 
@@ -305,20 +322,50 @@ export class ResourceModule extends Module {
     }
 
     async loadSpineAsync(target: sp.Skeleton, path: string, isAutoRelease = true) {
-        const sd = await this.loadAssetAsync(path) as unknown as sp.SkeletonData;
-        target.skeletonData = sd;
-        if (isAutoRelease) {
-            const holder = target.getComponent(SpineHolder) || target.addComponent(SpineHolder);
-            holder.init(target, sd, false, false, false);
+        const sd = await this.loadAssetAsync(path) as unknown as sp.SkeletonData | null;
+        if (!sd) return;
+
+        if (!target || !target.isValid || !target.node?.isValid) {
+            this.decRef(sd);
+            return;
+        }
+
+        try {
+            target.skeletonData = sd;
+            if (isAutoRelease) {
+                const holder = target.getComponent(SpineHolder) || target.addComponent(SpineHolder);
+                holder.init(target, sd, false, false, false);
+            }
+        } catch (error) {
+            if (target && target.isValid) {
+                target.skeletonData = null;
+            }
+            this.decRef(sd);
+            console.error("loadSpineAsync", path, error);
         }
     }
 
     async loadSpineEffectAsync(target: sp.Skeleton, path: string, isAutoRelease = true, isLoop = false) {
-        const sd = await this.loadAssetAsync(path) as unknown as sp.SkeletonData;
-        target.skeletonData = sd;
-        if (isAutoRelease) {
-            const holder = target.getComponent(SpineHolder) || target.addComponent(SpineHolder);
-            holder.init(target, sd, true, true, isLoop);
+        const sd = await this.loadAssetAsync(path) as unknown as sp.SkeletonData | null;
+        if (!sd) return;
+
+        if (!target || !target.isValid || !target.node?.isValid) {
+            this.decRef(sd);
+            return;
+        }
+
+        try {
+            target.skeletonData = sd;
+            if (isAutoRelease) {
+                const holder = target.getComponent(SpineHolder) || target.addComponent(SpineHolder);
+                holder.init(target, sd, true, true, isLoop);
+            }
+        } catch (error) {
+            if (target && target.isValid) {
+                target.skeletonData = null;
+            }
+            this.decRef(sd);
+            console.error("loadSpineEffectAsync", path, error);
         }
     }
 

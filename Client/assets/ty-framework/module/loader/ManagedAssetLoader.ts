@@ -1,4 +1,4 @@
-import {Asset, ImageAsset, SceneAsset, SpriteFrame} from "cc";
+import {Asset, ImageAsset, SceneAsset, SpriteFrame, Texture2D} from "cc";
 import {BundleService} from "./BundleService";
 import {ReleaseScheduler} from "./ReleaseScheduler";
 import {
@@ -11,13 +11,20 @@ import {
 
 interface PendingLoad<T> {
     progresses: ResourceProgress[];
-    completes: Array<(value: T | null) => void>;
-    promise: Promise<T | null>;
+    consumers: Array<{
+        onComplete?: (value: T | null) => void;
+        resolve: (value: T | null) => void;
+    }>;
 }
 
 interface DirCacheEntry {
     bundle: string;
     assets: Asset[];
+}
+
+interface RuntimeSpriteFrameResource {
+    imageAsset: ImageAsset;
+    texture: Texture2D | null;
 }
 
 export class ManagedAssetLoader {
@@ -26,6 +33,7 @@ export class ManagedAssetLoader {
     private _dirCache: Map<string, DirCacheEntry> = new Map();
     private _pendingLoads: Map<string, PendingLoad<any>> = new Map();
     private _cancelledKeys: Set<string> = new Set();
+    private _runtimeSpriteFrames: Map<SpriteFrame, RuntimeSpriteFrameResource> = new Map();
 
     constructor(
         private readonly _bundleService: BundleService,
@@ -38,7 +46,7 @@ export class ManagedAssetLoader {
         const key = this.getAssetKey(request);
         const cached = this.getValidCachedAsset(key) as InstanceType<T> | null;
         if (cached) {
-            return this.resolveCached(cached, request.onComplete);
+            return this.resolveCached(cached, request.onComplete, asset => this.retainAssetForCaller(asset));
         }
 
         return this.enqueue<InstanceType<T>>(key, request.onProgress, request.onComplete, (onProgress) => {
@@ -53,7 +61,6 @@ export class ManagedAssetLoader {
                             return;
                         }
                         if (asset && !(asset instanceof SceneAsset)) {
-                            this._releaseScheduler.addRef(asset);
                             this._assetCache.set(key, asset);
                             this._assetBundles.set(key, this.normalizeBundle(request.bundle));
                         }
@@ -61,7 +68,7 @@ export class ManagedAssetLoader {
                     }
                 });
             });
-        });
+        }, asset => this.retainAssetForCaller(asset));
     }
 
     public loadDirAsync<T extends typeof Asset>(params: ResourceDirRequest<T>): Promise<InstanceType<T>[] | null> {
@@ -69,7 +76,7 @@ export class ManagedAssetLoader {
         const key = this.getDirKey(request);
         const cached = this.getValidCachedDir(key) as InstanceType<T>[] | null;
         if (cached) {
-            return this.resolveCached(cached, request.onComplete);
+            return this.resolveCached(cached, request.onComplete, assets => this.retainAssetsForCaller(assets));
         }
 
         return this.enqueue<InstanceType<T>[]>(key, request.onProgress, request.onComplete, (onProgress) => {
@@ -86,7 +93,6 @@ export class ManagedAssetLoader {
                         const managedAssets: Asset[] = [];
                         assets?.forEach((asset) => {
                             if (asset && !(asset instanceof SceneAsset)) {
-                                this._releaseScheduler.addRef(asset);
                                 managedAssets.push(asset);
                             }
                         });
@@ -100,14 +106,14 @@ export class ManagedAssetLoader {
                     }
                 });
             });
-        });
+        }, assets => this.retainAssetsForCaller(assets));
     }
 
     public loadRemoteAsync(params: { url: string, ext?: string }): Promise<Asset | null> {
         const key = this.getRemoteKey(params);
         const cached = this.getValidCachedAsset(key);
         if (cached) {
-            return this.resolveCached(cached);
+            return this.resolveCached(cached, undefined, asset => this.retainAssetForCaller(asset));
         }
 
         return this.enqueue<Asset>(key, undefined, undefined, () => {
@@ -129,7 +135,7 @@ export class ManagedAssetLoader {
                     }
                 } as RemoteResourceRequest);
             });
-        });
+        }, asset => this.retainAssetForCaller(asset));
     }
 
     public loadRemoteSpriteFrameAsync(params: { url: string, ext?: string }): Promise<SpriteFrame | null> {
@@ -144,6 +150,12 @@ export class ManagedAssetLoader {
 
                     const spriteFrame = SpriteFrame.createWithImage(asset);
                     if (spriteFrame) {
+                        const texture = spriteFrame.texture instanceof Texture2D ? spriteFrame.texture : null;
+                        asset.addRef();
+                        this._runtimeSpriteFrames.set(spriteFrame, {
+                            imageAsset: asset,
+                            texture
+                        });
                         this._releaseScheduler.addRef(spriteFrame);
                     }
                     resolve(spriteFrame || null);
@@ -176,6 +188,11 @@ export class ManagedAssetLoader {
         }
     }
 
+    public releaseManagedAsset(asset: Asset): boolean {
+        this.releaseCache(asset);
+        return this.releaseRuntimeSpriteFrame(asset);
+    }
+
     public releaseAll(bundle?: string): void {
         const normalizedBundle = bundle ? this.normalizeBundle(bundle) : undefined;
         const assets = new Set<Asset>();
@@ -197,31 +214,28 @@ export class ManagedAssetLoader {
 
         this.cancelPendingLoads(normalizedBundle);
 
-        setTimeout(() => {
-            assets.forEach(asset => this._releaseScheduler.decRef(asset));
-        }, 1000);
+        assets.forEach(asset => this.releaseUnusedEvictedAsset(asset));
     }
 
     private enqueue<T>(
         key: string,
         onProgress: ResourceProgress | undefined,
         onComplete: ((value: T | null) => void) | undefined,
-        start: (onProgress: ResourceProgress) => Promise<T | null>
+        start: (onProgress: ResourceProgress) => Promise<T | null>,
+        retainForAdditionalConsumer?: (value: T) => void
     ): Promise<T | null> {
         const existing = this._pendingLoads.get(key) as PendingLoad<T> | undefined;
         if (existing) {
             if (onProgress) existing.progresses.push(onProgress);
-            if (onComplete) existing.completes.push(onComplete);
-            return existing.promise;
+            return this.addPendingConsumer(existing, onComplete);
         }
 
         const pending: PendingLoad<T> = {
             progresses: [],
-            completes: [],
-            promise: Promise.resolve(null)
+            consumers: []
         };
         if (onProgress) pending.progresses.push(onProgress);
-        if (onComplete) pending.completes.push(onComplete);
+        const promise = this.addPendingConsumer(pending, onComplete);
         this._pendingLoads.set(key, pending);
 
         const progress = (finish: number, total: number, item: any) => {
@@ -229,25 +243,25 @@ export class ManagedAssetLoader {
             pending.progresses.forEach(cb => cb(finish, total, item));
         };
 
-        pending.promise = start(progress)
+        start(progress)
             .then((result) => {
                 if (this._cancelledKeys.has(key)) {
                     this._cancelledKeys.delete(key);
-                    return null;
+                    return;
                 }
-                if (!this._pendingLoads.has(key)) return result;
+                if (this._pendingLoads.get(key) !== pending) return;
                 this._pendingLoads.delete(key);
-                pending.completes.forEach(cb => cb(result));
-                return result;
+                this.resolvePendingConsumers(pending, result, retainForAdditionalConsumer);
             })
             .catch((error) => {
-                this._pendingLoads.delete(key);
+                if (this._pendingLoads.get(key) === pending) {
+                    this._pendingLoads.delete(key);
+                }
                 console.error("资源加载失败", key, error);
-                pending.completes.forEach(cb => cb(null));
-                return null;
+                this.resolvePendingConsumers(pending, null, retainForAdditionalConsumer);
             });
 
-        return pending.promise;
+        return promise;
     }
 
     private getValidCachedAsset(key: string): Asset | null {
@@ -279,7 +293,12 @@ export class ManagedAssetLoader {
         return assets;
     }
 
-    private resolveCached<T>(value: T, onComplete?: (value: T | null) => void): Promise<T | null> {
+    private resolveCached<T>(
+        value: T,
+        onComplete?: (value: T | null) => void,
+        retainForCaller?: (value: T) => void
+    ): Promise<T | null> {
+        retainForCaller?.(value);
         return new Promise((resolve) => {
             setTimeout(() => {
                 onComplete?.(value);
@@ -314,7 +333,12 @@ export class ManagedAssetLoader {
 
             this._pendingLoads.delete(key);
             this._cancelledKeys.add(key);
-            pending.completes.forEach(cb => cb(null));
+            pending.consumers.forEach(consumer => {
+                consumer.onComplete?.(null);
+                consumer.resolve(null);
+            });
+            pending.consumers.length = 0;
+            pending.progresses.length = 0;
         }
     }
 
@@ -330,8 +354,7 @@ export class ManagedAssetLoader {
     private releaseCancelledAsset(asset: Asset | null): void {
         if (!asset || !asset.isValid || asset instanceof SceneAsset) return;
 
-        asset.addRef();
-        asset.decRef();
+        this._releaseScheduler.decRef(asset);
     }
 
     private withDefaultType<T extends typeof Asset, R extends ResourceRequest<T> | ResourceDirRequest<T>>(request: R): R {
@@ -339,5 +362,73 @@ export class ManagedAssetLoader {
             ...request,
             type: request.type || Asset as T,
         };
+    }
+
+    private addPendingConsumer<T>(
+        pending: PendingLoad<T>,
+        onComplete: ((value: T | null) => void) | undefined
+    ): Promise<T | null> {
+        return new Promise((resolve) => {
+            pending.consumers.push({
+                onComplete,
+                resolve
+            });
+        });
+    }
+
+    private resolvePendingConsumers<T>(
+        pending: PendingLoad<T>,
+        result: T | null,
+        retainForAdditionalConsumer?: (value: T) => void
+    ): void {
+        pending.consumers.forEach((consumer, index) => {
+            if (result && index > 0) {
+                retainForAdditionalConsumer?.(result);
+            }
+            consumer.onComplete?.(result);
+            consumer.resolve(result);
+        });
+        pending.consumers.length = 0;
+    }
+
+    private retainAssetForCaller(asset: Asset | null): void {
+        if (!asset || !asset.isValid || asset instanceof SceneAsset) return;
+
+        this._releaseScheduler.addRef(asset);
+    }
+
+    private retainAssetsForCaller(assets: Asset[] | null): void {
+        assets?.forEach(asset => this.retainAssetForCaller(asset));
+    }
+
+    private releaseUnusedEvictedAsset(asset: Asset): void {
+        if (!asset || !asset.isValid || asset.refCount > 0) return;
+
+        if (!this.releaseRuntimeSpriteFrame(asset)) {
+            asset.decRef();
+        }
+    }
+
+    private releaseRuntimeSpriteFrame(asset: Asset): boolean {
+        if (!(asset instanceof SpriteFrame)) {
+            return false;
+        }
+
+        const runtimeResource = this._runtimeSpriteFrames.get(asset);
+        if (!runtimeResource) {
+            return false;
+        }
+
+        this._runtimeSpriteFrames.delete(asset);
+        if (asset.isValid) {
+            asset.destroy();
+        }
+        if (runtimeResource.texture && runtimeResource.texture.isValid) {
+            runtimeResource.texture.destroy();
+        }
+        if (runtimeResource.imageAsset && runtimeResource.imageAsset.isValid) {
+            runtimeResource.imageAsset.decRef();
+        }
+        return true;
     }
 }

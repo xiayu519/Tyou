@@ -1,27 +1,17 @@
-# runtime-resource-safety Specification
+## ADDED Requirements
 
-## Purpose
-Define the Tyou runtime resource-safety contract for asynchronous Sprite assignment and UI auto-release integration.
-## Requirements
-### Requirement: Sprite async assignment ignores stale requests
-The runtime resource API MUST provide a Sprite assignment path that prevents stale asynchronous image loads from overwriting the latest request for the same Sprite.
+### Requirement: Managed helper failures release loaded owners
+The runtime resource API MUST release caller-owned resources when a helper loads an asset successfully but cannot attach, instantiate, assign, or register it into the intended lifecycle owner.
 
-#### Scenario: Older sprite request finishes last
-- **WHEN** two async sprite assignments target the same Sprite and the older request completes after the newer request
-- **THEN** the older request does not replace the SpriteFrame set by the newer request
-- **AND** any SpriteFrame loaded only for the stale request is released through the resource lifecycle path
+#### Scenario: Prefab instantiate or holder setup fails
+- **WHEN** `tyou.res.loadGameObjectAsync` loads a Prefab but fails before returning a managed node
+- **THEN** the loaded Prefab owner reference is released through `tyou.res.decRef`
 
-#### Scenario: Sprite target is destroyed before completion
-- **WHEN** an async sprite assignment completes after its Sprite target becomes invalid
-- **THEN** the API reports failure and does not assign a SpriteFrame
-- **AND** any SpriteFrame loaded for that failed assignment is released through the resource lifecycle path
+#### Scenario: Spine target cannot keep loaded data
+- **WHEN** a Spine helper loads SkeletonData but the target is invalid or holder setup fails
+- **THEN** the loaded SkeletonData owner reference is released through `tyou.res.decRef`
 
-### Requirement: UI sprite helper keeps auto release
-The UI base class MUST expose a sprite assignment helper that preserves UI dynamic resource auto-release behavior.
-
-#### Scenario: UI assigns sprite safely
-- **WHEN** a UI uses the safe sprite assignment helper and the latest request succeeds
-- **THEN** the assigned SpriteFrame is registered for UI auto-release
+## MODIFIED Requirements
 
 ### Requirement: UI window resources follow UI lifecycle
 The runtime resource safety contract MUST treat UI Prefabs and UI dynamic assets as lifecycle-owned resources released by the UI close path, including dynamic assets that finish loading after their UI owner has already been released.
@@ -60,64 +50,6 @@ The runtime resource safety contract MUST treat UI Prefabs and UI dynamic assets
 - **WHEN** a UI Prefab load completes after the UI was closed or cancelled
 - **THEN** the loaded node is destroyed instead of being attached as an active managed window
 - **AND** its resource holder can release the Prefab reference normally
-
-### Requirement: AudioClip resources follow audio playback lifecycle
-The runtime resource safety contract MUST treat AudioClip cache and playback ownership as lifecycle-owned resources released by the audio module.
-
-#### Scenario: AudioClip is cached for playback
-- **WHEN** the audio runtime loads an AudioClip through `tyou.res.loadAssetAsync`
-- **THEN** the clip is tracked in the audio cache
-- **AND** successful playback ownership increments audio playback reference state
-
-#### Scenario: Audio playback ends
-- **WHEN** an AudioSource playback stops, is preempted, completes, or the audio module is destroyed
-- **THEN** the AudioClip playback ownership is released exactly once
-- **AND** unused cached AudioClips are released through `tyou.res.decRef`
-
-### Requirement: Managed helper failures release loaded owners
-The runtime resource API MUST release caller-owned resources when a helper loads an asset successfully but cannot attach, instantiate, assign, or register it into the intended lifecycle owner.
-
-#### Scenario: Prefab instantiate or holder setup fails
-- **WHEN** `tyou.res.loadGameObjectAsync` loads a Prefab but fails before returning a managed node
-- **THEN** the loaded Prefab owner reference is released through `tyou.res.decRef`
-
-#### Scenario: Spine target cannot keep loaded data
-- **WHEN** a Spine helper loads SkeletonData but the target is invalid or holder setup fails
-- **THEN** the loaded SkeletonData owner reference is released through `tyou.res.decRef`
-
-### Requirement: Resource API preserves indexed logical-name loading
-The runtime resource API MUST resolve string resource names through `AssetIndexManager` before loading assets, while preserving the existing fallback diagnostics for missing or unknown index entries.
-
-#### Scenario: Indexed logical name resolves to indexed asset info
-- **WHEN** `tyou.res.loadAssetAsync("AssetName")` receives a string name that exists in `AssetIndexManager`
-- **THEN** the resource API loads using the indexed `path`, `bundle`, and `type`
-
-#### Scenario: SpriteFrame logical name appends spriteFrame suffix
-- **WHEN** a string name resolves to an indexed `SpriteFrame` type
-- **THEN** the resource API loads the indexed path with `/spriteFrame` appended
-
-#### Scenario: Missing asset index entry keeps current fallback
-- **WHEN** a string name does not exist in `AssetIndexManager`
-- **THEN** the resource API logs `[ResourceModule] Asset index missing: <name>`
-- **AND** it falls back to loading the original name as an `Asset`
-
-#### Scenario: Unknown indexed type keeps current fallback
-- **WHEN** a string name resolves to an indexed type that is not registered by the resource type registry
-- **THEN** the resource API logs an unknown-type warning
-- **AND** it falls back to loading the asset as `Asset`
-
-### Requirement: Resource facade remains stable for existing callers
-The runtime resource module MUST keep the supported `tyou.res.*` facade methods used by current framework and business code after replacing the old `LoaderManager` internals.
-
-#### Scenario: Existing resource callers keep using tyou.res
-- **WHEN** existing code calls supported resource facade methods such as `loadAssetAsync`, `loadDirAsync`, `loadGameObjectAsync`, `loadSprite`, `loadAtlas`, `setSpriteAsync`, `preload`, `loadBundleAsync`, `reloadBundleAsync`, `addRef`, or `decRef`
-- **THEN** the methods remain available on `tyou.res`
-- **AND** callers do not instantiate `LoaderManager` or access `tyou.res.loader`
-
-#### Scenario: Legacy LoaderManager entry is absent
-- **WHEN** framework or business code needs resource loading
-- **THEN** it uses `tyou.res.*` and the internal resource services
-- **AND** the old `LoaderManager` source file is not kept as a public or compatibility entry
 
 ### Requirement: Managed asset loading coalesces duplicate in-flight requests
 The runtime resource API MUST avoid starting duplicate Cocos load operations for the same normalized resource request while a request is already in flight, and MUST give each successful caller its own owner reference.
@@ -163,34 +95,6 @@ The runtime resource API MUST preserve delayed release semantics so managed asse
 #### Scenario: addRef cancels pending release
 - **WHEN** `tyou.res.addRef(asset)` is called for an asset currently waiting in the pending release queue
 - **THEN** the asset is removed from the pending release queue
-
-### Requirement: Node pool Prefab references follow resource lifecycle
-The runtime resource safety contract MUST treat Prefabs retained by node pools as lifecycle-owned resources that are released through `tyou.res`.
-
-#### Scenario: Node pool loads a Prefab
-- **WHEN** a node pool initializes and loads its Prefab through `tyou.res.loadAssetAsync`
-- **THEN** the pool owns that Prefab reference until the pool is destroyed
-
-#### Scenario: Node pool is destroyed
-- **WHEN** a node pool is destroyed after loading a Prefab
-- **THEN** the pool releases that Prefab through `tyou.res.decRef`
-- **AND** it does not directly bypass the resource module cache or bundle lifecycle
-
-### Requirement: Bundle operations keep existing behavior
-The runtime resource API MUST preserve the existing bundle load, reload, remove, release, and unused-release behavior exposed through `tyou.res`.
-
-#### Scenario: Bundle is loaded through facade
-- **WHEN** a caller invokes `tyou.res.loadBundle` or `tyou.res.loadBundleAsync`
-- **THEN** the resource API loads the requested bundle with the same default bundle and version semantics as before the refactor
-
-#### Scenario: Bundle reload refreshes resource data
-- **WHEN** a caller invokes `tyou.res.reloadBundleAsync`
-- **THEN** the resource API refreshes the bundle resource config and replaces the old loaded bundle data using the existing reload semantics
-
-#### Scenario: Bundle removal and resource release remain available
-- **WHEN** a caller invokes `tyou.res.removeBundle`, `tyou.res.release`, or `tyou.res.releaseUnused`
-- **THEN** the corresponding Cocos bundle resource operation remains available through `tyou.res`
-- **AND** `tyou.res.releaseAll` remains available for releasing managed cached resources through the resource facade
 
 ### Requirement: Managed release cancels matching in-flight requests
 The runtime resource API MUST prevent in-flight managed loads from re-entering the managed cache after `releaseAll` has released their matching cache scope.

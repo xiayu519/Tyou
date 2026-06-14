@@ -22,6 +22,7 @@
 
 ## References
 
+- `.codex/memory/references/cocos-creator-asset-release-mechanics.md`：Cocos Creator 3.8.7 `Asset.decRef`、`tryRelease` 与组件赋值不自动持有资源的底层机制。
 - `.codex/memory/references/cocos-prefab-source-json.md`：本项目 Cocos Prefab 源文件是可解析 JSON 对象数组而非不可读二进制。
 - `.codex/memory/references/cocos-scene-source-json.md`：本项目 Cocos Scene 源文件是可解析 JSON 对象数组而非不可读二进制。
 - `.codex/memory/references/unity-shader-dev-localization-source.md`：`D:\gitframework\unity_shader_dev` 是后续本土化 Tyou/小游戏 shader skill 的 Unity URP 参考源。

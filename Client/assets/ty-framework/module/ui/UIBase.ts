@@ -22,6 +22,7 @@ export class UIBase {
 
     /** 自动释放资源 */
     private _dynamicsAssets: Set<Asset> = new Set();
+    private _isReleased: boolean = false;
 
     /** 点击事件列表 */
     private _registerEventList: Map<string, any> = new Map();
@@ -51,21 +52,17 @@ export class UIBase {
 
     async getSprite(name: string) {
         const sprite = await tyou.res.loadSprite(name);
-        this.addAutoReleaseAsset(sprite);
+        if (sprite && !this.addAutoReleaseAsset(sprite)) {
+            return null;
+        }
         return sprite;
     }
 
     async getSpriteFromAtlas(atlasName: string, spriteFrameName: string) {
-        const atlas = await tyou.res.loadAtlas(atlasName);
-        if (!atlas) {
+        const spriteFrame = await tyou.res.loadSpriteFromAtlas(atlasName, spriteFrameName);
+        if (spriteFrame && !this.addAutoReleaseAsset(spriteFrame)) {
             return null;
         }
-        const spriteFrame = atlas.getSpriteFrame(spriteFrameName);
-        if (!spriteFrame) {
-            console.warn("UIBase.getSpriteFromAtlas: spriteFrame not found", atlasName, spriteFrameName);
-            return null;
-        }
-        this.addAutoReleaseAsset(atlas);
         return spriteFrame;
     }
 
@@ -75,8 +72,8 @@ export class UIBase {
             return null;
         }
         const spriteFrame = await tyou.res.setSpriteAsync({target: sprite, path: name});
-        if (spriteFrame) {
-            this.addAutoReleaseAsset(spriteFrame);
+        if (spriteFrame && !this.addAutoReleaseAsset(spriteFrame)) {
+            return null;
         }
         return spriteFrame;
     }
@@ -87,17 +84,25 @@ export class UIBase {
             return null;
         }
         const spriteFrame = await tyou.res.setSpriteAsync({target: sprite, url, ext});
-        if (spriteFrame) {
-            this.addAutoReleaseAsset(spriteFrame);
+        if (spriteFrame && !this.addAutoReleaseAsset(spriteFrame)) {
+            return null;
         }
         return spriteFrame;
     }
 
     /** 添加自动释放的资源 */
-    public addAutoReleaseAsset(asset: Asset): void {
-        if (isValid(asset)) {
-            this._dynamicsAssets.add(asset);
+    public addAutoReleaseAsset(asset: Asset | null | undefined): boolean {
+        if (!isValid(asset)) {
+            return false;
         }
+
+        if (this._isReleased) {
+            tyou.res.decRef(asset);
+            return false;
+        }
+
+        this._dynamicsAssets.add(asset);
+        return true;
     }
 
     /** 添加自动释放的资源数组 */
@@ -234,6 +239,7 @@ export class UIBase {
     }
 
     protected onRelease() {
+        this._isReleased = true;
         this.clearTouchTimer();
         this._nodes.clear();
         this._nodesByName.clear();

@@ -3,6 +3,7 @@ import {Asset} from "cc";
 interface PendingReleaseInfo {
     asset: Asset;
     markTime: number;
+    zeroSince: number;
 }
 
 export class ReleaseScheduler {
@@ -13,7 +14,7 @@ export class ReleaseScheduler {
     private _enableDelayRelease: boolean = true;
 
     constructor(
-        private readonly _releaseCache: (asset: Asset) => void,
+        private readonly _releaseReady: (asset: Asset) => boolean | void,
         private readonly _log: (...args: any[]) => void
     ) {
     }
@@ -52,7 +53,7 @@ export class ReleaseScheduler {
     public forceReleaseAllPending(): void {
         for (const [asset] of this._pendingReleaseQueue) {
             if (asset && asset.isValid && asset.refCount === 0) {
-                this._releaseCache(asset);
+                this.releaseReadyAsset(asset);
                 this._log("ForceRelease", asset.name);
             }
         }
@@ -75,7 +76,7 @@ export class ReleaseScheduler {
         if (!asset || !asset.isValid) return;
 
         if (asset.refCount > 0) {
-            asset.decRef();
+            asset.decRef(false);
         }
         this._log("DecRef", asset.name, asset.refCount);
 
@@ -83,7 +84,8 @@ export class ReleaseScheduler {
             if (!this._pendingReleaseQueue.has(asset)) {
                 this._pendingReleaseQueue.set(asset, {
                     asset,
-                    markTime: Date.now()
+                    markTime: Date.now(),
+                    zeroSince: asset.refCount === 0 ? Date.now() : 0
                 });
                 this._log("AddToPendingCheck", asset.name, "refCount:", asset.refCount);
             }
@@ -91,7 +93,7 @@ export class ReleaseScheduler {
         }
 
         if (asset.refCount === 0) {
-            this._releaseCache(asset);
+            this.releaseReadyAsset(asset);
         }
     }
 
@@ -106,12 +108,17 @@ export class ReleaseScheduler {
             }
 
             if (asset.refCount > 0) {
+                info.zeroSince = 0;
                 continue;
             }
 
-            const elapsed = (currentTime - info.markTime) / 1000;
+            if (info.zeroSince <= 0) {
+                info.zeroSince = currentTime;
+            }
+
+            const elapsed = (currentTime - info.zeroSince) / 1000;
             if (elapsed >= this._releaseDelay) {
-                this._releaseCache(asset);
+                this.releaseReadyAsset(asset);
                 this._log("DelayRelease", asset.name, "after", elapsed.toFixed(2), "s");
                 toRemove.push(asset);
             }
@@ -119,6 +126,13 @@ export class ReleaseScheduler {
 
         for (const asset of toRemove) {
             this._pendingReleaseQueue.delete(asset);
+        }
+    }
+
+    private releaseReadyAsset(asset: Asset): void {
+        const handled = this._releaseReady(asset);
+        if (!handled && asset && asset.isValid) {
+            asset.decRef();
         }
     }
 }

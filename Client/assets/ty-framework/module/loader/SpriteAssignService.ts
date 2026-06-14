@@ -43,9 +43,16 @@ export class SpriteAssignService {
             return null;
         }
 
-        params.target.spriteFrame = spriteFrame;
-        params.onComplete?.(true, spriteFrame);
-        return spriteFrame;
+        try {
+            params.target.spriteFrame = spriteFrame;
+            params.onComplete?.(true, spriteFrame);
+            return spriteFrame;
+        } catch (error) {
+            this.releaseLoadedSpriteFrame(spriteFrame);
+            params.onComplete?.(false, spriteFrame);
+            console.error("setSpriteAsync assign failed", error);
+            return null;
+        }
     }
 
     private releaseLoadedSpriteFrame(spriteFrame: SpriteFrame | null): void {
