@@ -28,8 +28,9 @@ export class TestUI extends UIWindow {
 
     private async onBtnEnterClick(btn: Node, param: any) {
         this.close();
-        await tyou.scene.loadSceneAsync(SceneEnum.Game);
-        tyou.ui.showUIAsync(UIName.TestUI1); 
+        await tyou.ui.showUIAsync(UIName.TestPsdUI);
+/*         await tyou.scene.loadSceneAsync(SceneEnum.Game);
+        tyou.ui.showUIAsync(UIName.TestUI1);  */
     }
 
     override async onCreate() {

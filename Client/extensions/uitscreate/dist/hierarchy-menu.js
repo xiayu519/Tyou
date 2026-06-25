@@ -3,6 +3,8 @@
 const fs = require("fs");
 const path = require("path");
 const psd2cccCommonAtlas = require("../../psd2ccc/dist/common-atlas-checker.js");
+const WIDGET_SCRIPT_DIR = "widget";
+const WIDGET_IMPORT_ALL_FILE = "WidgetImportAll";
 
 // 默认组件配置
 const DEFAULT_COMPONENT_CONFIG = [
@@ -160,13 +162,19 @@ async function regenerateUIImportAll() {
             uiNames.push(match[1]);
         }
 
-        if (uiNames.length === 0) {
-            console.log('[UI脚本生成器] UIName 枚举为空，跳过 UIImportAll 生成');
+        const widgetImportAllPath = path.join(projectPath, 'assets', targetDir, WIDGET_SCRIPT_DIR, `${WIDGET_IMPORT_ALL_FILE}.ts`);
+        const importLineList = uiNames.map(name => `import "./${name}";`);
+        if (fs.existsSync(widgetImportAllPath)) {
+            importLineList.push(`import "./${WIDGET_SCRIPT_DIR}/${WIDGET_IMPORT_ALL_FILE}";`);
+        }
+
+        if (importLineList.length === 0) {
+            console.log('[UI脚本生成器] UIName 枚举为空且无 WidgetImportAll，跳过 UIImportAll 生成');
             return;
         }
 
         // 生成 UIImportAll.ts 内容（装饰器模式：仅需 side-effect import）
-        const importLines = uiNames.map(name => `import "./${name}";`).join('\n');
+        const importLines = importLineList.join('\n');
 
         const importAllContent = `/**\n * UI统一导入文件（自动生成，请勿手动修改）\n *\n * 导入所有UI类以触发 @UIDecorator 装饰器的自注册，\n * 防止微信小游戏等平台构建时 Tree Shaking 移除UI类。\n * 右键生成UI脚本时会自动更新此文件。\n */\n${importLines}\n`;
 
@@ -184,6 +192,41 @@ async function regenerateUIImportAll() {
         }
     } catch (error) {
         console.error('[UI脚本生成器] 更新 UIImportAll.ts 失败:', error);
+    }
+}
+
+// 重新生成 WidgetImportAll.ts，供 UIImportAll side-effect 引入，防止小游戏构建剔除动态 Widget 类
+async function regenerateWidgetImportAll() {
+    try {
+        const targetDir = loadPathConfig();
+        const projectPath = Editor.Project.path;
+        const widgetDir = path.join(projectPath, 'assets', targetDir, WIDGET_SCRIPT_DIR);
+        ensureDirectoryExists(widgetDir);
+
+        const widgetNames = fs.readdirSync(widgetDir)
+            .filter(file => file.endsWith('.ts'))
+            .filter(file => !file.endsWith('.d.ts'))
+            .map(file => path.basename(file, '.ts'))
+            .filter(name => name !== WIDGET_IMPORT_ALL_FILE)
+            .sort();
+
+        const importLines = widgetNames.map(name => `import "./${name}";`).join('\n');
+        const content = `/**\n * Widget统一导入文件（自动生成，请勿手动修改）\n *\n * 导入所有 UIWidget 类，防止微信小游戏等平台构建时 Tree Shaking 移除动态 Widget 类。\n * 此文件只做 side-effect import，不引用 UIName，也不反向导入 UI 窗口。\n */\n${importLines}\n`;
+
+        const filePath = path.join(widgetDir, `${WIDGET_IMPORT_ALL_FILE}.ts`);
+        fs.writeFileSync(filePath, content, 'utf8');
+        console.log(`[UI脚本生成器] ${WIDGET_IMPORT_ALL_FILE}.ts 已更新，包含 ${widgetNames.length} 个Widget类`);
+
+        const dbPath = `db://assets/${targetDir}/${WIDGET_SCRIPT_DIR}/${WIDGET_IMPORT_ALL_FILE}.ts`;
+        try {
+            await Editor.Message.request('asset-db', 'refresh-asset', dbPath);
+        } catch (e) {
+            console.log(`[UI脚本生成器] 刷新 ${WIDGET_IMPORT_ALL_FILE}.ts 资源通知（可忽略）:`, e.message);
+        }
+
+        await regenerateUIImportAll();
+    } catch (error) {
+        console.error(`[UI脚本生成器] 更新 ${WIDGET_IMPORT_ALL_FILE}.ts 失败:`, error);
     }
 }
 
@@ -257,6 +300,131 @@ async function getExistingFileContent(scriptPath) {
     return null;
 }
 
+function buildNodeMap(nodes) {
+    const map = new Map();
+    nodes.forEach(node => map.set(node.uuid, node));
+    return map;
+}
+
+function isDescendantOf(node, ancestor, nodeMap) {
+    let parentUuid = node.parentUuid;
+    while (parentUuid) {
+        if (parentUuid === ancestor.uuid) {
+            return true;
+        }
+        const parent = nodeMap.get(parentUuid);
+        if (!parent) {
+            return false;
+        }
+        parentUuid = parent.parentUuid;
+    }
+    return false;
+}
+
+function isInsideNestedList(node, listNode, nodeMap) {
+    let parentUuid = node.parentUuid;
+    while (parentUuid && parentUuid !== listNode.uuid) {
+        const parent = nodeMap.get(parentUuid);
+        if (!parent) {
+            return false;
+        }
+        if ((parent.name || '').indexOf('m_list') === 0) {
+            return true;
+        }
+        parentUuid = parent.parentUuid;
+    }
+    return false;
+}
+
+function toPascalCase(value) {
+    const text = String(value || '').replace(/[^a-zA-Z0-9_]/g, '');
+    if (!text) {
+        return '';
+    }
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function stripPrefix(name, prefix) {
+    return name.indexOf(prefix) === 0 ? name.substring(prefix.length) : name;
+}
+
+function isListItemWidgetName(name) {
+    return String(name || '').indexOf('m_item') === 0;
+}
+
+function containsWidgetMarker(name) {
+    const lowerName = String(name || '').toLowerCase();
+    return lowerName.includes('widget');
+}
+
+function sanitizeScriptClassName(name, fallback) {
+    let className = String(name || '')
+        .replace(/\(Clone\)/g, '')
+        .replace(/\.prefab$/i, '')
+        .replace(/[^a-zA-Z0-9_]/g, '_');
+
+    if (!className) {
+        className = fallback;
+    }
+
+    if (/^[0-9]/.test(className)) {
+        className = `_${className}`;
+    }
+
+    return className.charAt(0).toUpperCase() + className.slice(1);
+}
+
+function normalizeWidgetClassName(nodeName) {
+    const cleanName = String(nodeName || '').replace(/\(Clone\)/g, '').replace(/\.prefab$/i, '');
+    if (isListItemWidgetName(cleanName)) {
+        const itemSuffix = toPascalCase(stripPrefix(cleanName, 'm_item'));
+        return `Item${itemSuffix}`;
+    }
+    return sanitizeScriptClassName(cleanName, 'Widget');
+}
+
+function createListItemContext(scriptName, nodes) {
+    const nodeMap = buildNodeMap(nodes);
+    const listItemByListName = new Map();
+    const listItemMetas = [];
+    const classNameCounts = new Map();
+
+    const listNodes = nodes.filter(node => (node.name || '').indexOf('m_list') === 0);
+    for (const listNode of listNodes) {
+        const itemNodes = nodes.filter(node => {
+            const name = node.name || '';
+            return name.indexOf('m_item') === 0
+                && isDescendantOf(node, listNode, nodeMap)
+                && !isInsideNestedList(node, listNode, nodeMap);
+        });
+
+        if (itemNodes.length !== 1) {
+            continue;
+        }
+
+        const className = normalizeWidgetClassName(itemNodes[0].name);
+        const meta = {
+            className,
+            listNode,
+            rootNode: itemNodes[0],
+        };
+        listItemMetas.push(meta);
+        listItemByListName.set(listNode.name, meta);
+        classNameCounts.set(className, (classNameCounts.get(className) || 0) + 1);
+    }
+
+    const duplicateClassNames = Array.from(classNameCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([className]) => className);
+
+    return {
+        nodeMap,
+        listItemByListName,
+        listItemMetas,
+        duplicateClassNames,
+    };
+}
+
 // 生成需要复制的部分内容
 function generateClipboardContent(className, nodeProperties) {
     // 格式化类名
@@ -270,11 +438,18 @@ function generateClipboardContent(className, nodeProperties) {
 
     // 生成绑定语句
     const bindStatements = nodeProperties.map(prop => {
+        const statements = [];
         if (prop.componentType === 'Node') {
-            return `        this.${prop.propertyName} = this.get("${prop.originalName}");`;
+            statements.push(`        this.${prop.propertyName} = this.get("${prop.originalName}");`);
         } else {
-            return `        this.${prop.propertyName} = this.get("${prop.originalName}").getComponent(${prop.componentType});`;
+            statements.push(`        this.${prop.propertyName} = this.get("${prop.originalName}").getComponent(${prop.componentType});`);
         }
+
+        if (prop.listItemMeta) {
+            statements.push(`        this.${prop.propertyName}.setItemWidget(${prop.listItemMeta.className}, this);`);
+        }
+
+        return statements.join('\n');
     }).join('\n');
 
     // 生成事件语句
@@ -387,17 +562,26 @@ async function generateUIScript(nodeUuid) {
 
         // 4. 获取所有子节点
         const allNodes = await getAllChildNodes(uuid);
+        const scriptName = nodeName.replace(/\(Clone\)/g, '').replace('.prefab', '');
+        const listItemContext = createListItemContext(scriptName, allNodes);
+        if (listItemContext.duplicateClassNames && listItemContext.duplicateClassNames.length > 0) {
+            await showErrorMessage(
+                'Item脚本名重复',
+                `以下 m_item 会生成重复脚本名：${listItemContext.duplicateClassNames.join(', ')}\n请重命名对应 m_item 节点后重新生成。`
+            );
+            return;
+        }
 
         // 5. 加载组件配置和模板
         const componentConfig = loadComponentConfig();
         const template = loadTemplate();
 
         // 6. 筛选节点
-        const nodeProperties = filterNodesByConfig(allNodes, componentConfig);
+        const nodeProperties = filterNodesByConfig(allNodes, componentConfig, listItemContext);
 
         // 7. 生成脚本内容
-        const scriptName = nodeName.replace(/\(Clone\)/g, '').replace('.prefab', '');
-        const scriptContent = generateScriptContent(scriptName, nodeProperties, template);
+        const scriptContent = generateScriptContent(scriptName, nodeProperties, template, listItemContext);
+        await createListItemScripts(scriptName, allNodes, componentConfig, listItemContext);
 
         // 8. 检查文件是否存在
         const targetDir = loadPathConfig();
@@ -442,20 +626,85 @@ async function generateUIScript(nodeUuid) {
     }
 }
 
+async function generateWidgetScript(nodeUuid) {
+    try {
+        let uuid = nodeUuid;
+        if (!uuid) {
+            const uuids = Editor.Selection.getSelected('node');
+            if (!uuids || uuids.length === 0) {
+                await showWarning('请先选中一个节点');
+                return;
+            }
+            uuid = uuids[0];
+        }
+
+        let node = null;
+        for (let retry = 0; retry < 3; retry++) {
+            try {
+                node = await Editor.Message.request('scene', 'query-node', uuid);
+            } catch (e) {
+                console.warn(`[UI脚本生成器] query-node 第${retry + 1}次失败:`, e.message);
+            }
+            if (node) break;
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        if (!node) {
+            await showWarning('无法获取节点信息，请确保场景已打开并重试');
+            return;
+        }
+
+        const nodeName = node.name?.value || '';
+        const isItemWidget = isListItemWidgetName(nodeName);
+        if (!isItemWidget && !containsWidgetMarker(nodeName)) {
+            await showWarning(`节点名称 "${nodeName}" 不包含 "Widget" 标记，不能生成Widget脚本`);
+            return;
+        }
+
+        const scriptName = normalizeWidgetClassName(nodeName);
+        const allNodes = await getAllChildNodes(uuid);
+        const componentConfig = loadComponentConfig();
+        const nodeProperties = filterNodesByConfig(allNodes, componentConfig, null);
+        const scriptContent = generateListItemScriptContent(scriptName, nodeProperties, { includeRecycle: isItemWidget });
+        const targetDir = `${loadPathConfig()}/${WIDGET_SCRIPT_DIR}`;
+        const scriptPath = `db://assets/${targetDir}/${scriptName}.ts`;
+
+        if (await checkFileExists(scriptPath)) {
+            const clipboardContent = generateClipboardContent(scriptName, nodeProperties);
+            const copySuccess = copyToClipboard(clipboardContent);
+            if (copySuccess) {
+                await showSuccess('Widget脚本绑定部分已复制到剪贴板', `包含 ${nodeProperties.length} 个节点属性。\n\n请打开 ${scriptName}.ts 文件，手动合并绑定部分。`);
+            } else {
+                await showWarning('复制失败，请手动复制', `复制到剪贴板失败，请手动复制以下内容：\n\n${clipboardContent}`);
+            }
+            await regenerateWidgetImportAll();
+            return;
+        }
+
+        await createScriptFile(scriptName, scriptContent, targetDir);
+        await regenerateWidgetImportAll();
+        await showSuccess('Widget脚本生成成功', `Widget脚本已生成到 ${targetDir}/${scriptName}.ts\n包含 ${nodeProperties.length} 个节点属性。`);
+    } catch (error) {
+        console.error('生成Widget脚本失败:', error);
+        await showErrorMessage('生成失败', error.message || String(error));
+    }
+}
+
 // 获取所有子节点
-async function getAllChildNodes(rootUuid) {
+async function getAllChildNodes(rootUuid, includeRoot = false) {
     const nodes = [];
 
-    const collectNodes = async (parentUuid) => {
+    const collectNodes = async (parentUuid, ownerUuid = '') => {
         try {
             const node = await Editor.Message.request('scene', 'query-node', parentUuid);
             if (!node) return;
 
             const nodeName = node.name?.value || '';
-            // 记录节点（跳过根节点本身）
-            if (parentUuid !== rootUuid && nodeName) {
+            // 记录节点；UI脚本生成跳过根节点，前缀检查需要把选中的 m_list 根节点也纳入扫描。
+            if ((includeRoot || parentUuid !== rootUuid) && nodeName) {
                 nodes.push({
                     uuid: parentUuid,
+                    parentUuid: ownerUuid,
                     name: nodeName
                 });
             }
@@ -464,7 +713,7 @@ async function getAllChildNodes(rootUuid) {
             const children = node.children;
             for (const child of children) {
                 if (child && child.value.uuid) {
-                    await collectNodes(child.value.uuid);
+                    await collectNodes(child.value.uuid, parentUuid);
                 }
             }
         } catch (error) {
@@ -477,7 +726,7 @@ async function getAllChildNodes(rootUuid) {
 }
 
 // 根据配置筛选节点
-function filterNodesByConfig(nodes, config) {
+function filterNodesByConfig(nodes, config, context = null) {
     const properties = [];
 
     for (const node of nodes) {
@@ -487,6 +736,7 @@ function filterNodesByConfig(nodes, config) {
             if (nodeName.startsWith(cfg.prefix)) {
                 // 代码生成使用 codeType（如果存在），否则使用 component
                 const codeType = cfg.codeType || cfg.component;
+                const listItemMeta = context ? context.listItemByListName.get(nodeName) : null;
 
                 // 生成属性名（去掉m_，前面加_）
                 const prefixIndex = cfg.prefix.indexOf('_');
@@ -508,7 +758,8 @@ function filterNodesByConfig(nodes, config) {
                     propertyName: propertyName,
                     componentType: codeType,
                     prefix: cfg.prefix,
-                    methodName: methodName
+                    methodName: methodName,
+                    listItemMeta: listItemMeta
                 });
 
                 break;
@@ -520,7 +771,7 @@ function filterNodesByConfig(nodes, config) {
 }
 
 // 生成完整脚本内容（使用模板）
-function generateScriptContent(className, nodeProperties, template) {
+function generateScriptContent(className, nodeProperties, template, context = null) {
     // 格式化类名
     const validClassName = className.replace(/[^a-zA-Z0-9_]/g, '_');
     const formattedClassName = validClassName.charAt(0).toUpperCase() + validClassName.slice(1);
@@ -529,6 +780,7 @@ function generateScriptContent(className, nodeProperties, template) {
     const importComponents = new Set(['Label', 'Sprite', 'Node', 'Layout']);
     let hasListView = false;
     let hasScrollView = false;
+    const listItemImports = new Set();
 
     nodeProperties.forEach(prop => {
         if (prop.componentType && prop.componentType !== 'Node') {
@@ -541,6 +793,10 @@ function generateScriptContent(className, nodeProperties, template) {
 
         if (prop.componentType === 'ScrollView') {
             hasScrollView = true;
+        }
+
+        if (prop.listItemMeta) {
+            listItemImports.add(prop.listItemMeta.className);
         }
     });
 
@@ -558,12 +814,16 @@ function generateScriptContent(className, nodeProperties, template) {
 
     // 添加自定义组件导入
     if (hasListView) {
-        importStatements.push('import ListView from "../core/loop-list/ListView"');
+        importStatements.push('import ListView from "../../../ty-framework/module/ui/loop-list/ListView"');
     }
 
     if (hasScrollView) {
         importStatements.push('import ScrollView from "../Core/ScrollView/ScrollView";');
     }
+
+    Array.from(listItemImports).sort().forEach(className => {
+        importStatements.push(`import {${className}} from "./${WIDGET_SCRIPT_DIR}/${className}";`);
+    });
 
     // 添加基础导入
     importStatements.push('import {UIDecorator} from "../../../ty-framework/module/ui/UIDecorator";');
@@ -579,11 +839,18 @@ function generateScriptContent(className, nodeProperties, template) {
 
     // 生成绑定语句
     const bindStatements = nodeProperties.map(prop => {
+        const statements = [];
         if (prop.componentType === 'Node') {
-            return `        this.${prop.propertyName} = this.get("${prop.originalName}");`;
+            statements.push(`        this.${prop.propertyName} = this.get("${prop.originalName}");`);
         } else {
-            return `        this.${prop.propertyName} = this.get("${prop.originalName}").getComponent(${prop.componentType});`;
+            statements.push(`        this.${prop.propertyName} = this.get("${prop.originalName}").getComponent(${prop.componentType});`);
         }
+
+        if (prop.listItemMeta) {
+            statements.push(`        this.${prop.propertyName}.setItemWidget(${prop.listItemMeta.className}, this);`);
+        }
+
+        return statements.join('\n');
     }).join('\n');
 
     // 生成事件语句
@@ -630,9 +897,97 @@ function generateScriptContent(className, nodeProperties, template) {
     return scriptContent;
 }
 
-// 创建脚本文件
-async function createScriptFile(scriptName, scriptText) {
+function getListItemChildNodes(rootNode, nodes, nodeMap) {
+    return nodes.filter(node => isDescendantOf(node, rootNode, nodeMap));
+}
+
+function generateListItemScriptContent(className, nodeProperties, options = {}) {
+    const includeRecycle = options.includeRecycle !== false;
+    const importComponents = new Set(['Node']);
+    let hasListView = false;
+
+    nodeProperties.forEach(prop => {
+        if (prop.componentType && prop.componentType !== 'Node') {
+            importComponents.add(prop.componentType);
+        }
+        if (prop.componentType === 'ListView') {
+            hasListView = true;
+        }
+    });
+
+    const importStatements = [];
+    const ccComponents = Array.from(importComponents)
+        .filter(comp => comp !== 'ListView' && comp !== 'UIWidget')
+        .sort();
+
+    if (ccComponents.length > 0) {
+        importStatements.push(`import {${ccComponents.join(', ')}} from "cc";`);
+    }
+    if (hasListView) {
+        importStatements.push('import ListView from "../../../../ty-framework/module/ui/loop-list/ListView";');
+    }
+    importStatements.push('import {UIWidget} from "../../../../ty-framework/module/ui/UIWidget";');
+
+    const propertyDefinitions = nodeProperties.map(prop => {
+        return `    private ${prop.propertyName}: ${prop.componentType};`;
+    }).join('\n\n');
+
+    const bindStatements = nodeProperties.map(prop => {
+        if (prop.componentType === 'Node') {
+            return `        this.${prop.propertyName} = this.get("${prop.originalName}");`;
+        }
+        return `        this.${prop.propertyName} = this.get("${prop.originalName}").getComponent(${prop.componentType});`;
+    }).join('\n');
+
+    const btnProperties = nodeProperties.filter(prop => prop.prefix === 'm_btn');
+    const eventStatements = btnProperties.map(prop => {
+        return `        this.onRegisterEvent(this.${prop.propertyName}, this.${prop.methodName})`;
+    }).join('\n');
+
+    const clickMethods = btnProperties.map(prop => {
+        return `    private ${prop.methodName}(btn:Node,param:any) {\n\n    }`;
+    }).join('\n\n');
+    const recycleMethod = includeRecycle ? `\n\n    override onRecycle() {\n\n    }` : '';
+
+    return `${importStatements.join('\n')}\n\nexport class ${className} extends UIWidget {\n${propertyDefinitions}\n\n    override bindMemberProperty() {\n${bindStatements}\n    }\n\n    override registerEvent() {\n${eventStatements}\n    }\n\n${clickMethods}\n\n    override onCreate() {\n\n    }\n\n    override onRefresh() {\n\n    }${recycleMethod}\n\n    override onClosed() {\n\n    }\n}\n`.replace(/\n\s*\n\s*\n/g, '\n\n');
+}
+
+async function createListItemScripts(scriptName, allNodes, componentConfig, context) {
+    if (!context || !context.listItemMetas || context.listItemMetas.length === 0) {
+        return { total: 0, created: 0, existing: 0 };
+    }
+    if (context.duplicateClassNames && context.duplicateClassNames.length > 0) {
+        throw new Error(`m_item 生成脚本名重复: ${context.duplicateClassNames.join(', ')}`);
+    }
+
     const targetDir = loadPathConfig();
+    const widgetDir = `${targetDir}/${WIDGET_SCRIPT_DIR}`;
+    const projectPath = Editor.Project.path;
+    ensureDirectoryExists(path.join(projectPath, 'assets', widgetDir));
+    let created = 0;
+    let existing = 0;
+
+    for (const meta of context.listItemMetas) {
+        const scriptPath = `db://assets/${widgetDir}/${meta.className}.ts`;
+        if (await checkFileExists(scriptPath)) {
+            existing++;
+            continue;
+        }
+
+        const childNodes = getListItemChildNodes(meta.rootNode, allNodes, context.nodeMap);
+        const childProperties = filterNodesByConfig(childNodes, componentConfig, context);
+        const scriptContent = generateListItemScriptContent(meta.className, childProperties);
+        await createScriptFile(meta.className, scriptContent, widgetDir);
+        created++;
+    }
+
+    await regenerateWidgetImportAll();
+    return { total: context.listItemMetas.length, created, existing };
+}
+
+// 创建脚本文件
+async function createScriptFile(scriptName, scriptText, customTargetDir) {
+    const targetDir = customTargetDir || loadPathConfig();
     let scriptPath = `db://assets/${targetDir}/${scriptName}.ts`;
 
     console.log('创建脚本文件:', scriptPath);
@@ -797,6 +1152,23 @@ async function checkPrefixComponents(nodeUuid) {
             }
         }
 
+        // ======== 阶段 3：为 m_list/content/m_item 自动生成 item Widget 脚本 ========
+        try {
+            const scriptNodes = await getAllChildNodes(uuid, true);
+            const listItemContext = createListItemContext('PrefixCheck', scriptNodes);
+            const scriptResult = await createListItemScripts('PrefixCheck', scriptNodes, componentConfig, listItemContext);
+            if (scriptResult && scriptResult.total > 0) {
+                allDetails.push('');
+                allDetails.push('--- 生成 m_item Widget 脚本 ---');
+                allDetails.push(`  ✓ item Widget: 共 ${scriptResult.total} 个，新建 ${scriptResult.created} 个，已存在 ${scriptResult.existing} 个`);
+            }
+        } catch (scriptError) {
+            totalFailed += 1;
+            allDetails.push('');
+            allDetails.push('--- 生成 m_item Widget 脚本失败 ---');
+            allDetails.push(`  ✖ ${scriptError.message || String(scriptError)}`);
+        }
+
         // ======== 输出结果 ========
         let msg = `检查完成！\n\n`;
         msg += `扫描节点: ${phase1Result.total}\n`;
@@ -810,7 +1182,9 @@ async function checkPrefixComponents(nodeUuid) {
             msg += `\n操作详情:\n` + allDetails.join('\n');
         }
 
-        if (totalFixed > 0 || totalRemoved > 0) {
+        if (totalFailed > 0) {
+            await showErrorMessage('前缀检查完成但有失败', msg);
+        } else if (totalFixed > 0 || totalRemoved > 0) {
             await showSuccess('前缀检查完成', msg);
         } else {
             await Editor.Dialog.info('提示', {
@@ -852,6 +1226,12 @@ module.exports = {
                 label: '🎯 生成UI脚本',
                 async click() {
                     await generateUIScript(assetInfo);
+                }
+            },
+            {
+                label: '🧱 生成Widget脚本',
+                async click() {
+                    await generateWidgetScript(assetInfo);
                 }
             },
             {

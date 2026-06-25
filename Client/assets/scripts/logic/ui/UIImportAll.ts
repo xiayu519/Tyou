@@ -9,3 +9,4 @@ import "./TestUI";
 import "./MessageBoxUI";
 import "./TestUI1";
 import "./TestPsdUI";
+import "./widget/WidgetImportAll";

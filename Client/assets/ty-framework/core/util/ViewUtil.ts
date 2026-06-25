@@ -17,7 +17,7 @@ import {
     v3,
     Vec3
 } from "cc";
-import ListView from "../../../scripts/logic/core/loop-list/ListView";
+import ListView from "../../module/ui/loop-list/ListView";
 
 //import { oops } from "../Oops";
 
@@ -45,6 +45,10 @@ export class ViewUtil {
         {prefix: "m_progress", component: ProgressBar},
         {prefix: "m_eb", component: EditBox},
         {prefix: "m_rt", component: RichText},
+    ];
+
+    static readonly UI_WIDGET_BOUNDARY_PREFIXES = [
+        "m_item",
     ];
 
     static collectBindNodes(parent: Node): IBindNodeScanResult {
@@ -102,6 +106,10 @@ export class ViewUtil {
                 }
             }
 
+            if (ViewUtil.isWidgetBoundary(node)) {
+                continue;
+            }
+
             ViewUtil.collectBindNodesInternal(node, path, result);
         }
     }
@@ -109,6 +117,19 @@ export class ViewUtil {
     private static isBindNode(node: Node): boolean {
         for (const config of ViewUtil.UI_BIND_COMPONENT_CONFIG) {
             if (node.name.startsWith(config.prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static isWidgetBoundary(node: Node): boolean {
+        if (!node) {
+            return false;
+        }
+
+        for (const prefix of ViewUtil.UI_WIDGET_BOUNDARY_PREFIXES) {
+            if (node.name.startsWith(prefix)) {
                 return true;
             }
         }

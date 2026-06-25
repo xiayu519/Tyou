@@ -31,6 +31,17 @@
 | `m_progress` | ProgressBar |
 | `m_eb` | EditBox |
 | `m_rt` | RichText |
+| `m_list` + `m_item` | 循环/虚拟列表与唯一 item 模板 |
+
+`m_item` 必须服务于最近的 `m_list`，每个 `m_list` 有且只能有一个 `m_item`。执行前缀组件检查后会固定为 `m_listX/content/m_itemX`。
+
+生成器会将 item/widget 脚本放到：
+
+```text
+Client/assets/scripts/logic/ui/widget/
+```
+
+列表 item 类名使用 `Item` + `m_item` 后缀，例如 `m_itemContent` 生成 `ItemContent`；同一次生成内出现重复类名必须先重命名节点。通用动态 widget 的 prefab/根节点名必须包含 `Widget` 标记，生成脚本名与 prefab/根节点名一致，例如 `WidgetShop` 生成 `WidgetShop`。
 
 ## 资源命名
 

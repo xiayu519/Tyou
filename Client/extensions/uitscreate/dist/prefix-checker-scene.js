@@ -21,7 +21,7 @@
 var EXCLUSIVE_GROUPS = [
     // 渲染器互斥组：Sprite, Label, RichText, EditBox, TiledMap, Graphics, Mask 等
     // EditBox 既是渲染器也是交互组件，放在两个组里
-    ['cc.Sprite', 'cc.Label', 'cc.RichText', 'cc.EditBox', 'cc.Graphics', 'cc.Mask', 'cc.TiledLayer'],
+    ['cc.Sprite', 'cc.Label', 'cc.RichText', 'cc.EditBox', 'cc.TiledLayer'],
     // 交互组件互斥组
     ['cc.Toggle', 'cc.Slider', 'cc.ProgressBar'],
 ];
@@ -32,6 +32,10 @@ var EXCLUSIVE_GROUPS = [
  * 返回 null 表示只需要是 Node 即可（无需额外组件）
  */
 function resolveRequiredComponents(component) {
+    if (component === 'ListView') {
+        return { main: 'pkg:ListView', deps: ['cc.ScrollView', 'cc.Mask'] };
+    }
+
     var map = {
         'Node':        null,                                  // m_go: 只要是 Node 就行
         'UITransform': { main: 'cc.UITransform', deps: [] },  // m_tf: 需要 UITransform
@@ -39,7 +43,7 @@ function resolveRequiredComponents(component) {
         'Button':      { main: 'cc.Button',      deps: [] },  // m_btn: 需要 Button
         'Sprite':      { main: 'cc.Sprite',      deps: [] },  // m_img: 需要 Sprite
         'Layout':      { main: 'cc.Layout',      deps: [] },  // m_grid: 需要 Layout
-        'ListView':    { main: 'cc.ScrollView',  deps: [] },  // m_list: 需要 ScrollView (ListView 基于它)
+        'ListView':    { main: 'pkg:ListView',   deps: ['cc.ScrollView', 'cc.Mask'] },  // m_list: 需要 Tyou ListView
         'ScrollView':  { main: 'cc.ScrollView',  deps: [] },  // m_scroll: 需要 ScrollView
         'Toggle':      { main: 'cc.Toggle',      deps: [] },  // m_toggle: 需要 Toggle
         'Slider':      { main: 'cc.Slider',      deps: [] },  // m_slider: 需要 Slider
@@ -104,6 +108,170 @@ function findNodeByUuid(scene, uuid) {
     return find(scene, uuid);
 }
 
+function ensureComponent(node, compName, details) {
+    var comp = node.getComponent(compName);
+    if (comp) return comp;
+
+    try {
+        comp = node.addComponent(compName);
+        details.push('  ✔ [' + node.name + '] 添加 ' + compName);
+        return comp;
+    } catch (err) {
+        details.push('  ✖ [' + node.name + '] 添加 ' + compName + ' 失败: ' + err.message);
+        return null;
+    }
+}
+
+function findDirectChildByName(node, name) {
+    var children = node.children || [];
+    for (var i = 0; i < children.length; i++) {
+        if (children[i].name === name) {
+            return children[i];
+        }
+    }
+    return null;
+}
+
+function reparentPreserveWorld(node, parent) {
+    var worldPosition = null;
+    if (node.worldPosition && typeof node.worldPosition.clone === 'function') {
+        worldPosition = node.worldPosition.clone();
+    }
+
+    parent.addChild(node);
+
+    if (worldPosition && typeof node.setWorldPosition === 'function') {
+        node.setWorldPosition(worldPosition);
+    }
+}
+
+function collectServingItems(listNode) {
+    var result = [];
+    var walk = function (node) {
+        var children = node.children || [];
+        for (var i = 0; i < children.length; i++) {
+            var child = children[i];
+            var name = child.name || '';
+
+            if (child !== listNode && name.indexOf('m_list') === 0) {
+                continue;
+            }
+
+            if (name.indexOf('m_item') === 0) {
+                result.push(child);
+                continue;
+            }
+
+            walk(child);
+        }
+    };
+
+    walk(listNode);
+    return result;
+}
+
+function normalizeListViews(root, details) {
+    var allNodes = collectAllChildren(root);
+    var fixed = 0;
+    var errors = [];
+
+    for (var i = 0; i < allNodes.length; i++) {
+        var listNode = allNodes[i];
+        var listName = listNode.name || '';
+        if (listName.indexOf('m_list') !== 0) continue;
+
+        var items = collectServingItems(listNode);
+        if (items.length === 0) {
+            errors.push('[' + listName + '] 缺少服务于当前列表的 m_item 模板');
+            details.push('  ✖ [' + listName + '] 缺少 m_item 模板');
+            continue;
+        }
+
+        if (items.length > 1) {
+            errors.push('[' + listName + '] 存在多个 m_item 模板，请只保留一个');
+            details.push('  ✖ [' + listName + '] 存在多个 m_item 模板');
+            continue;
+        }
+
+        var itemNode = items[0];
+        var beforeCount = details.length;
+        var listTransform = ensureComponent(listNode, 'cc.UITransform', details);
+        var scrollView = ensureComponent(listNode, 'cc.ScrollView', details);
+        ensureComponent(listNode, 'cc.Mask', details);
+        var listView = ensureComponent(listNode, 'pkg:ListView', details);
+
+        var content = findDirectChildByName(listNode, 'content');
+        if (!content) {
+            content = new cc.Node('content');
+            listNode.addChild(content);
+            details.push('  ✔ [' + listName + '] 创建 content 节点');
+        }
+
+        var contentTransform = ensureComponent(content, 'cc.UITransform', details);
+        ensureComponent(content, 'cc.Layout', details);
+        var itemTransform = ensureComponent(itemNode, 'cc.UITransform', details);
+        ensureComponent(itemNode, 'pkg:ListItem', details);
+
+        if (listTransform && contentTransform && contentTransform.setContentSize) {
+            try {
+                if (listTransform.contentSize) {
+                    contentTransform.setContentSize(listTransform.contentSize);
+                } else {
+                    contentTransform.setContentSize(listTransform.width || 0, listTransform.height || 0);
+                }
+            } catch (err) {
+                try {
+                    contentTransform.setContentSize(listTransform.width || 0, listTransform.height || 0);
+                } catch (innerErr) {
+                    details.push('  ⚠ [' + content.name + '] 同步尺寸失败: ' + innerErr.message);
+                }
+            }
+        }
+
+        if (listTransform && contentTransform) {
+            if (typeof contentTransform.setAnchorPoint === 'function') {
+                contentTransform.setAnchorPoint(0.5, 1);
+            } else {
+                contentTransform.anchorX = 0.5;
+                contentTransform.anchorY = 1;
+            }
+            if (typeof content.setPosition === 'function') {
+                content.setPosition(0, (listTransform.height || 0) * (1 - listTransform.anchorY), 0);
+            }
+        }
+
+        if (itemNode.parent !== content) {
+            reparentPreserveWorld(itemNode, content);
+            details.push('  ✔ [' + itemNode.name + '] 移动到 ' + listName + '/content');
+        }
+
+        if (itemTransform && typeof itemNode.setPosition === 'function') {
+            itemNode.setPosition(itemNode.position.x || 0, -(itemTransform.height || 0) * itemTransform.anchorY, 0);
+        }
+
+        if (scrollView) {
+            scrollView.content = content;
+        }
+
+        if (listView) {
+            listView.templateType = 1;
+            listView.tmpNode = itemNode;
+            listView.tmpPrefab = null;
+        }
+
+        if (details.length > beforeCount) {
+            fixed++;
+        } else {
+            details.push('  ✓ [' + listName + '] ListView 结构已符合 m_list/content/m_item');
+        }
+    }
+
+    return {
+        fixed: fixed,
+        errors: errors,
+    };
+}
+
 module.exports = {
     methods: {
         /**
@@ -130,6 +298,7 @@ module.exports = {
 
             var allNodes = collectAllChildren(root);
             var removed = 0, skipped = 0;
+            var fixed = 0;
             var details = [];
             // 记录需要在 phase2 中添加的组件 { uuid, name, comp }
             var pendingAdds = [];
@@ -162,6 +331,26 @@ module.exports = {
                 }
 
                 var mainComp = resolved.main;
+
+                if (resolved.deps && resolved.deps.length > 0) {
+                    for (var depIndex = 0; depIndex < resolved.deps.length; depIndex++) {
+                        var depComp = resolved.deps[depIndex];
+                        if (!node.getComponent(depComp)) {
+                            try {
+                                node.addComponent(depComp);
+                                fixed++;
+                                details.push('  ✔ [' + name + '] 添加依赖组件 ' + depComp);
+                            } catch (err) {
+                                pendingAdds.push({
+                                    uuid: node.uuid || node._id,
+                                    name: name,
+                                    comp: depComp,
+                                });
+                                details.push('  ⏳ [' + name + '] 依赖组件推迟添加 ' + depComp + ': ' + err.message);
+                            }
+                        }
+                    }
+                }
 
                 // 检查是否已有目标组件
                 var hasTarget = node.getComponent(mainComp);
@@ -215,7 +404,6 @@ module.exports = {
             }
 
             // 直接添加没有冲突的组件
-            var fixed = 0;
             for (var d = 0; d < directAdds.length; d++) {
                 var item = directAdds[d];
                 try {
@@ -233,6 +421,9 @@ module.exports = {
                 }
             }
 
+            var listNormalize = normalizeListViews(root, details);
+            fixed += listNormalize.fixed;
+
             return {
                 fixed: fixed,
                 removed: removed,
@@ -240,6 +431,7 @@ module.exports = {
                 total: allNodes.length,
                 needsPhase2: pendingAdds.length > 0,
                 pendingAdds: pendingAdds,
+                listErrors: listNormalize.errors,
                 details: details,
             };
         },
@@ -250,10 +442,12 @@ module.exports = {
          * @param {string} pendingAddsStr - JSON 字符串，pendingAdds 数组
          * @returns {{ fixed: number, failed: number, details: string[] }}
          */
-        checkPrefixes_phase2: function (pendingAddsStr) {
+        checkPrefixes_phase2: function (pendingAddsStr, rootUuid) {
             var pendingAdds = JSON.parse(pendingAddsStr);
             var scene = cc.director.getScene();
             if (!scene) throw new Error('当前没有打开的场景');
+            var root = rootUuid ? findNodeByUuid(scene, rootUuid) : scene;
+            if (!root) throw new Error('找不到节点 (UUID: ' + rootUuid + ')');
 
             var fixed = 0, failed = 0;
             var details = [];
@@ -302,9 +496,13 @@ module.exports = {
                 }
             }
 
+            var listNormalize = normalizeListViews(root, details);
+            fixed += listNormalize.fixed;
+
             return {
                 fixed: fixed,
                 failed: failed,
+                listErrors: listNormalize.errors,
                 details: details,
             };
         },

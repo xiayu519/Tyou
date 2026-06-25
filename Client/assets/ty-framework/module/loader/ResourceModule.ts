@@ -28,6 +28,7 @@ export interface SetSpriteAsyncParams {
     version?: string;
     onProgress?: (finish: number, total: number, item: AssetManager.RequestItem) => void;
     onComplete?: (success: boolean, spriteFrame?: SpriteFrame | null) => void;
+    isValidOwner?: () => boolean;
 }
 
 export class ResourceModule extends Module {

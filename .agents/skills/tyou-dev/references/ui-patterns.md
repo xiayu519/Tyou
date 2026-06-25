@@ -23,6 +23,8 @@
 4. `m_btn` 生成点击方法和 `onRegisterEvent`。
 5. 新脚本创建后追加 `UIName.ts` 并重建 `UIImportAll.ts`。
 6. 已存在脚本时，只生成绑定片段到剪贴板。
+7. `m_list` 下的 `m_item` 作为列表 item 的 `UIWidget` 边界，父 UI 只绑定 `m_list`，不递归绑定 `m_item` 内部节点。
+8. 普通子面板 widget 通过独立“生成Widget脚本”和运行时动态加载 prefab 托管，不使用静态 widget 前缀；prefab/根节点名需包含 `Widget` 标记，脚本名与 prefab/根节点名一致。
 
 ## 前缀到代码类型
 
@@ -34,15 +36,30 @@
 | `m_btn` | Button | `Node` |
 | `m_img` | Sprite | `Sprite` |
 | `m_grid` | Layout | `Layout` |
-| `m_list` | ScrollView/ListView | `ListView` |
+| `m_list` | ScrollView/Mask/ListView | `ListView` |
 | `m_scroll` | ScrollView | `ScrollView` |
 | `m_toggle` | Toggle | `Toggle` |
 | `m_slider` | Slider | `Slider` |
 | `m_progress` | ProgressBar | `ProgressBar` |
 | `m_eb` | EditBox | `EditBox` |
 | `m_rt` | RichText | `RichText` |
+| `m_item` | UIWidget 边界 | 由所属 `m_list` 生成 item 脚本，不作为父 UI 字段 |
 
 运行时绑定扫描必须和本表保持一致。新增或修改前缀时，同时更新 `Client/assets/editor/ui-component-config.json` 和运行时扫描配置。
+
+## UIWidget
+
+`UIWidget` 是 `UIWindow` 下的通用子 UI 生命周期单元，可用于列表 item、子面板、页签或子窗口。它继承 `UIBase`，拥有独立的节点绑定、事件注册、动态资源容器和 `onCreate/onRefresh/onRecycle/onClosed` 生命周期。
+
+- 父 UI 创建普通子组件时使用 `this.createWidget(WidgetClass, node, ...args)`。
+- 父 UI 动态加载 prefab 子组件时使用 `this.loadWidgetAsync(WidgetClass, assetName, parentNode, ...args)`；释放 widget 会销毁它托管的 prefab 节点。
+- 列表 item 由 `ListView.setItemWidget(ItemClass, owner)` 注册后自动创建和刷新。
+- 父 UI 扫描绑定节点时遇到 `m_item` 边界会停止递归，避免父脚本绑定列表 item 内部节点。
+- `UIWidget.recycle()` 会释放当前动态资源但保留节点绑定和事件，用于列表 item 高频复用。
+- `UIWidget.release()` 会释放子 widget、事件、动态资源和节点引用，父 UI 关闭时会自动释放持有的子 widget。
+- 普通动态 Widget prefab 默认只需要 `onCreate/onRefresh/onClosed`；`onRecycle` 主要给列表 item 或开发者手动池化的 widget 使用，生成普通 Widget prefab 脚本时不生成空 override。
+- Widget 内动态 Spine 使用 `this.loadSpineAsync()` / `this.loadSpineEffectAsync()`，不要在可复用 item 中直接调用 `tyou.res.loadSpineAsync()`。
+- `ui/widget/WidgetImportAll.ts` 由生成器维护，并通过 `UIImportAll.ts` side-effect 引入；Widget 脚本不导入 `UIName` 或父 UI，避免循环依赖并防止小游戏 Tree Shaking 剔除。
 
 ## 组件检查
 
@@ -68,6 +85,16 @@ UI 预制体对应的 UI 脚本原则上不手写创建。必须优先使用 `ui
 5. 生成 UI 脚本。
 6. 确认 `UIName.ts` 和 `UIImportAll.ts` 更新。
 7. 用 `tyou.ui.showUIAsync(UIName.XxxUI)` 打开。
+
+如果 UI 中包含循环列表，`m_list` 内必须有且只能有一个服务于该列表的 `m_item`。执行前缀组件检查后结构会被规范化为：
+
+```text
+m_listX
+  content
+    m_itemX
+```
+
+执行前缀组件检查时，item 脚本会生成到 `Client/assets/scripts/logic/ui/widget/`，类名为 `Item` + `m_item` 后缀，例如 `m_itemContent` -> `ItemContent`；生成 UI 脚本时父 UI 会自动导入并向 `ListView` 注册 item widget。普通动态 widget 选中名称包含 `Widget` 标记的 prefab 或节点后使用“生成Widget脚本”单独生成。
 
 ## 报空时优先检查
 

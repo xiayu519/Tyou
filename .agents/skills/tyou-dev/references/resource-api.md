@@ -64,6 +64,8 @@ await tyou.res.loadAssetAsync({
 - Prefab 实例：`loadGameObjectAsync` 会添加 `ResourceHolder`。
 - Pool 节点池：`NodePool` 持有 Prefab 时必须由 Pool 生命周期管理，池销毁时通过 `tyou.res.decRef(prefab)` 配对释放；业务只归还节点，不手动释放池持有的 Prefab。
 - UI 动态资源：用 `UIBase.addAutoReleaseAsset(asset)`，窗口关闭时 `decRef`。
+- UIWidget 动态资源：用 `UIBase`/`UIWidget` 的资源 helper；列表 item 复用时会在 `UIWidget.recycle()` 中释放当前 item 动态资源，窗口关闭时会在 `release()` 中释放。
+- ?? UIWidget Prefab?`UIBase.loadWidgetAsync()` ??? prefab ??? widget ???`UIWidget.release()` ???????Prefab ????? `ResourceHolder` ??????????
 - 配表加载后会对 `BufferAsset` 调用 `tyou.res.decRef(cfg)`。
 - 远程图片：`setRemoteSpriteAsync` 通过 `setSpriteAsync({ url })` 生成托管 `SpriteFrame`，成功赋值后由 UI 自动释放集合负责 `decRef`。
 
@@ -72,14 +74,19 @@ await tyou.res.loadAssetAsync({
 资源模块的核心规则是：成功拿到会长期使用的 `Asset` 后，必须进入一个明确的生命周期容器，或者由调用方在使用结束时手动 `tyou.res.decRef(asset)`。
 
 - UI 窗口内加载的 `SpriteFrame`、`SpriteAtlas`、远程 `SpriteFrame`：放入 `UIBase.addAutoReleaseAsset()`，窗口释放时统一 `decRef`。
+- 列表 item 或其它 `UIWidget` 内加载的 `SpriteFrame`、`SpriteAtlas`、远程 `SpriteFrame`：放入当前 widget 的自动释放集合；item 进入池、换 index 或 widget release 时释放，不等到父窗口关闭。
+- 列表 item 或其它 `UIWidget` 内加载 Spine 时优先用 `this.loadSpineAsync()` / `this.loadSpineEffectAsync()`；这些 helper 会把 `sp.SkeletonData` 放入当前 owner 的动态资源集合，recycle/release 时先清空 `Skeleton.skeletonData` 再 `decRef`。不要在可复用 item 里直接调用 `tyou.res.loadSpineAsync()`，它依赖节点上的 `SpineHolder`，节点进池不销毁时不会在 recycle 点释放。
 - 场景生命周期内的动态资源：放入 `tyou.scene.addAutoReleaseAsset()` 或当前 `SceneBase.addAutoReleaseAsset()`，场景离开时释放。
 - Prefab 实例：优先用 `tyou.res.loadGameObjectAsync()`，框架会给实例添加 `ResourceHolder`，节点销毁时释放 Prefab 资源。
 - Pool Prefab：节点池加载 Prefab 后由池持有，`NodePool.destroy()` 负责释放 Prefab；租借出的节点用 `pool.release(node)` 或 `tyou.pool.releaseNode(node)` 归还，不在业务侧对 Prefab 调 `decRef`。
-- Spine 自动释放：优先用 `loadSpineAsync()` / `loadSpineEffectAsync()` 的默认 `isAutoRelease = true`，由 `SpineHolder` 在节点销毁或特效播放结束时释放。
+- 非复用节点上的 Spine 自动释放：可用 `tyou.res.loadSpineAsync()` / `tyou.res.loadSpineEffectAsync()` 的默认 `isAutoRelease = true`，由 `SpineHolder` 在节点销毁或特效播放结束时释放；可复用 `UIWidget` item 不走这条。
 - 表格、音频等模块内部资源：模块自己持有缓存时，必须在移出缓存或模块销毁时成对 `decRef`。
 - 只用于一次性解析的资源：解析完成后立即 `decRef`，例如配表 `BufferAsset` 读取到内存后释放源资源引用。
 
 `tyou.res.setSpriteAsync()` 有异步覆盖保护：同一个 `Sprite` 的旧请求晚于新请求完成时，旧请求不会覆盖当前图；如果旧请求已经加载出 `SpriteFrame`，框架会释放这次未被赋值的资源。
+
+`UIBase.setSpriteAsync()` / `setRemoteSpriteAsync()` 还会传入 owner epoch。若 `UIWidget` 已经 recycle/release，即使 Sprite 节点仍然有效，旧请求晚到也不会赋值到新 index，已加载资源会走 `tyou.res.decRef`。
+`UIBase.loadSpineAsync()` / `loadSpineEffectAsync()` 同样使用 owner epoch 和目标请求序号；旧 Spine 请求晚到或同一 Skeleton 已有更新请求时，不会覆盖新内容，并会释放晚到的 `sp.SkeletonData`。
 
 不要把 `releaseAll()` 当作业务生命周期的替代品。`releaseAll()` 用于清理资源模块的托管缓存和取消匹配的 in-flight 请求；正常 UI/Scene/Prefab 生命周期仍应靠自动释放容器或明确 `decRef` 配对。
 
@@ -115,7 +122,7 @@ python .agents/skills/cocos-asset-json/scripts/cocos_asset_json.py atlas --plist
 - 少调用 `decRef` 会让资源长期保留，导致内存泄漏。
 - 资源崩溃、贴图丢失、内存一直不卸载时，优先检查 `addRef/decRef` 是否配对，再看业务逻辑。
 - UI 动态资源优先交给 `UIBase.addAutoReleaseAsset()`，不要分散手动 `decRef`。
-- 列表 item、头像、图标等会复用节点的异步设图优先用 `tyou.res.setSpriteAsync()` 或 `UIBase.setSpriteAsync()`，让旧请求完成后不覆盖最新 Sprite。
+- 列表 item、头像、图标等会复用节点的异步设图优先用 `UIWidget.setSpriteAsync()` / `setRemoteSpriteAsync()`，让旧请求完成后不覆盖最新 index，并让 item recycle 自动释放旧资源。
 
 ## 常见错误
 

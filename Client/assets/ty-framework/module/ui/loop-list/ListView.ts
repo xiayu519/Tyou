@@ -31,6 +31,12 @@ import {
 } from 'cc';
 import { DEV } from 'cc/env';
 import ListItem from './ListItem';
+import { UIBase } from '../UIBase';
+import { UIWidget } from '../UIWidget';
+
+type UIWidgetConstructor<T extends UIWidget = UIWidget> = new () => T;
+
+const ITEM_WIDGET_KEY = '__tyouListItemWidget';
 
 enum TemplateType {
     NODE = 1,
@@ -380,6 +386,10 @@ export default class ListView extends Component {
     private _lastDisplayData: number[];
     public displayData: any[];
     private _pool: NodePool;
+    private _itemWidgetClass: UIWidgetConstructor | null = null;
+    private _itemWidgetOwner: UIBase | null = null;
+    private _activeWidgetItems: Set<Node> = new Set();
+    private _pooledWidgetItems: Set<Node> = new Set();
 
     private _itemTmp: any;
     private _itemTmpUt: UITransform;
@@ -439,9 +449,25 @@ export default class ListView extends Component {
 
     onDestroy() {
         let t: any = this;
+        t._releaseAllItemWidgets();
         if (isValid(t._itemTmp)) t._itemTmp.destroy();
         if (isValid(t.tmpNode)) t.tmpNode.destroy();
         t._pool && t._pool.clear();
+    }
+
+    public setItemWidget<T extends UIWidget>(widgetClass: UIWidgetConstructor<T>, owner?: UIBase): void {
+        if (this._itemWidgetClass && this._itemWidgetClass !== widgetClass) {
+            this._releaseAllItemWidgets();
+        }
+
+        this._itemWidgetClass = widgetClass;
+        this._itemWidgetOwner = owner || null;
+    }
+
+    public clearItemWidget(): void {
+        this._releaseAllItemWidgets();
+        this._itemWidgetClass = null;
+        this._itemWidgetOwner = null;
     }
 
     onEnable() {
@@ -613,6 +639,7 @@ export default class ListView extends Component {
         //     if (child != t.tmpNode && child.isValid)
         //         child.destroy();
         // });
+        t._syncTopAlignedContentPosition();
         t.content.removeAllChildren();
         t._inited = true;
     }
@@ -733,13 +760,13 @@ export default class ListView extends Component {
                     case Layout.AxisDirection.HORIZONTAL:
                         //计算列数
                         let trimW: number = t._contentUt.width - t._leftGap - t._rightGap;
-                        t._colLineNum = Math.floor((trimW + t._columnGap) / (t._itemSize.width + t._columnGap));
+                        t._colLineNum = Math.max(1, Math.floor((trimW + t._columnGap) / (t._itemSize.width + t._columnGap)));
                         t._sizeType = true;
                         break;
                     case Layout.AxisDirection.VERTICAL:
                         //计算行数
                         let trimH: number = t._contentUt.height - t._topGap - t._bottomGap;
-                        t._colLineNum = Math.floor((trimH + t._lineGap) / (t._itemSize.height + t._lineGap));
+                        t._colLineNum = Math.max(1, Math.floor((trimH + t._lineGap) / (t._itemSize.height + t._lineGap)));
                         t._sizeType = false;
                         break;
                 }
@@ -1071,8 +1098,21 @@ export default class ListView extends Component {
         }
     }
     //计算可视范围
+    private _syncTopAlignedContentPosition() {
+        if (!this.content || !this._contentUt || !this._thisNodeUt || this._contentUt.anchorY !== 1 || this._alignCalcType !== 3) {
+            return;
+        }
+
+        const pos = this.content.getPosition();
+        this.content.setPosition(pos.x, this._thisNodeUt.height * (1 - this._thisNodeUt.anchorY), pos.z);
+    }
+
     _calcViewPos() {
         let scrollPos: any = this.content.getPosition();
+        let scrollY = scrollPos.y;
+        if (this._contentUt.anchorY === 1 && this._alignCalcType === 3) {
+            scrollY -= this._thisNodeUt.height * (1 - this._thisNodeUt.anchorY);
+        }
         switch (this._alignCalcType) {
             case 1: //单行HORIZONTAL（LEFT_TO_RIGHT）、网格VERTICAL（LEFT_TO_RIGHT）
                 this.elasticLeft = scrollPos.x > 0 ? scrollPos.x : 0;
@@ -1092,8 +1132,8 @@ export default class ListView extends Component {
                 // cc.log(this.elasticLeft, this.elasticRight, this.viewLeft, this.viewRight);
                 break;
             case 3: //单列VERTICAL（TOP_TO_BOTTOM）、网格HORIZONTAL（TOP_TO_BOTTOM）
-                this.elasticTop = scrollPos.y < 0 ? Math.abs(scrollPos.y) : 0;
-                this.viewTop = (scrollPos.y > 0 ? -scrollPos.y : 0) + this.elasticTop;
+                this.elasticTop = scrollY < 0 ? Math.abs(scrollY) : 0;
+                this.viewTop = (scrollY > 0 ? -scrollY : 0) + this.elasticTop;
                 this.viewBottom = this.viewTop - this._thisNodeUt.height;
                 this.elasticBottom = this.viewBottom < -this._contentUt.height ? Math.abs(this.viewBottom + this._contentUt.height) : 0;
                 this.viewBottom += this.elasticBottom;
@@ -1423,7 +1463,10 @@ export default class ListView extends Component {
     }
     //当尺寸改变
     _onSizeChanged() {
-        if (this.checkInited(false)) this._onScrolling();
+        if (this.checkInited(false)) {
+            this._syncTopAlignedContentPosition();
+            this._onScrolling();
+        }
     }
     //当Item自适应
     _onItemAdaptive(item: any) {
@@ -1551,6 +1594,8 @@ export default class ListView extends Component {
             let canGet: boolean = this._pool.size() > 0;
             if (canGet) {
                 item = this._pool.get();
+                this._pooledWidgetItems.delete(item);
+                item.isCached = false;
                 // cc.log('从池中取出::   旧id =', item['_listId'], '，新id =', data.id, item);
             } else {
                 item = instantiate(this._itemTmp);
@@ -1563,6 +1608,9 @@ export default class ListView extends Component {
                 canGet = false;
             }
             if (item._listId != data.id) {
+                if (item._listId != null && !canGet) {
+                    this._recycleItemWidget(item);
+                }
                 item._listId = data.id;
                 let ut: UITransform = item.getComponent(UITransform);
                 ut.setContentSize(this._itemSize);
@@ -1583,18 +1631,20 @@ export default class ListView extends Component {
                 listItem.list = this;
                 listItem._registerEvent();
             }
+            let index = this._getActualIndex(data.id);
+            this._refreshItemWidget(item, index, data);
             if (this.renderEvent) {
-                let index = data.id % this._actualCount;
                 EventHandler.emitEvents([this.renderEvent], item, index);
                 this.node.emit('update-item', item, index);
             }
-        } else if (this._forceUpdate && this.renderEvent) {
+        } else if (this._forceUpdate && (this.renderEvent || this._itemWidgetClass)) {
             //强制更新
             item.setPosition(new Vec3(data.x, data.y, 0));
             this._resetItemSize(item);
             // cc.log('ADD::', data.id, item);
+            let index = this._getActualIndex(data.id);
+            this._refreshItemWidget(item, index, data);
             if (this.renderEvent) {
-                let index = data.id % this._actualCount;
                 EventHandler.emitEvents([this.renderEvent], item, index);
                 this.node.emit('update-item', item, index);
             }
@@ -1609,7 +1659,7 @@ export default class ListView extends Component {
     //创建或更新Item（非虚拟列表用）
     _createOrUpdateItem2(listId: number) {
         let item: any = this.content.children[listId];
-        let listItem: ListItem;
+        let listItem: ListItem = item ? (item['listItem'] || item.getComponent(ListItem)) : null;
         if (!item) {
             //如果不存在
             item = instantiate(this._itemTmp);
@@ -1622,17 +1672,19 @@ export default class ListView extends Component {
                 listItem.list = this;
                 listItem._registerEvent();
             }
+            let index = this._getActualIndex(listId);
+            this._refreshItemWidget(item, index, {id: listId});
             if (this.renderEvent) {
-                let index = listId % this._actualCount;
                 EventHandler.emitEvents([this.renderEvent], item, index);
                 this.node.emit('update-item', item, index);
             }
-        } else if (this._forceUpdate && this.renderEvent) {
+        } else if (this._forceUpdate && (this.renderEvent || this._itemWidgetClass)) {
             //强制更新
             item._listId = listId;
             if (listItem) listItem.listId = listId;
+            let index = this._getActualIndex(listId);
+            this._refreshItemWidget(item, index, {id: listId});
             if (this.renderEvent) {
-                let index = listId % this._actualCount;
                 EventHandler.emitEvents([this.renderEvent], item, index);
                 this.node.emit('update-item', item, index);
             }
@@ -1641,6 +1693,70 @@ export default class ListView extends Component {
         if (this._lastDisplayData.indexOf(listId) < 0) {
             this._lastDisplayData.push(listId);
         }
+    }
+
+    private _getActualIndex(listId: number): number {
+        return this._actualCount > 0 ? listId % this._actualCount : listId;
+    }
+
+    private _refreshItemWidget(item: any, index: number, data?: any): void {
+        if (!this._itemWidgetClass || !item || !item.isValid) {
+            return;
+        }
+
+        let widget = item[ITEM_WIDGET_KEY] as UIWidget;
+        if (!widget || widget.isDestroyed) {
+            widget = new this._itemWidgetClass();
+            if (!widget.create(this._itemWidgetOwner, item, index, data, this)) {
+                return;
+            }
+            item[ITEM_WIDGET_KEY] = widget;
+        } else {
+            widget.refresh(index, data, this);
+        }
+
+        this._pooledWidgetItems.delete(item);
+        this._activeWidgetItems.add(item);
+    }
+
+    private _recycleItemWidget(item: any): void {
+        if (!item) {
+            return;
+        }
+
+        const widget = item[ITEM_WIDGET_KEY] as UIWidget;
+        if (widget && !widget.isDestroyed) {
+            widget.recycle(item._listId);
+        }
+        this._activeWidgetItems.delete(item);
+    }
+
+    private _releaseItemWidget(item: any): void {
+        if (!item) {
+            return;
+        }
+
+        const widget = item[ITEM_WIDGET_KEY] as UIWidget;
+        if (widget && !widget.isDestroyed) {
+            widget.release();
+        }
+        delete item[ITEM_WIDGET_KEY];
+        this._activeWidgetItems.delete(item);
+        this._pooledWidgetItems.delete(item);
+    }
+
+    private _releaseAllItemWidgets(): void {
+        const items = new Set<Node>();
+
+        if (this.content && this.content.isValid) {
+            this.content.children.forEach((child: Node) => items.add(child));
+        }
+
+        this._activeWidgetItems.forEach(item => items.add(item));
+        this._pooledWidgetItems.forEach(item => items.add(item));
+        items.forEach(item => this._releaseItemWidget(item));
+        this._activeWidgetItems.clear();
+        this._pooledWidgetItems.clear();
     }
 
     _updateListItem(listItem: ListItem) {
@@ -1792,7 +1908,9 @@ export default class ListView extends Component {
                 let item: any = arr[n];
                 if (this._scrollItem && item._listId == this._scrollItem._listId) continue;
                 item.isCached = true;
+                this._recycleItemWidget(item);
                 this._pool.put(item);
+                this._pooledWidgetItems.add(item);
                 for (let m: number = this._lastDisplayData.length - 1; m >= 0; m--) {
                     if (this._lastDisplayData[m] == item._listId) {
                         this._lastDisplayData.splice(m, 1);
@@ -1810,6 +1928,7 @@ export default class ListView extends Component {
     //删除单个Item
     _delSingleItem(item: any) {
         // cc.log('DEL::', item['_listId'], item);
+        this._releaseItemWidget(item);
         item.removeFromParent();
         if (item.destroy) item.destroy();
         item = null;

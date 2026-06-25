@@ -1,10 +1,15 @@
 {
   "bundles": [
+    "actor",
+    "anim",
     "atlas",
     "audio",
     "config",
+    "effect",
+    "font",
     "raw",
     "scene",
+    "spine",
     "ui"
   ],
   "assets": [
@@ -35,6 +40,12 @@
     {
       "name": "MessageBoxUI",
       "path": "MessageBoxUI",
+      "type": "Prefab",
+      "bundle": "ui"
+    },
+    {
+      "name": "TestPsdUI",
+      "path": "TestPsdUI",
       "type": "Prefab",
       "bundle": "ui"
     },

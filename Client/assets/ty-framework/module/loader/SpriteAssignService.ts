@@ -22,6 +22,11 @@ export class SpriteAssignService {
             return null;
         }
 
+        if (!this.isOwnerValid(params)) {
+            params.onComplete?.(false, null);
+            return null;
+        }
+
         const requestId = ++this._requestId;
         this._requestMap.set(params.target, requestId);
 
@@ -32,12 +37,15 @@ export class SpriteAssignService {
             spriteFrame = await this._loadSprite(params.path, params.version, params.onProgress);
         }
 
-        if (this._requestMap.get(params.target) !== requestId) {
+        if (this._requestMap.get(params.target) !== requestId || !this.isOwnerValid(params)) {
+            this.clearRequestIfCurrent(params.target, requestId);
             this.releaseLoadedSpriteFrame(spriteFrame);
+            params.onComplete?.(false, spriteFrame);
             return null;
         }
 
         if (!spriteFrame || !isValid(params.target)) {
+            this.clearRequestIfCurrent(params.target, requestId);
             this.releaseLoadedSpriteFrame(spriteFrame);
             params.onComplete?.(false, spriteFrame);
             return null;
@@ -48,6 +56,7 @@ export class SpriteAssignService {
             params.onComplete?.(true, spriteFrame);
             return spriteFrame;
         } catch (error) {
+            this.clearRequestIfCurrent(params.target, requestId);
             this.releaseLoadedSpriteFrame(spriteFrame);
             params.onComplete?.(false, spriteFrame);
             console.error("setSpriteAsync assign failed", error);
@@ -58,6 +67,16 @@ export class SpriteAssignService {
     private releaseLoadedSpriteFrame(spriteFrame: SpriteFrame | null): void {
         if (spriteFrame && spriteFrame.isValid) {
             this._releaseAsset(spriteFrame);
+        }
+    }
+
+    private isOwnerValid(params: SetSpriteAsyncParams): boolean {
+        return !params.isValidOwner || params.isValidOwner();
+    }
+
+    private clearRequestIfCurrent(target: Sprite, requestId: number): void {
+        if (this._requestMap.get(target) === requestId) {
+            this._requestMap.delete(target);
         }
     }
 }

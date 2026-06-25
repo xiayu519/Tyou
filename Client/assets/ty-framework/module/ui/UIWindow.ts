@@ -124,6 +124,7 @@ export class UIWindow extends UIBase {
             return false;
         }
         // 移除List实现，简化为直接调用
+        this.updateChildWidgets();
         this.onUpdate();
         return true;
     }
