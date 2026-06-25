@@ -24,7 +24,7 @@
 | `m_btn` | Button，代码绑定为 Node |
 | `m_img` | Sprite |
 | `m_grid` | Layout |
-| `m_list` | ListView/ScrollView |
+| `m_list` | ListView |
 | `m_scroll` | ScrollView |
 | `m_toggle` | Toggle |
 | `m_slider` | Slider |

@@ -52,7 +52,7 @@
 | `m_btn` | Button |
 | `m_img` | Sprite |
 | `m_grid` | Layout |
-| `m_list` | ScrollView/ListView |
+| `m_list` | ListView |
 | `m_scroll` | ScrollView |
 | `m_toggle` | Toggle |
 | `m_slider` | Slider |

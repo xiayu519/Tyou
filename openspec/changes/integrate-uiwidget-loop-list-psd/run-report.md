@@ -3,7 +3,7 @@
 ## Executive Summary
 
 - Goal: Integrate `m_list + m_item` infinite-list generation into the PSD-to-UI workflow with general `UIWidget` lifecycle and item-level resource safety.
-- Current state: implementation complete; prefix checking now generates list item widget scripts, widget naming/retention rules compile, and editor/runtime scenario validation is pending
+- Current state: implementation complete; prefix checking now generates list item widget scripts, widget naming/retention rules compile, README/RD documents the current ListView/UIWidget behavior, and editor/runtime scenario validation is pending
 - Validation: static checks passed where available; project-level `tsc` is blocked by pre-existing Cocos/Luban/extension declaration issues
 - Remaining risk: Cocos editor component serialization for `pkg:ListView` and `pkg:ListItem`, generated script output, and runtime scroll reuse must be verified with the user's UI test.
 
@@ -48,9 +48,11 @@
 | Widget script generation | pass | `uitscreate` now generates `m_item` widget scripts during prefix checking, still supports right-click standalone `Widget` prefab script generation, and keeps widget files retained through `WidgetImportAll` without updating `UIName`. |
 | Widget and loop-list post-move checks | pass | `node --check` passed for `hierarchy-menu.js` and `prefix-checker-scene.js`; focused TypeScript transpile passed for `UIBase`, `UIWidget`, `UIWindow`, moved `ListView/ListItem`, `ViewUtil`, `TestPsdUI`, and `ItemContent`; stale-path scan had no matches. |
 | Widget naming and retention rules | pass | Standalone widget generation now requires a `Widget` name marker, `m_itemContent` maps to `ItemContent`, duplicate generated item class names stop generation, and `UIImportAll -> widget/WidgetImportAll -> ItemContent` keeps widget scripts reachable without widget-to-UI imports. |
-| Prefix-check item widget generation | pass | `node --check` passed for updated generator scripts; focused TypeScript transpile passed for current UI/widget scripts; scans confirm no `Widge` marker compatibility remains and prefix checking invokes item widget script generation after list normalization. |
+| Prefix-check item widget generation | pass | `node --check` passed for updated generator scripts; focused TypeScript transpile passed for current UI/widget scripts; scans confirm standalone widget generation only accepts the `Widget` marker and prefix checking invokes item widget script generation after list normalization. |
 | Widget Spine lifecycle | pass | `UIBase.loadSpineAsync()` and `loadSpineEffectAsync()` now bind `sp.SkeletonData` to the UI owner epoch, reject stale requests, clear `Skeleton.skeletonData` on recycle/release, and release tracked refs through `tyou.res.decRef`. |
 | Standalone Widget recycle template | pass | Generated list item widget scripts keep `onRecycle()` for list reuse; right-click standalone Widget prefab scripts no longer generate an empty `onRecycle()` override by default. |
+| README/reference m_list wording | pass | `README.md` and reference tables now document `m_list` as Tyou `ListView`/standard structure instead of plain `ScrollView`; dependency details remain in the PSD workflow notes. |
+| README/RD ListView and Widget sync | pass | `README.md` now documents `m_list/content/m_item`, mask placement, item widget generation, standalone `Widget` script generation, widget resource lifecycle helper usage, updated project structure, and a concise Codex workflow entry pointer without embedding workflow mechanics. |
 | `Client` project `tsc --noEmit` | warn | Blocked by existing Cocos engine declaration, Luban, and extension source typing errors unrelated to this change. |
 | OpenSpec status/validate | pass | `openspec validate --changes integrate-uiwidget-loop-list-psd` passed. |
 

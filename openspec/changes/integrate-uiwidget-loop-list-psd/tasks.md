@@ -93,3 +93,13 @@
 - [x] 12.3 Stop generating empty `onRecycle()` overrides for standalone Widget prefab scripts while keeping the hook for list item scripts.
 - [x] 12.4 Update specs/references/run-report for Spine ownership and list-item-only recycle guidance.
 - [x] 12.5 Run focused TypeScript/generator/OpenSpec validation and stale-reference scans.
+
+## 13. Project Reference Cleanup
+
+- [x] 13.1 Update project README/reference tables so `m_list` is documented as Tyou `ListView`, not plain `ScrollView`.
+- [x] 13.2 Run stale documentation scans and OpenSpec validation for the corrected `m_list` wording.
+
+## 14. Project README/RD Sync
+
+- [x] 14.1 Update project README with the current `m_list/content/m_item`, item `UIWidget`, standalone `Widget`, resource lifecycle, and concise Codex workflow entry wording.
+- [x] 14.2 Run stale documentation scans and OpenSpec validation for the README/RD synchronization.

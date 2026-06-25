@@ -65,7 +65,7 @@ await tyou.res.loadAssetAsync({
 - Pool 节点池：`NodePool` 持有 Prefab 时必须由 Pool 生命周期管理，池销毁时通过 `tyou.res.decRef(prefab)` 配对释放；业务只归还节点，不手动释放池持有的 Prefab。
 - UI 动态资源：用 `UIBase.addAutoReleaseAsset(asset)`，窗口关闭时 `decRef`。
 - UIWidget 动态资源：用 `UIBase`/`UIWidget` 的资源 helper；列表 item 复用时会在 `UIWidget.recycle()` 中释放当前 item 动态资源，窗口关闭时会在 `release()` 中释放。
-- ?? UIWidget Prefab?`UIBase.loadWidgetAsync()` ??? prefab ??? widget ???`UIWidget.release()` ???????Prefab ????? `ResourceHolder` ??????????
+- UIWidget Prefab：`UIBase.loadWidgetAsync()` 加载的 prefab 节点归 Widget 托管；`UIWidget.release()` 会销毁该节点，Prefab 引用由节点上的 `ResourceHolder` 按资源生命周期释放。
 - 配表加载后会对 `BufferAsset` 调用 `tyou.res.decRef(cfg)`。
 - 远程图片：`setRemoteSpriteAsync` 通过 `setSpriteAsync({ url })` 生成托管 `SpriteFrame`，成功赋值后由 UI 自动释放集合负责 `decRef`。
 

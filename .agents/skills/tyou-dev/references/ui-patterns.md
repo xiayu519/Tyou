@@ -36,7 +36,7 @@
 | `m_btn` | Button | `Node` |
 | `m_img` | Sprite | `Sprite` |
 | `m_grid` | Layout | `Layout` |
-| `m_list` | ScrollView/Mask/ListView | `ListView` |
+| `m_list` | Tyou ListView 标准结构 | `ListView` |
 | `m_scroll` | ScrollView | `ScrollView` |
 | `m_toggle` | Toggle | `Toggle` |
 | `m_slider` | Slider | `Slider` |
