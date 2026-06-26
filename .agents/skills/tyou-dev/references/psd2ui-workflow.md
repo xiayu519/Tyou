@@ -23,6 +23,15 @@
 11. 右键根节点，执行“生成UI脚本”。
 12. 生成/更新 UI 脚本、`UIName.ts`、`UIImportAll.ts`。
 
+## 导出命名
+
+- 普通 PSD 导出的图集目录使用 PSD 文件名本身：`活动弹窗.psd` 输出到 `assets/asset-art/atlas/活动弹窗/`，结构 JSON 的 `atlasPath` 同步使用该名称。
+- 普通 PNG 文件名使用图片图层、`.img` 合图层或组合的名称本身，不拼 PSD 名、不拼父级 group 路径、不做中文转英文/拼音首字母、不追加 hash。
+- `.img`、`_9s`、`_scale9`、`_9s_T_B_L_R`、`_scale9_T_B_L_R` 是工具标签，导出 PNG 文件名和结构 JSON 的 UI 节点 `name` 都会剥离这些标签；调整九宫格参数不应改变 PNG 文件名或 UI 节点名。
+- 同一次 PSD 导出内若普通 PNG 重名，第一张保留原名，后续依次追加数字：`按钮.png`、`按钮1.png`、`按钮2.png`。
+- 文件系统不允许保存的字符（例如 `\ / : * ? " < > |` 和控制字符）仍会替换为 `_`，末尾的空格或 `.` 会移除，这是保存文件的最低要求。
+- `common` 公共图集继续按内容指纹判断等价资源，但 common PNG 文件名使用来源美术名；若同名不同内容已存在，后续文件依次追加 `1`、`2`、`3`。
+
 ## 循环列表
 
 PSD 生成后如需无限/虚拟列表，按以下命名整理节点：
@@ -63,6 +72,7 @@ m_listX
 - PSD 中名称以 `.img` 结尾的图层、组合或智能对象一律视为图像组合，会按 Photoshop 视觉结果整合成 PNG 节点。
 - `.img` 不继续拆子节点，也不展开智能对象内部，避免剪贴蒙版、调整层、混合效果被拆开后在 Cocos 中失真或遮挡其它 UI。
 - `Psd2CCC-LayerTagMenu.jsx` 可对单选或多选图层追加 `.img` 标签；该标签和九宫格是互斥用途，`.img` 导出不参与九宫格裁切。
+- `.img` 只作为工具标签，导出 PNG 文件名不会保留 `.img` 后缀。
 
 ## 九宫格
 
@@ -77,13 +87,15 @@ PSD 图层后缀：
 
 `Psd2CCC-LayerTagMenu.jsx` 的九宫格入口会手动填写上/下/左/右数字，并追加 `_9s_T_B_L_R` 后缀。
 
+九宫格后缀只作为工具标签，导出 PNG 文件名不会保留这些后缀。
+
 ## 公共图集检查
 
 - PSD 导出阶段不再承担最终 PNG 去重，重复图片会先按图层忠实导出。
 - `*-structure.json` 只是生成 UI 的中间结构，不作为最终资源去重依据，也不在公共图集检查中同步修改。
 - 生成节点后，在 Cocos 层级面板右键 UI 根节点执行“🧩 检查公共图集”；入口与“生成UI脚本”“检查前缀组件”同级。
 - 公共图集检查在 Cocos 侧按解码后的可见 PNG 像素和 SpriteFrame 导入语义做强确定匹配；透明像素 RGB 可忽略，九宫格 border、trim、尺寸等语义不同则不合并。
-- 工具优先复用 `assets/asset-art/atlas/common/` 已存在的等价资源；不存在时复制一张代表图到 common。
+- 工具优先复用 `assets/asset-art/atlas/common/` 已存在的等价资源；不存在时复制一张代表图到 common，并使用来源 PNG 美术名命名。
 - 引用替换只基于真实 Cocos UUID：选中节点树 Sprite 组件、可解析 Prefab/Scene，以及 `.prefab/.scene/.anim/.mtl` 文本资源中的 SpriteFrame UUID；不要扫描或替换 `*-structure.json`。
 - 删除重复 PNG 前必须确认旧 image UUID 和 SpriteFrame UUID 在 `assets/` 下不再被引用；仍有引用则跳过删除并报告原因。
 - 执行过程优先使用 Cocos 编辑器进度反馈；进度接口不可用时回退到控制台日志和完成弹窗。

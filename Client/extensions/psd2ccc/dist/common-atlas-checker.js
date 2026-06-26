@@ -26,6 +26,20 @@ function commonDir() {
 function hashBuffer(data) {
     return crypto_1.default.createHash('sha256').update(data).digest('hex');
 }
+function sanitizeFileName(input) {
+    return String(input || '')
+        .replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')
+        .replace(/[. ]+$/g, '');
+}
+function stripToolSuffixes(input) {
+    return String(input || '')
+        .replace(/[_](9s|scale9)[_]\d+[_]\d+[_]\d+[_]\d+$/i, '')
+        .replace(/[_](9s|scale9)$/i, '')
+        .replace(/\.img$/i, '');
+}
+function isLegacyHashCommonName(input) {
+    return /^common_[0-9a-f]{12}$/i.test(input);
+}
 async function requestProgress(method, ...args) {
     var _a, _b;
     try {
@@ -362,21 +376,66 @@ async function waitForMeta(pngPath, timeoutMs = 10000) {
     }
     return false;
 }
-function commonNameFor(fingerprint) {
-    return `common_${hashBuffer(Buffer.from(fingerprint)).slice(0, 12)}`;
+function commonBaseNameFor(source) {
+    return sanitizeFileName(stripToolSuffixes(source.baseName)) || 'image';
+}
+function commonSlotFor(source) {
+    const baseName = commonBaseNameFor(source);
+    let index = 0;
+    while (true) {
+        const name = index === 0 ? baseName : `${baseName}${index}`;
+        const targetPng = path_1.default.join(commonDir(), `${name}.png`);
+        if (!fs_1.default.existsSync(targetPng))
+            return { name, targetPng };
+        try {
+            const existing = readSpriteAsset(targetPng, COMMON_ATLAS_PATH);
+            if (existing && existing.fingerprint === source.fingerprint) {
+                return { name, targetPng, existing };
+            }
+        }
+        catch (error) {
+            console.warn('[PSD2CCC] skip occupied common name:', name, (error === null || error === void 0 ? void 0 : error.message) || error);
+        }
+        index++;
+    }
+}
+function moveCommonAsset(existing, targetPng) {
+    if (path_1.default.normalize(existing.pngPath) === path_1.default.normalize(targetPng))
+        return existing;
+    const targetMeta = `${targetPng}.meta`;
+    if (fs_1.default.existsSync(targetPng) || fs_1.default.existsSync(targetMeta))
+        return null;
+    fs_1.default.renameSync(existing.pngPath, targetPng);
+    if (fs_1.default.existsSync(existing.metaPath)) {
+        fs_1.default.renameSync(existing.metaPath, targetMeta);
+    }
+    return readSpriteAsset(targetPng, COMMON_ATLAS_PATH);
 }
 async function ensureCommonAsset(source, report) {
+    ensureDir(commonDir());
+    const slot = commonSlotFor(source);
+    if (slot.existing) {
+        report.reusedCommon++;
+        return { asset: slot.existing, created: false };
+    }
     const existing = listPngAssets(COMMON_ATLAS_PATH).find((asset) => asset.fingerprint === source.fingerprint);
     if (existing) {
+        if (isLegacyHashCommonName(existing.baseName)) {
+            const oldDbPath = existing.dbPath;
+            const moved = moveCommonAsset(existing, slot.targetPng);
+            if (moved) {
+                await refreshAsset(oldDbPath);
+                await refreshAsset(toDbPath(slot.targetPng));
+                await reimportAsset(toDbPath(slot.targetPng));
+                report.reusedCommon++;
+                return { asset: moved, created: false };
+            }
+        }
         report.reusedCommon++;
         return { asset: existing, created: false };
     }
-    ensureDir(commonDir());
-    const name = commonNameFor(source.fingerprint);
-    const targetPng = path_1.default.join(commonDir(), `${name}.png`);
-    if (!fs_1.default.existsSync(targetPng)) {
-        fs_1.default.copyFileSync(source.pngPath, targetPng);
-    }
+    const { name, targetPng } = slot;
+    fs_1.default.copyFileSync(source.pngPath, targetPng);
     await refreshAsset(`db://assets/${COMMON_ATLAS_PATH}`);
     await refreshAsset(toDbPath(targetPng));
     await reimportAsset(toDbPath(targetPng));
@@ -657,11 +716,8 @@ async function runCommonAtlasCheckContext(context, report, progress) {
     for (const group of candidateGroups) {
         groupIndex++;
         await (progress === null || progress === void 0 ? void 0 : progress.update(0.2 + (groupIndex - 1) / Math.max(1, candidateGroups.length) * 0.65, `处理重复组 ${groupIndex}/${candidateGroups.length}`));
-        const commonExisting = listPngAssets(COMMON_ATLAS_PATH).find((asset) => asset.fingerprint === group[0].fingerprint);
         report.groups++;
-        const common = commonExisting
-            ? { asset: commonExisting, created: false }
-            : await ensureCommonAsset(group[0], report);
+        const common = await ensureCommonAsset(group[0], report);
         if (!common)
             continue;
         const uuidReplacements = new Map();
