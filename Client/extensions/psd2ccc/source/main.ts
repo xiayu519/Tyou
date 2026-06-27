@@ -7,5 +7,5 @@ export const methods = {
         await runCommonAtlasCheckForNode(nodeUuid);
     },
 };
-export function load() { console.log('[PSD2CCC] extension loaded'); }
+export function load() { console.log('[PSD2CCC] extension loaded v1.0.1'); }
 export function unload() { console.log('[PSD2CCC] extension unloaded'); }

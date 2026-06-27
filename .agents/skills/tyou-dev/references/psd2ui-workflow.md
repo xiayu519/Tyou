@@ -85,9 +85,18 @@ PSD 图层后缀：
 
 导入后会写入 SpriteFrame border，并将 Sprite 设置为 sliced。
 
+`psd2ccc` 必须通过 AssetDB 的 `save-asset-meta` 持久化 structure JSON 中的 border，随后 reimport 并回读校验；不能只直接改 `.meta` 文件或运行时 SpriteFrame。资源尚未导入、保存失败或回读不一致时，本次 UI 生成应中止并提示等待导入后重试。
+
 `Psd2CCC-LayerTagMenu.jsx` 的九宫格入口会手动填写上/下/左/右数字，并追加 `_9s_T_B_L_R` 后缀。
 
 九宫格后缀只作为工具标签，导出 PNG 文件名不会保留这些后缀。
+
+显式九宫格参数按水平、垂直两个方向独立裁切：
+
+- `_9s_T_B_0_0` 保持原始宽度，只裁上下方向。
+- `_9s_0_0_L_R` 保持原始高度，只裁左右方向。
+- 任意单侧 inset 为 `0` 都是合法值，不会中止该轴或另一轴的有效裁切。
+- 四个 inset 全为 `0` 时保留原始 PNG 尺寸，但仍输出合法的九宫格 border 数据。
 
 ## 公共图集检查
 

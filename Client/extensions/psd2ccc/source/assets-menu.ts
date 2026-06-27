@@ -16,6 +16,8 @@ type SceneTree = {
 
 type SpriteMap = Record<string, string>;
 
+type SliceBorder = { top: number; right: number; bottom: number; left: number };
+
 type BuildOptions = {
     sourcePath: string;
     sourceLabel: string;
@@ -79,8 +81,8 @@ function listAtlasPngFiles(atlasPath: string): string[] {
     return fs.readdirSync(dirPath).filter((file) => file.endsWith('.png'));
 }
 
-function collectSliceBorders(children: SceneTreeNode[] | undefined): Record<string, { top: number; right: number; bottom: number; left: number }> {
-    const map: Record<string, { top: number; right: number; bottom: number; left: number }> = {};
+function collectSliceBorders(children: SceneTreeNode[] | undefined): Record<string, SliceBorder> {
+    const map: Record<string, SliceBorder> = {};
     if (!children) return map;
 
     for (const child of children) {
@@ -110,44 +112,88 @@ function collectRelativePaths(children: SceneTreeNode[] | undefined, out = new S
     return out;
 }
 
-function applySliceBordersToMeta(
+function writeSliceBorderToMeta(meta: any, border: SliceBorder): boolean {
+    let found = false;
+    for (const key of Object.keys(meta?.subMetas || {})) {
+        const sub = meta.subMetas[key];
+        if (sub.importer !== 'sprite-frame') continue;
+
+        sub.userData = sub.userData || {};
+        sub.userData.borderTop = border.top;
+        sub.userData.borderBottom = border.bottom;
+        sub.userData.borderLeft = border.left;
+        sub.userData.borderRight = border.right;
+        found = true;
+    }
+    return found;
+}
+
+function hasSliceBorder(meta: any, border: SliceBorder): boolean {
+    for (const key of Object.keys(meta?.subMetas || {})) {
+        const sub = meta.subMetas[key];
+        const userData = sub?.userData;
+        if (sub?.importer === 'sprite-frame'
+            && userData?.borderTop === border.top
+            && userData?.borderBottom === border.bottom
+            && userData?.borderLeft === border.left
+            && userData?.borderRight === border.right) {
+            return true;
+        }
+    }
+    return false;
+}
+
+async function applySliceBordersToMeta(
     atlasPath: string,
-    sliceMap: Record<string, { top: number; right: number; bottom: number; left: number }>,
-): string[] {
+    sliceMap: Record<string, SliceBorder>,
+): Promise<string[]> {
     const changedAssets: string[] = [];
     if (Object.keys(sliceMap).length === 0) return changedAssets;
 
     const dirPath = path.join(Editor.Project.path, 'assets', atlasPath);
     if (!fs.existsSync(dirPath)) return changedAssets;
 
+    const failures: string[] = [];
+
     for (const relPath of Object.keys(sliceMap)) {
-        const metaPath = path.join(dirPath, `${relPath}.png.meta`);
-        if (!fs.existsSync(metaPath)) continue;
+        const dbPath = `db://assets/${normalizePath(atlasPath)}/${relPath}.png`;
 
         try {
             const border = sliceMap[relPath];
-            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-            if (!meta.subMetas) continue;
-
-            let modified = false;
-            for (const key of Object.keys(meta.subMetas)) {
-                const sub = meta.subMetas[key];
-                if (sub.importer === 'sprite-frame' && sub.userData) {
-                    sub.userData.borderTop = border.top;
-                    sub.userData.borderBottom = border.bottom;
-                    sub.userData.borderLeft = border.left;
-                    sub.userData.borderRight = border.right;
-                    modified = true;
-                }
+            const assetInfo = await Editor.Message.request('asset-db', 'query-asset-info', dbPath);
+            if (!assetInfo?.uuid) {
+                failures.push(`${relPath}: SpriteFrame 资源尚未导入`);
+                continue;
             }
 
-            if (modified) {
-                fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
-                changedAssets.push(relPath);
+            const meta = await Editor.Message.request('asset-db', 'query-asset-meta', assetInfo.uuid);
+            if (!meta || !writeSliceBorderToMeta(meta, border)) {
+                failures.push(`${relPath}: 未找到 sprite-frame meta`);
+                continue;
             }
+
+            await Editor.Message.request(
+                'asset-db',
+                'save-asset-meta',
+                assetInfo.uuid,
+                JSON.stringify(meta),
+            );
+            await reimportAsset(dbPath);
+
+            const persistedMeta = await Editor.Message.request('asset-db', 'query-asset-meta', assetInfo.uuid);
+            if (!persistedMeta || !hasSliceBorder(persistedMeta, border)) {
+                failures.push(`${relPath}: border 持久化校验失败`);
+                continue;
+            }
+
+            changedAssets.push(relPath);
         } catch (error: any) {
-            console.warn('[PSD2CCC] Failed to write slice border meta:', metaPath, error?.message || error);
+            failures.push(`${relPath}: ${error?.message || error}`);
         }
+    }
+
+    if (failures.length > 0) {
+        throw new Error(`九宫格 meta 持久化失败，请等待资源导入后重试：\n${failures.join('\n')}`);
     }
 
     return changedAssets;
@@ -244,7 +290,7 @@ async function buildUIFromData(data: SceneTree, options: BuildOptions): Promise<
             const sliceMap = collectSliceBorders(data.children);
 
             if (!waitForAssets) {
-                applySliceBordersToMeta(atlasPath, sliceMap);
+                await applySliceBordersToMeta(atlasPath, sliceMap);
                 spriteMap = mergeSpriteMaps(resolveSpriteFrameUuids(atlasPath), resolveSpriteFrameUuids('asset-art/atlas/common'));
 
                 const dirPath = path.join(Editor.Project.path, 'assets', atlasPath);
@@ -261,11 +307,7 @@ async function buildUIFromData(data: SceneTree, options: BuildOptions): Promise<
                 }
             } else {
                 const initialSpriteMap = await waitForSpriteFrames(atlasPath, expectedSprites);
-                const changedSliceAssets = applySliceBordersToMeta(atlasPath, sliceMap);
-
-                for (const relPath of changedSliceAssets) {
-                    await reimportAsset(`db://assets/${normalizePath(atlasPath)}/${relPath}.png`);
-                }
+                const changedSliceAssets = await applySliceBordersToMeta(atlasPath, sliceMap);
 
                 if (changedSliceAssets.length > 0) {
                     await delay(250);

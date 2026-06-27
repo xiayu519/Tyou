@@ -265,24 +265,30 @@ function guessScale9Insets(w, h) {
 // ===========================
 // 九宫格中间裁切（保留四边 inset + 中间 KEEP 像素，删除多余区域）
 // ===========================
+function shouldCropScale9Axis(size, startInset, endInset, keep) {
+    // 两端都是 0 表示该轴不做九宫格裁切；另一个轴仍可独立裁切。
+    return (startInset > 0 || endInset > 0)
+        && startInset + keep + endInset < size;
+}
+
 function cropScale9(tmpDoc, s9) {
     var keep = SCALE9_KEEP_CENTER;
     var tw = Math.round(parseFloat(tmpDoc.width));
     var th = Math.round(parseFloat(tmpDoc.height));
-    var newW = s9.left + keep + s9.right;
-    var newH = s9.top + keep + s9.bottom;
-    if (newW >= tw && newH >= th) return;
+    var cropH = shouldCropScale9Axis(tw, s9.left, s9.right, keep);
+    var cropV = shouldCropScale9Axis(th, s9.top, s9.bottom, keep);
+    if (!cropH && !cropV) return;
 
     try { tmpDoc.activeLayer.isBackgroundLayer = false; } catch (e) {}
 
     // 水平裁切
-    if (newW < tw) {
+    if (cropH) {
         _s9CropAxis(tmpDoc, true, tw, th, s9.left, s9.right, keep);
         tw = Math.round(parseFloat(tmpDoc.width));
     }
     // 垂直裁切
     th = Math.round(parseFloat(tmpDoc.height));
-    if (newH < th) {
+    if (cropV) {
         _s9CropAxis(tmpDoc, false, tw, th, s9.top, s9.bottom, keep);
     }
 }
@@ -292,14 +298,17 @@ function _s9CropAxis(doc, isH, tw, th, startInset, endInset, keep) {
     var newSize = startInset + keep + endInset;
     try { doc.activeLayer.isBackgroundLayer = false; } catch (e) {}
 
-    // 1. 复制文档，crop 出末端区域（右侧/底部 endInset 像素）
-    var endDoc = doc.duplicate("__s9end__");
-    if (isH) {
-        endDoc.crop([UnitValue(tw - endInset, "px"), UnitValue(0, "px"),
-                     UnitValue(tw, "px"), UnitValue(th, "px")]);
-    } else {
-        endDoc.crop([UnitValue(0, "px"), UnitValue(th - endInset, "px"),
-                     UnitValue(tw, "px"), UnitValue(th, "px")]);
+    // 1. 仅在末端 inset 大于 0 时复制右侧/底部区域，避免 0 像素 crop。
+    var endDoc = null;
+    if (endInset > 0) {
+        endDoc = doc.duplicate("__s9end__");
+        if (isH) {
+            endDoc.crop([UnitValue(tw - endInset, "px"), UnitValue(0, "px"),
+                         UnitValue(tw, "px"), UnitValue(th, "px")]);
+        } else {
+            endDoc.crop([UnitValue(0, "px"), UnitValue(th - endInset, "px"),
+                         UnitValue(tw, "px"), UnitValue(th, "px")]);
+        }
     }
 
     // 2. 主文档 crop 保留起始区域（startInset + keep 像素）
@@ -320,29 +329,31 @@ function _s9CropAxis(doc, isH, tw, th, startInset, endInset, keep) {
         doc.resizeCanvas(UnitValue(tw, "px"), UnitValue(newSize, "px"), AnchorPosition.TOPLEFT);
     }
 
-    // 4. 从副本中全选+复制末端区域，粘贴到主文档
-    app.activeDocument = endDoc;
-    try { endDoc.activeLayer.isBackgroundLayer = false; } catch (e) {}
-    endDoc.selection.selectAll();
-    endDoc.selection.copy();
-    endDoc.close(SaveOptions.DONOTSAVECHANGES);
+    // 4. 从副本中全选+复制末端区域，粘贴到主文档。
+    if (endDoc) {
+        app.activeDocument = endDoc;
+        try { endDoc.activeLayer.isBackgroundLayer = false; } catch (e) {}
+        endDoc.selection.selectAll();
+        endDoc.selection.copy();
+        endDoc.close(SaveOptions.DONOTSAVECHANGES);
 
-    app.activeDocument = doc;
-    doc.paste();
-    var pasted = doc.activeLayer;
-    var pb = pasted.bounds;
-    if (isH) {
-        pasted.translate(
-            UnitValue((startInset + keep) - parseFloat(pb[0]), "px"),
-            UnitValue(0 - parseFloat(pb[1]), "px"));
-    } else {
-        pasted.translate(
-            UnitValue(0 - parseFloat(pb[0]), "px"),
-            UnitValue((startInset + keep) - parseFloat(pb[1]), "px"));
+        app.activeDocument = doc;
+        doc.paste();
+        var pasted = doc.activeLayer;
+        var pb = pasted.bounds;
+        if (isH) {
+            pasted.translate(
+                UnitValue((startInset + keep) - parseFloat(pb[0]), "px"),
+                UnitValue(0 - parseFloat(pb[1]), "px"));
+        } else {
+            pasted.translate(
+                UnitValue(0 - parseFloat(pb[0]), "px"),
+                UnitValue((startInset + keep) - parseFloat(pb[1]), "px"));
+        }
+
+        // 5. 合并图层
+        doc.mergeVisibleLayers();
     }
-
-    // 5. 合并图层
-    doc.mergeVisibleLayers();
 }
 
 // 构建导出文件名：只使用图片图层名，不拼父级路径、不转拼音、不追加 hash。
@@ -416,8 +427,11 @@ function savePNG(doc, layer, path, relPath, layerRelPath, s9) {
 
         // 九宫格裁切：保留四边 inset 像素 + 中间 SCALE9_KEEP_CENTER 像素
         var preScale9Size = null;
-        if (s9 && s9.left + s9.right + SCALE9_KEEP_CENTER < tw
-              && s9.top + s9.bottom + SCALE9_KEEP_CENTER < th) {
+        var cropScale9H = s9 && shouldCropScale9Axis(
+            tw, s9.left, s9.right, SCALE9_KEEP_CENTER);
+        var cropScale9V = s9 && shouldCropScale9Axis(
+            th, s9.top, s9.bottom, SCALE9_KEEP_CENTER);
+        if (s9 && (cropScale9H || cropScale9V)) {
             preScale9Size = { width: tw, height: th };
             try {
                 cropScale9(tmp, s9);

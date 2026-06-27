@@ -86,41 +86,72 @@ function collectRelativePaths(children, out = new Set()) {
     }
     return out;
 }
-function applySliceBordersToMeta(atlasPath, sliceMap) {
+function writeSliceBorderToMeta(meta, border) {
+    let found = false;
+    for (const key of Object.keys((meta === null || meta === void 0 ? void 0 : meta.subMetas) || {})) {
+        const sub = meta.subMetas[key];
+        if (sub.importer !== 'sprite-frame')
+            continue;
+        sub.userData = sub.userData || {};
+        sub.userData.borderTop = border.top;
+        sub.userData.borderBottom = border.bottom;
+        sub.userData.borderLeft = border.left;
+        sub.userData.borderRight = border.right;
+        found = true;
+    }
+    return found;
+}
+function hasSliceBorder(meta, border) {
+    for (const key of Object.keys((meta === null || meta === void 0 ? void 0 : meta.subMetas) || {})) {
+        const sub = meta.subMetas[key];
+        const userData = sub === null || sub === void 0 ? void 0 : sub.userData;
+        if ((sub === null || sub === void 0 ? void 0 : sub.importer) === 'sprite-frame'
+            && (userData === null || userData === void 0 ? void 0 : userData.borderTop) === border.top
+            && (userData === null || userData === void 0 ? void 0 : userData.borderBottom) === border.bottom
+            && (userData === null || userData === void 0 ? void 0 : userData.borderLeft) === border.left
+            && (userData === null || userData === void 0 ? void 0 : userData.borderRight) === border.right) {
+            return true;
+        }
+    }
+    return false;
+}
+async function applySliceBordersToMeta(atlasPath, sliceMap) {
     const changedAssets = [];
     if (Object.keys(sliceMap).length === 0)
         return changedAssets;
     const dirPath = path_1.default.join(Editor.Project.path, 'assets', atlasPath);
     if (!fs_1.default.existsSync(dirPath))
         return changedAssets;
+    const failures = [];
     for (const relPath of Object.keys(sliceMap)) {
-        const metaPath = path_1.default.join(dirPath, `${relPath}.png.meta`);
-        if (!fs_1.default.existsSync(metaPath))
-            continue;
+        const dbPath = `db://assets/${normalizePath(atlasPath)}/${relPath}.png`;
         try {
             const border = sliceMap[relPath];
-            const meta = JSON.parse(fs_1.default.readFileSync(metaPath, 'utf8'));
-            if (!meta.subMetas)
+            const assetInfo = await Editor.Message.request('asset-db', 'query-asset-info', dbPath);
+            if (!(assetInfo === null || assetInfo === void 0 ? void 0 : assetInfo.uuid)) {
+                failures.push(`${relPath}: SpriteFrame 资源尚未导入`);
                 continue;
-            let modified = false;
-            for (const key of Object.keys(meta.subMetas)) {
-                const sub = meta.subMetas[key];
-                if (sub.importer === 'sprite-frame' && sub.userData) {
-                    sub.userData.borderTop = border.top;
-                    sub.userData.borderBottom = border.bottom;
-                    sub.userData.borderLeft = border.left;
-                    sub.userData.borderRight = border.right;
-                    modified = true;
-                }
             }
-            if (modified) {
-                fs_1.default.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
-                changedAssets.push(relPath);
+            const meta = await Editor.Message.request('asset-db', 'query-asset-meta', assetInfo.uuid);
+            if (!meta || !writeSliceBorderToMeta(meta, border)) {
+                failures.push(`${relPath}: 未找到 sprite-frame meta`);
+                continue;
             }
+            await Editor.Message.request('asset-db', 'save-asset-meta', assetInfo.uuid, JSON.stringify(meta));
+            await reimportAsset(dbPath);
+            const persistedMeta = await Editor.Message.request('asset-db', 'query-asset-meta', assetInfo.uuid);
+            if (!persistedMeta || !hasSliceBorder(persistedMeta, border)) {
+                failures.push(`${relPath}: border 持久化校验失败`);
+                continue;
+            }
+            changedAssets.push(relPath);
         }
         catch (error) {
-            console.warn('[PSD2CCC] Failed to write slice border meta:', metaPath, (error === null || error === void 0 ? void 0 : error.message) || error);
+            failures.push(`${relPath}: ${(error === null || error === void 0 ? void 0 : error.message) || error}`);
         }
+    }
+    if (failures.length > 0) {
+        throw new Error(`九宫格 meta 持久化失败，请等待资源导入后重试：\n${failures.join('\n')}`);
     }
     return changedAssets;
 }
@@ -204,7 +235,7 @@ async function buildUIFromData(data, options) {
         if (atlasPath && expectedSprites > 0) {
             const sliceMap = collectSliceBorders(data.children);
             if (!waitForAssets) {
-                applySliceBordersToMeta(atlasPath, sliceMap);
+                await applySliceBordersToMeta(atlasPath, sliceMap);
                 spriteMap = mergeSpriteMaps(resolveSpriteFrameUuids(atlasPath), resolveSpriteFrameUuids('asset-art/atlas/common'));
                 const dirPath = path_1.default.join(Editor.Project.path, 'assets', atlasPath);
                 if (fs_1.default.existsSync(dirPath)) {
@@ -221,10 +252,7 @@ async function buildUIFromData(data, options) {
             }
             else {
                 const initialSpriteMap = await waitForSpriteFrames(atlasPath, expectedSprites);
-                const changedSliceAssets = applySliceBordersToMeta(atlasPath, sliceMap);
-                for (const relPath of changedSliceAssets) {
-                    await reimportAsset(`db://assets/${normalizePath(atlasPath)}/${relPath}.png`);
-                }
+                const changedSliceAssets = await applySliceBordersToMeta(atlasPath, sliceMap);
                 if (changedSliceAssets.length > 0) {
                     await delay(250);
                 }
