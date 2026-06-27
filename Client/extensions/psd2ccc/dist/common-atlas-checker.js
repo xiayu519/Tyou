@@ -3,19 +3,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.runCommonAtlasCheckForNode = exports.COMMON_ATLAS_DB_PATH = exports.runCommonAtlasCheck = exports.isCommonAtlasCheckAsset = void 0;
+exports.runCommonAtlasCheckForNode = exports.discardRedundantAtlasPlan = exports.executeRedundantAtlasPlan = exports.runRedundantAtlasCheck = exports.discardAllCommonAtlasPlan = exports.executeAllCommonAtlasPlan = exports.runAllCommonAtlasCheck = exports.COMMON_ATLAS_DB_PATH = exports.runCommonAtlasCheck = exports.isCommonAtlasCheckAsset = void 0;
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const crypto_1 = __importDefault(require("crypto"));
 const zlib_1 = __importDefault(require("zlib"));
 const COMMON_ATLAS_PATH = 'asset-art/atlas/common';
 const ASSET_REF_TEXT_EXTS = new Set(['.prefab', '.scene', '.anim', '.mtl']);
+const pendingAllAtlasPlans = new Map();
+const pendingRedundantAtlasPlans = new Map();
 function normalizePath(input) {
     return input.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 }
 function toDbPath(absPath) {
     const rel = path_1.default.relative(path_1.default.join(Editor.Project.path, 'assets'), absPath);
     return `db://assets/${normalizePath(rel)}`;
+}
+function toProjectRelativePath(absPath) {
+    return normalizePath(path_1.default.relative(Editor.Project.path, absPath));
 }
 function assetsRoot() {
     return path_1.default.join(Editor.Project.path, 'assets');
@@ -470,6 +475,21 @@ function walkFiles(root, out = []) {
 function textAssetFiles() {
     return walkFiles(assetsRoot()).filter((file) => ASSET_REF_TEXT_EXTS.has(path_1.default.extname(file).toLowerCase()));
 }
+function prefabAssetFiles() {
+    return walkFiles(assetsRoot()).filter((file) => path_1.default.extname(file).toLowerCase() === '.prefab');
+}
+function spriteAssetUuids(asset) {
+    return [asset.meta.imageUuid, asset.meta.spriteUuid].filter(Boolean);
+}
+function isAssetReferencedByPrefabs(asset, files = prefabAssetFiles()) {
+    const needles = spriteAssetUuids(asset);
+    for (const file of files) {
+        const text = fs_1.default.readFileSync(file, 'utf8');
+        if (needles.some((needle) => text.includes(needle)))
+            return true;
+    }
+    return false;
+}
 function replaceInTextFile(filePath, replacements) {
     let text = fs_1.default.readFileSync(filePath, 'utf8');
     let count = 0;
@@ -555,6 +575,362 @@ function readPrefabSceneAssets(filePath, skipped) {
         .filter((asset) => !!asset);
     const assets = atlasAssets.filter((asset) => uuidSet.has(asset.meta.spriteUuid) || uuidSet.has(asset.meta.imageUuid));
     return { targets: [{ filePath, type: 'asset-json' }], assets, skipped };
+}
+function sortAssets(assets) {
+    return [...assets].sort((a, b) => a.dbPath.localeCompare(b.dbPath));
+}
+function listAllAtlasAssets(skipped) {
+    const atlasRoot = path_1.default.join(assetsRoot(), 'asset-art', 'atlas');
+    return walkFiles(atlasRoot)
+        .filter((file) => file.toLowerCase().endsWith('.png'))
+        .map((pngPath) => {
+        const atlasPath = normalizePath(path_1.default.relative(assetsRoot(), path_1.default.dirname(pngPath)));
+        try {
+            return readSpriteAsset(pngPath, atlasPath);
+        }
+        catch (error) {
+            skipped.push(`${toProjectRelativePath(pngPath)}: ${(error === null || error === void 0 ? void 0 : error.message) || error}`);
+            return null;
+        }
+    })
+        .filter((asset) => !!asset);
+}
+function refId(value) {
+    return value && typeof value.__id__ === 'number' ? value.__id__ : null;
+}
+function buildNodePathResolver(serialized) {
+    const cache = new Map();
+    const resolving = new Set();
+    const resolve = (id) => {
+        if (cache.has(id))
+            return cache.get(id);
+        const item = serialized[id];
+        if (!item || item.__type__ !== 'cc.Node')
+            return '';
+        if (resolving.has(id))
+            return item._name || `Node#${id}`;
+        resolving.add(id);
+        const parentId = refId(item._parent);
+        const name = item._name || `Node#${id}`;
+        const parentPath = typeof parentId === 'number' ? resolve(parentId) : '';
+        const nodePath = parentPath ? `${parentPath}/${name}` : name;
+        resolving.delete(id);
+        cache.set(id, nodePath);
+        return nodePath;
+    };
+    return resolve;
+}
+function trimUuidPropertyPath(propertyPath) {
+    return propertyPath.replace(/\.?__uuid__$/g, '') || '__uuid__';
+}
+function collectUuidReferenceHits(input, uuidToAsset, visitor, propertyPath = '') {
+    if (!input || typeof input !== 'object')
+        return;
+    if (typeof input.__uuid__ === 'string' && uuidToAsset.has(input.__uuid__)) {
+        visitor(input.__uuid__, trimUuidPropertyPath(propertyPath));
+    }
+    if (Array.isArray(input)) {
+        for (let i = 0; i < input.length; i++) {
+            collectUuidReferenceHits(input[i], uuidToAsset, visitor, propertyPath ? `${propertyPath}.${i}` : `${i}`);
+        }
+        return;
+    }
+    for (const key of Object.keys(input)) {
+        collectUuidReferenceHits(input[key], uuidToAsset, visitor, propertyPath ? `${propertyPath}.${key}` : key);
+    }
+}
+function collectJsonReferenceHits(filePath, text, uuidToAsset) {
+    let serialized;
+    try {
+        serialized = JSON.parse(text);
+    }
+    catch (_a) {
+        return [];
+    }
+    if (!Array.isArray(serialized))
+        return [];
+    const resolveNodePath = buildNodePathResolver(serialized);
+    const hits = [];
+    const seen = new Set();
+    for (let id = 0; id < serialized.length; id++) {
+        const item = serialized[id];
+        if (!item || typeof item !== 'object')
+            continue;
+        const ownerNodeId = item.__type__ === 'cc.Node' ? id : refId(item.node);
+        const nodePath = typeof ownerNodeId === 'number' ? resolveNodePath(ownerNodeId) : '';
+        const componentType = item.__type__ || 'unknown';
+        collectUuidReferenceHits(item, uuidToAsset, (uuid, propertyPath) => {
+            const asset = uuidToAsset.get(uuid);
+            if (!asset)
+                return;
+            const key = `${filePath}|${nodePath}|${componentType}|${propertyPath}|${uuid}`;
+            if (seen.has(key))
+                return;
+            seen.add(key);
+            hits.push({
+                filePath,
+                nodePath: nodePath || '(未定位节点)',
+                componentType,
+                propertyPath,
+                uuid,
+                assetDbPath: asset.dbPath,
+            });
+        });
+    }
+    return hits;
+}
+function collectReferenceHitsByAsset(assets) {
+    const uuidToAsset = new Map();
+    for (const asset of assets) {
+        uuidToAsset.set(asset.meta.imageUuid, asset);
+        uuidToAsset.set(asset.meta.spriteUuid, asset);
+    }
+    const uuids = Array.from(uuidToAsset.keys()).filter(Boolean);
+    const hitsByAsset = new Map();
+    for (const filePath of textAssetFiles()) {
+        const text = fs_1.default.readFileSync(filePath, 'utf8');
+        const matched = uuids.filter((uuid) => text.includes(uuid));
+        if (matched.length === 0)
+            continue;
+        const ext = path_1.default.extname(filePath).toLowerCase();
+        const hits = ext === '.prefab' || ext === '.scene'
+            ? collectJsonReferenceHits(filePath, text, uuidToAsset)
+            : matched.map((uuid) => {
+                const asset = uuidToAsset.get(uuid);
+                return {
+                    filePath,
+                    nodePath: '(文件级引用)',
+                    componentType: ext.replace('.', '') || 'asset',
+                    propertyPath: '__uuid__',
+                    uuid,
+                    assetDbPath: asset.dbPath,
+                };
+            });
+        for (const hit of hits) {
+            if (!hitsByAsset.has(hit.assetDbPath))
+                hitsByAsset.set(hit.assetDbPath, []);
+            hitsByAsset.get(hit.assetDbPath).push(hit);
+        }
+    }
+    return hitsByAsset;
+}
+function commonAtlasPlanReportPath() {
+    return path_1.default.join(Editor.Project.path, 'temp', 'psd2ccc', 'common-atlas-check-report.json');
+}
+function serializeAssetForReport(asset) {
+    return {
+        dbPath: asset.dbPath,
+        file: toProjectRelativePath(asset.pngPath),
+        imageUuid: asset.meta.imageUuid,
+        spriteUuid: asset.meta.spriteUuid,
+    };
+}
+function writeAllAtlasPlanReport(plan) {
+    ensureDir(path_1.default.dirname(plan.reportPath));
+    writeJson(plan.reportPath, {
+        generatedAt: new Date().toISOString(),
+        totalAssets: plan.totalAssets,
+        groups: plan.groups.map((group) => ({
+            targetDbPath: group.targetDbPath,
+            willCreateCommon: group.willCreateCommon,
+            commonAsset: group.commonAsset ? serializeAssetForReport(group.commonAsset) : null,
+            duplicateAssets: group.duplicateAssets.map(serializeAssetForReport),
+            allAssets: group.allAssets.map(serializeAssetForReport),
+            references: group.referenceHits.map((hit) => ({
+                file: toProjectRelativePath(hit.filePath),
+                nodePath: hit.nodePath,
+                componentType: hit.componentType,
+                propertyPath: hit.propertyPath,
+                uuid: hit.uuid,
+                assetDbPath: hit.assetDbPath,
+            })),
+        })),
+        skipped: plan.skipped,
+    });
+    return plan.reportPath;
+}
+function buildAllAtlasPlan() {
+    const skipped = [];
+    const allAssets = sortAssets(listAllAtlasAssets(skipped));
+    const hitsByAsset = collectReferenceHitsByAsset(allAssets);
+    const byFingerprint = new Map();
+    for (const asset of allAssets) {
+        if (!byFingerprint.has(asset.fingerprint))
+            byFingerprint.set(asset.fingerprint, []);
+        byFingerprint.get(asset.fingerprint).push(asset);
+    }
+    const groups = [];
+    for (const [fingerprint, groupAssets] of byFingerprint) {
+        const allGroupAssets = sortAssets(groupAssets);
+        if (allGroupAssets.length < 2)
+            continue;
+        const commonAssets = sortAssets(allGroupAssets.filter((asset) => asset.atlasPath === COMMON_ATLAS_PATH));
+        const nonCommonAssets = sortAssets(allGroupAssets.filter((asset) => asset.atlasPath !== COMMON_ATLAS_PATH));
+        if (nonCommonAssets.length === 0 && commonAssets.length < 2)
+            continue;
+        if (commonAssets.length === 0 && nonCommonAssets.length < 2)
+            continue;
+        const commonAsset = commonAssets[0];
+        const duplicateAssets = commonAsset
+            ? sortAssets([...nonCommonAssets, ...commonAssets.slice(1)])
+            : nonCommonAssets;
+        if (duplicateAssets.length === 0)
+            continue;
+        const source = commonAsset || duplicateAssets[0];
+        const slot = commonSlotFor(source);
+        const targetDbPath = commonAsset
+            ? commonAsset.dbPath
+            : (slot.existing ? slot.existing.dbPath : toDbPath(slot.targetPng));
+        const referenceHits = [];
+        for (const asset of duplicateAssets) {
+            referenceHits.push(...(hitsByAsset.get(asset.dbPath) || []));
+        }
+        groups.push({
+            fingerprint,
+            commonAsset,
+            duplicateAssets,
+            allAssets: allGroupAssets,
+            referenceHits,
+            targetDbPath,
+            willCreateCommon: !commonAsset,
+        });
+    }
+    return {
+        groups,
+        skipped,
+        totalAssets: allAssets.length,
+        reportPath: commonAtlasPlanReportPath(),
+    };
+}
+function createPlanId() {
+    return `plan_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+function toAllAtlasPlanView(planId, plan) {
+    const referenceFiles = uniqueSorted(plan.groups.flatMap((group) => group.referenceHits.map((hit) => toProjectRelativePath(hit.filePath))));
+    return {
+        planId,
+        totalAssets: plan.totalAssets,
+        groupCount: plan.groups.length,
+        duplicateAssetCount: plan.groups.reduce((sum, group) => sum + group.duplicateAssets.length, 0),
+        createCommonCount: plan.groups.filter((group) => group.willCreateCommon).length,
+        referenceFileCount: referenceFiles.length,
+        reportPath: toProjectRelativePath(plan.reportPath),
+        skipped: plan.skipped,
+        groups: plan.groups.map((group, groupIndex) => ({
+            id: `${group.fingerprint.slice(0, 16)}_${groupIndex}`,
+            targetDbPath: group.targetDbPath,
+            willCreateCommon: group.willCreateCommon,
+            commonAsset: group.commonAsset ? serializeAssetForReport(group.commonAsset) : undefined,
+            assets: group.duplicateAssets.map((asset) => ({
+                id: asset.dbPath,
+                name: asset.baseName,
+                dbPath: asset.dbPath,
+                file: toProjectRelativePath(asset.pngPath),
+                atlasPath: asset.atlasPath,
+                checked: true,
+                references: group.referenceHits
+                    .filter((hit) => hit.assetDbPath === asset.dbPath)
+                    .map((hit) => ({
+                    file: toProjectRelativePath(hit.filePath),
+                    nodePath: hit.nodePath,
+                    componentType: hit.componentType,
+                    propertyPath: hit.propertyPath,
+                })),
+            })),
+        })),
+    };
+}
+async function openAllAtlasPlanPanel(view) {
+    var _a, _b;
+    const opened = await Editor.Panel.open('psd2ccc.common-atlas-check', view);
+    if (opened === false) {
+        throw new Error('打开检查所有公共图集面板失败，请在扩展管理器里重新加载 psd2ccc 后重试。');
+    }
+    try {
+        await delay(100);
+        (_b = (_a = Editor.Message).send) === null || _b === void 0 ? void 0 : _b.call(_a, 'psd2ccc', 'show-all-common-atlas-plan', view);
+    }
+    catch (error) {
+        console.warn('[PSD2CCC] send common atlas plan to panel failed:', (error === null || error === void 0 ? void 0 : error.message) || error);
+    }
+}
+function redundantAtlasReportPath() {
+    return path_1.default.join(Editor.Project.path, 'temp', 'psd2ccc', 'redundant-atlas-check-report.json');
+}
+function buildRedundantAtlasPlan() {
+    const skipped = [];
+    const assets = sortAssets(listAllAtlasAssets(skipped));
+    const prefabs = prefabAssetFiles();
+    const referenced = new Set();
+    const uuidToAsset = new Map();
+    for (const asset of assets) {
+        for (const uuid of spriteAssetUuids(asset)) {
+            uuidToAsset.set(uuid, asset);
+        }
+    }
+    const uuids = Array.from(uuidToAsset.keys());
+    for (const prefab of prefabs) {
+        const text = fs_1.default.readFileSync(prefab, 'utf8');
+        for (const uuid of uuids) {
+            if (text.includes(uuid)) {
+                referenced.add(uuidToAsset.get(uuid).dbPath);
+            }
+        }
+    }
+    return {
+        assets: assets.filter((asset) => !referenced.has(asset.dbPath)),
+        skipped,
+        totalAssets: assets.length,
+        prefabCount: prefabs.length,
+        referencedCount: referenced.size,
+        reportPath: redundantAtlasReportPath(),
+    };
+}
+function writeRedundantAtlasPlanReport(plan) {
+    ensureDir(path_1.default.dirname(plan.reportPath));
+    writeJson(plan.reportPath, {
+        generatedAt: new Date().toISOString(),
+        totalAssets: plan.totalAssets,
+        prefabCount: plan.prefabCount,
+        referencedCount: plan.referencedCount,
+        unusedCount: plan.assets.length,
+        unusedAssets: plan.assets.map((asset) => serializeAssetForReport(asset)),
+        skipped: plan.skipped,
+    });
+    return plan.reportPath;
+}
+function toRedundantAtlasPlanView(planId, plan) {
+    return {
+        planId,
+        totalAssets: plan.totalAssets,
+        prefabCount: plan.prefabCount,
+        referencedCount: plan.referencedCount,
+        unusedCount: plan.assets.length,
+        reportPath: toProjectRelativePath(plan.reportPath),
+        skipped: plan.skipped,
+        assets: plan.assets.map((asset) => ({
+            id: asset.dbPath,
+            name: asset.baseName,
+            dbPath: asset.dbPath,
+            file: toProjectRelativePath(asset.pngPath),
+            atlasPath: asset.atlasPath,
+            checked: true,
+        })),
+    };
+}
+async function openRedundantAtlasPanel(view) {
+    var _a, _b;
+    const opened = await Editor.Panel.open('psd2ccc.redundant-atlas-clean', view);
+    if (opened === false) {
+        throw new Error('打开检查冗余图片面板失败，请在扩展管理器里重新加载 psd2ccc 后重试。');
+    }
+    try {
+        await delay(100);
+        (_b = (_a = Editor.Message).send) === null || _b === void 0 ? void 0 : _b.call(_a, 'psd2ccc', 'show-redundant-atlas-plan', view);
+    }
+    catch (error) {
+        console.warn('[PSD2CCC] send redundant atlas plan to panel failed:', (error === null || error === void 0 ? void 0 : error.message) || error);
+    }
 }
 async function queryNode(nodeUuid) {
     try {
@@ -663,6 +1039,27 @@ async function replaceSceneNodeSpriteFrames(nodeUuid, replacements) {
         return 0;
     }
 }
+async function replaceOpenSceneSpriteFrames(replacements) {
+    if (replacements.size === 0)
+        return { changed: 0, remainingSourceUuids: new Set(), failed: false };
+    const sourceUuids = new Set(Array.from(replacements.keys()).filter(Boolean));
+    try {
+        const result = await Editor.Message.request('scene', 'execute-scene-script', {
+            name: 'psd2ccc',
+            method: 'replaceSpriteFramesInOpenScene',
+            args: [JSON.stringify(Object.fromEntries(replacements))],
+        });
+        return {
+            changed: Number((result === null || result === void 0 ? void 0 : result.changed) || 0),
+            remainingSourceUuids: new Set(((result === null || result === void 0 ? void 0 : result.remainingSourceUuids) || []).filter(Boolean)),
+            failed: false,
+        };
+    }
+    catch (error) {
+        console.warn('[PSD2CCC] replace open scene SpriteFrame failed:', (error === null || error === void 0 ? void 0 : error.message) || error);
+        return { changed: 0, remainingSourceUuids: sourceUuids, failed: true };
+    }
+}
 async function showNoSpriteFrameWarning(report) {
     await Editor.Dialog.warn('检查公共图集', {
         title: '没有可检查的 SpriteFrame',
@@ -692,14 +1089,7 @@ async function showCommonAtlasError(error) {
         buttons: ['确定'],
     });
 }
-async function runCommonAtlasCheckContext(context, report, progress) {
-    await (progress === null || progress === void 0 ? void 0 : progress.update(0.08, '收集 SpriteFrame 引用'));
-    report.skipped.push(...context.skipped);
-    if (context.assets.length === 0) {
-        await showNoSpriteFrameWarning(report);
-        return;
-    }
-    await (progress === null || progress === void 0 ? void 0 : progress.update(0.18, '计算重复资源指纹'));
+function buildCandidateGroupsForContext(context) {
     const groups = new Map();
     for (const asset of context.assets) {
         if (asset.atlasPath === COMMON_ATLAS_PATH)
@@ -708,10 +1098,12 @@ async function runCommonAtlasCheckContext(context, report, progress) {
             groups.set(asset.fingerprint, []);
         groups.get(asset.fingerprint).push(asset);
     }
-    const candidateGroups = Array.from(groups.values()).filter((group) => {
+    return Array.from(groups.values()).filter((group) => {
         const commonExisting = listPngAssets(COMMON_ATLAS_PATH).find((asset) => asset.fingerprint === group[0].fingerprint);
         return group.length >= 2 || !!commonExisting;
     });
+}
+async function runCommonAtlasGroups(context, candidateGroups, report, progress) {
     let groupIndex = 0;
     for (const group of candidateGroups) {
         groupIndex++;
@@ -722,13 +1114,29 @@ async function runCommonAtlasCheckContext(context, report, progress) {
             continue;
         const uuidReplacements = new Map();
         for (const dup of group) {
-            uuidReplacements.set(dup.meta.spriteUuid, common.asset.meta.spriteUuid);
-            uuidReplacements.set(dup.meta.imageUuid, common.asset.meta.imageUuid);
+            if (dup.meta.spriteUuid !== common.asset.meta.spriteUuid) {
+                uuidReplacements.set(dup.meta.spriteUuid, common.asset.meta.spriteUuid);
+            }
+            if (dup.meta.imageUuid !== common.asset.meta.imageUuid) {
+                uuidReplacements.set(dup.meta.imageUuid, common.asset.meta.imageUuid);
+            }
         }
         const changedFiles = new Set();
         if (context.sceneNodeUuid) {
             await (progress === null || progress === void 0 ? void 0 : progress.update(0.35 + groupIndex / Math.max(1, candidateGroups.length) * 0.25, '替换节点 SpriteFrame 引用'));
             report.replacedRefs += await replaceSceneNodeSpriteFrames(context.sceneNodeUuid, uuidReplacements);
+        }
+        const openSceneRemainingUuids = new Set();
+        if (context.replaceOpenScene) {
+            await (progress === null || progress === void 0 ? void 0 : progress.update(0.35 + groupIndex / Math.max(1, candidateGroups.length) * 0.25, '替换当前场景 SpriteFrame 引用'));
+            const openSceneResult = await replaceOpenSceneSpriteFrames(uuidReplacements);
+            report.replacedRefs += openSceneResult.changed;
+            for (const uuid of openSceneResult.remainingSourceUuids) {
+                openSceneRemainingUuids.add(uuid);
+            }
+            if (openSceneResult.failed) {
+                report.skipped.push(`当前场景 SpriteFrame 替换失败，本组源图将保留以避免丢引用`);
+            }
         }
         for (const target of context.targets) {
             const replaced = replaceInTextFile(target.filePath, uuidReplacements);
@@ -760,6 +1168,10 @@ async function runCommonAtlasCheckContext(context, report, progress) {
             await (progress === null || progress === void 0 ? void 0 : progress.update(0.72 + groupIndex / Math.max(1, candidateGroups.length) * 0.18, '删除重复图片'));
             if (dup.pngPath === common.asset.pngPath)
                 continue;
+            if (openSceneRemainingUuids.has(dup.meta.spriteUuid) || openSceneRemainingUuids.has(dup.meta.imageUuid)) {
+                report.skipped.push(`${dup.baseName}: 当前打开场景仍有旧引用，跳过删除`);
+                continue;
+            }
             ignoreFiles.add(path_1.default.normalize(dup.metaPath));
             ignoreFiles.add(path_1.default.normalize(`${dup.pngPath}.meta`));
             if (hasExternalReference(dup, ignoreFiles)) {
@@ -776,6 +1188,19 @@ async function runCommonAtlasCheckContext(context, report, progress) {
     await refreshAsset(`db://assets/${COMMON_ATLAS_PATH}`);
     for (const target of context.targets)
         await refreshAsset(toDbPath(target.filePath));
+}
+async function runCommonAtlasCheckContext(context, report, progress) {
+    await (progress === null || progress === void 0 ? void 0 : progress.update(0.08, '收集 SpriteFrame 引用'));
+    report.skipped.push(...context.skipped);
+    if (context.assets.length === 0) {
+        await showNoSpriteFrameWarning(report);
+        return;
+    }
+    await (progress === null || progress === void 0 ? void 0 : progress.update(0.18, '计算重复资源指纹'));
+    await runCommonAtlasGroups(context, buildCandidateGroupsForContext(context), report, progress);
+}
+function uniqueSorted(values) {
+    return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
 async function runCommonAtlasCheck(assetInfo) {
     const report = {
@@ -802,6 +1227,170 @@ async function runCommonAtlasCheck(assetInfo) {
 }
 exports.runCommonAtlasCheck = runCommonAtlasCheck;
 exports.COMMON_ATLAS_DB_PATH = `db://assets/${COMMON_ATLAS_PATH}`;
+async function runAllCommonAtlasCheck() {
+    const progress = await createProgress('检查所有公共图集');
+    try {
+        await progress.update(0.03, '扫描 asset-art/atlas');
+        const plan = buildAllAtlasPlan();
+        writeAllAtlasPlanReport(plan);
+        const planId = createPlanId();
+        if (plan.groups.length > 0) {
+            pendingAllAtlasPlans.set(planId, plan);
+        }
+        await progress.update(1, '打开检查面板');
+        await openAllAtlasPlanPanel(toAllAtlasPlanView(planId, plan));
+    }
+    catch (error) {
+        await showCommonAtlasError(error);
+    }
+    finally {
+        await progress.close();
+    }
+}
+exports.runAllCommonAtlasCheck = runAllCommonAtlasCheck;
+async function executeAllCommonAtlasPlan(planId, selectedAssetDbPaths) {
+    const plan = pendingAllAtlasPlans.get(planId);
+    if (!plan)
+        throw new Error('整理方案已失效，请重新执行“检查所有公共图集”。');
+    const selected = new Set(selectedAssetDbPaths || []);
+    const candidateGroups = plan.groups
+        .map((group) => {
+        const selectedAssets = group.duplicateAssets.filter((asset) => selected.has(asset.dbPath));
+        if (selectedAssets.length === 0)
+            return [];
+        return group.commonAsset
+            ? [group.commonAsset, ...selectedAssets]
+            : selectedAssets;
+    })
+        .filter((group) => group.length > 0);
+    if (candidateGroups.length === 0) {
+        throw new Error('没有勾选任何需要整理的图片。');
+    }
+    const report = {
+        groups: 0,
+        reusedCommon: 0,
+        createdCommon: 0,
+        replacedRefs: 0,
+        deleted: 0,
+        skipped: [...plan.skipped],
+    };
+    const progress = await createProgress('执行公共图集整理');
+    try {
+        await runCommonAtlasGroups({ targets: [], assets: [], skipped: [], replaceOpenScene: true }, candidateGroups, report, progress);
+        await progress.update(1, '完成');
+        await showCommonAtlasReport(report);
+        pendingAllAtlasPlans.delete(planId);
+        return report;
+    }
+    catch (error) {
+        await showCommonAtlasError(error);
+        throw error;
+    }
+    finally {
+        await progress.close();
+    }
+}
+exports.executeAllCommonAtlasPlan = executeAllCommonAtlasPlan;
+function discardAllCommonAtlasPlan(planId) {
+    pendingAllAtlasPlans.delete(planId);
+}
+exports.discardAllCommonAtlasPlan = discardAllCommonAtlasPlan;
+async function runRedundantAtlasCheck() {
+    const progress = await createProgress('检查冗余图片');
+    try {
+        await progress.update(0.03, '扫描 asset-art/atlas');
+        const plan = buildRedundantAtlasPlan();
+        writeRedundantAtlasPlanReport(plan);
+        const planId = createPlanId();
+        if (plan.assets.length > 0) {
+            pendingRedundantAtlasPlans.set(planId, plan);
+        }
+        await progress.update(1, '打开清理面板');
+        await openRedundantAtlasPanel(toRedundantAtlasPlanView(planId, plan));
+    }
+    catch (error) {
+        await showCommonAtlasError(error);
+    }
+    finally {
+        await progress.close();
+    }
+}
+exports.runRedundantAtlasCheck = runRedundantAtlasCheck;
+async function executeRedundantAtlasPlan(planId, selectedAssetDbPaths) {
+    const plan = pendingRedundantAtlasPlans.get(planId);
+    if (!plan)
+        throw new Error('清理方案已失效，请重新执行“检查冗余图片”。');
+    const selected = new Set(selectedAssetDbPaths || []);
+    const selectedAssets = plan.assets.filter((asset) => selected.has(asset.dbPath));
+    if (selectedAssets.length === 0) {
+        throw new Error('没有勾选任何需要清理的图片。');
+    }
+    const progress = await createProgress('清理冗余图片');
+    const skipped = [];
+    let deleted = 0;
+    try {
+        const prefabs = prefabAssetFiles();
+        const refreshedAtlasPaths = new Set();
+        for (let i = 0; i < selectedAssets.length; i++) {
+            const asset = selectedAssets[i];
+            await progress.update(0.05 + i / Math.max(1, selectedAssets.length) * 0.85, `删除冗余图片 ${i + 1}/${selectedAssets.length}`);
+            if (!fs_1.default.existsSync(asset.pngPath)) {
+                skipped.push(`${toProjectRelativePath(asset.pngPath)}: 文件已不存在`);
+                continue;
+            }
+            let latest = null;
+            try {
+                latest = readSpriteAsset(asset.pngPath, asset.atlasPath);
+            }
+            catch (error) {
+                skipped.push(`${toProjectRelativePath(asset.pngPath)}: ${(error === null || error === void 0 ? void 0 : error.message) || error}`);
+                continue;
+            }
+            if (!latest) {
+                skipped.push(`${toProjectRelativePath(asset.pngPath)}: SpriteFrame meta 不存在`);
+                continue;
+            }
+            if (isAssetReferencedByPrefabs(latest, prefabs)) {
+                skipped.push(`${toProjectRelativePath(asset.pngPath)}: 已被 Prefab 引用，跳过删除`);
+                continue;
+            }
+            if (await deleteAsset(latest.dbPath)) {
+                deleted++;
+                refreshedAtlasPaths.add(latest.atlasPath);
+            }
+            else {
+                skipped.push(`${toProjectRelativePath(asset.pngPath)}: AssetDB 删除失败，已保留`);
+            }
+        }
+        await progress.update(0.95, '刷新资源');
+        for (const atlasPath of refreshedAtlasPaths) {
+            await refreshAsset(`db://assets/${atlasPath}`);
+        }
+        pendingRedundantAtlasPlans.delete(planId);
+        await progress.update(1, '完成');
+        await Editor.Dialog.info('清理冗余图片完成', {
+            title: '清理冗余图片完成',
+            detail: [
+                `删除图片: ${deleted}`,
+                skipped.length ? `跳过:\n${skipped.slice(0, 20).join('\n')}` : '',
+            ].filter(Boolean).join('\n'),
+            buttons: ['确定'],
+        });
+        return { deleted, skipped };
+    }
+    catch (error) {
+        await showCommonAtlasError(error);
+        throw error;
+    }
+    finally {
+        await progress.close();
+    }
+}
+exports.executeRedundantAtlasPlan = executeRedundantAtlasPlan;
+function discardRedundantAtlasPlan(planId) {
+    pendingRedundantAtlasPlans.delete(planId);
+}
+exports.discardRedundantAtlasPlan = discardRedundantAtlasPlan;
 async function runCommonAtlasCheckForNode(nodeUuid) {
     let spriteRefs = [];
     try {

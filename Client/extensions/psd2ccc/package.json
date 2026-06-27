@@ -16,6 +16,70 @@
     "typescript": "^5.8.2"
   },
   "contributions": {
+    "messages": {
+      "check-all-common-atlas": {
+        "methods": [
+          "checkAllCommonAtlas"
+        ]
+      },
+      "check-redundant-atlas": {
+        "methods": [
+          "checkRedundantAtlas"
+        ]
+      },
+      "execute-all-common-atlas-plan": {
+        "methods": [
+          "executeAllCommonAtlasPlan"
+        ]
+      },
+      "execute-redundant-atlas-plan": {
+        "methods": [
+          "executeRedundantAtlasPlan"
+        ]
+      },
+      "discard-all-common-atlas-plan": {
+        "methods": [
+          "discardAllCommonAtlasPlan"
+        ]
+      },
+      "discard-redundant-atlas-plan": {
+        "methods": [
+          "discardRedundantAtlasPlan"
+        ]
+      },
+      "show-all-common-atlas-plan": {
+        "methods": [
+          "common-atlas-check.setPlan"
+        ]
+      },
+      "show-redundant-atlas-plan": {
+        "methods": [
+          "redundant-atlas-clean.setPlan"
+        ]
+      },
+      "check-common-atlas": {
+        "methods": [
+          "checkCommonAtlasForSelection"
+        ]
+      }
+    },
+    "menu": [
+      {
+        "path": "i18n:menu.node",
+        "label": "检查公共图集",
+        "message": "check-common-atlas"
+      },
+      {
+        "path": "Tools",
+        "label": "检查所有公共图集",
+        "message": "check-all-common-atlas"
+      },
+      {
+        "path": "Tools",
+        "label": "检查冗余图片",
+        "message": "check-redundant-atlas"
+      }
+    ],
     "scene": {
       "script": "./dist/scene-walker.js"
     },
@@ -29,6 +93,34 @@
       "menu": {
         "methods": "./dist/hierarchy-menu.js",
         "createMenu": "onHierarchyMenu"
+      }
+    }
+  },
+  "panels": {
+    "common-atlas-check": {
+      "title": "检查所有公共图集",
+      "type": "simple",
+      "main": "./dist/panels/common-atlas-check.js",
+      "size": {
+        "width": 980,
+        "height": 720
+      },
+      "flags": {
+        "resizable": true,
+        "save": false
+      }
+    },
+    "redundant-atlas-clean": {
+      "title": "检查冗余图片",
+      "type": "simple",
+      "main": "./dist/panels/redundant-atlas-clean.js",
+      "size": {
+        "width": 980,
+        "height": 720
+      },
+      "flags": {
+        "resizable": true,
+        "save": false
       }
     }
   }

@@ -337,6 +337,40 @@ function loadSpriteFrame(uuid: string): Promise<any> {
     });
 }
 
+async function replaceSpriteFrames(root: any, replacementsJson: string): Promise<{ changed: number; remainingSourceUuids: string[] }> {
+    if (!root) return { changed: 0, remainingSourceUuids: [] };
+
+    const replacements = JSON.parse(replacementsJson || '{}');
+    const sourceUuids = new Set(Object.keys(replacements).filter(Boolean));
+    const targetUuids = Array.from(new Set(Object.values(replacements).filter(Boolean))) as string[];
+    const loaded: Record<string, any> = {};
+    for (const uuid of targetUuids) {
+        loaded[uuid] = await loadSpriteFrame(uuid);
+    }
+
+    let changed = 0;
+    visitNodeTree(root, (node) => {
+        const sprite = node.getComponent && node.getComponent('cc.Sprite');
+        const currentUuid = getSpriteFrameUuid(sprite?.spriteFrame);
+        const nextUuid = currentUuid ? replacements[currentUuid] : '';
+        if (sprite && nextUuid && loaded[nextUuid]) {
+            sprite.spriteFrame = loaded[nextUuid];
+            changed++;
+        }
+    });
+
+    const remaining = new Set<string>();
+    visitNodeTree(root, (node) => {
+        const sprite = node.getComponent && node.getComponent('cc.Sprite');
+        const currentUuid = getSpriteFrameUuid(sprite?.spriteFrame);
+        if (currentUuid && sourceUuids.has(currentUuid)) {
+            remaining.add(currentUuid);
+        }
+    });
+
+    return { changed, remainingSourceUuids: Array.from(remaining) };
+}
+
 export const methods = {
     buildNodes(uiNodeName: string, jsonStr: string, spriteMapStr: string) {
         const data = JSON.parse(jsonStr);
@@ -388,24 +422,12 @@ export const methods = {
         const root = findSceneNode(rootUuid);
         if (!root) return 0;
 
-        const replacements = JSON.parse(replacementsJson || '{}');
-        const targetUuids = Array.from(new Set(Object.values(replacements).filter(Boolean))) as string[];
-        const loaded: Record<string, any> = {};
-        for (const uuid of targetUuids) {
-            loaded[uuid] = await loadSpriteFrame(uuid);
-        }
+        const result = await replaceSpriteFrames(root, replacementsJson);
+        return result.changed;
+    },
 
-        let changed = 0;
-        visitNodeTree(root, (node) => {
-            const sprite = node.getComponent && node.getComponent('cc.Sprite');
-            const currentUuid = getSpriteFrameUuid(sprite?.spriteFrame);
-            const nextUuid = currentUuid ? replacements[currentUuid] : '';
-            if (sprite && nextUuid && loaded[nextUuid]) {
-                sprite.spriteFrame = loaded[nextUuid];
-                changed++;
-            }
-        });
-
-        return changed;
+    async replaceSpriteFramesInOpenScene(replacementsJson: string) {
+        const scene = cc.director.getScene();
+        return await replaceSpriteFrames(scene, replacementsJson);
     },
 };
