@@ -171,7 +171,7 @@
             var parsed = parseScale9InsetsFromName(infos[0].name);
             if (parsed) return parsed;
         }
-        return { top: 10, bottom: 10, left: 10, right: 10 };
+        return { top: 0, bottom: 0, left: 0, right: 0 };
     }
 
     function parseScale9InsetsFromName(name) {
@@ -337,12 +337,23 @@
             app.activeDocument = originalDoc;
             selectLayerById(infos[0].id);
             sourceLayer = originalDoc.activeLayer;
-            sourceLayer.duplicate(previewDoc, ElementPlacement.PLACEATBEGINNING);
+            var previewLayer = sourceLayer.duplicate(previewDoc, ElementPlacement.PLACEATBEGINNING);
 
             app.activeDocument = previewDoc;
             try {
-                previewDoc.activeLayer.translate(-bounds.left, -bounds.top);
-            } catch (translateError) {}
+                previewLayer = previewLayer || previewDoc.activeLayer;
+                var previewBounds = getLayerPixelBounds(previewLayer);
+                if (previewBounds) {
+                    previewLayer.translate(-previewBounds.left, -previewBounds.top);
+                }
+            } catch (translateError) {
+                try {
+                    var activeBounds = getLayerPixelBounds(previewDoc.activeLayer);
+                    if (activeBounds) {
+                        previewDoc.activeLayer.translate(-activeBounds.left, -activeBounds.top);
+                    }
+                } catch (fallbackTranslateError) {}
+            }
 
             previewFile = new File(Folder.temp.fsName + "/psd2ccc_9s_preview_" + (new Date()).getTime() + ".png");
             var pngOptions = new PNGSaveOptions();
