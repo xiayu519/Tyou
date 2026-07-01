@@ -708,11 +708,13 @@ tyou.ui.select({ title: "提示", content: "是否确定退出？" });
 |--------|-----------|------|
 | `.bin` | `BufferAsset` | 自定义二进制数据（协议、加密数据等） |
 | `.text` | `TextAsset` | 纯文本数据文件（配置、模板、脚本等） |
-| `.json` | `JsonAsset` | JSON 结构化数据 |
+| `.json` | `JsonAsset` / `sp.SkeletonData` | JSON 结构化数据；符合 Spine JSON 判定时作为 Spine 数据 |
 
 **Luban 生成的配置文件不会被索引：** `config` Bundle 配置在 `directoryBundles` 中，只索引一级子目录名称，不扫描其中的具体文件。Luban 配置表的加载由 `TableModule` 统一处理，无需经过资源索引。
 
 > 如果需要在其他 Bundle 中放置自定义 `.bin`、`.text` 或 `.json` 文件，确保该 Bundle 不在 `directoryBundles` 中，即可被自动索引。
+>
+> 普通 `.json` 默认仍按 `JsonAsset` 索引。Spine JSON 只有在 JSON 内容包含 Spine skeleton 结构，并且同目录存在同名 `.atlas` 或 `.txt` atlas 侧车文件以及至少一个同名图片侧车文件时，才会被索引为 `sp.SkeletonData`。`.skel` 二进制 Spine 仍按 `sp.SkeletonData` 扫描。
 
 #### 索引输出位置
 

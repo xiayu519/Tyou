@@ -1,15 +1,10 @@
 {
   "bundles": [
-    "actor",
-    "anim",
     "atlas",
     "audio",
     "config",
-    "effect",
-    "font",
     "raw",
     "scene",
-    "spine",
     "ui"
   ],
   "assets": [
@@ -64,6 +59,12 @@
     {
       "name": "TipUI",
       "path": "TipUI",
+      "type": "Prefab",
+      "bundle": "ui"
+    },
+    {
+      "name": "WidgetTest",
+      "path": "widget/WidgetTest",
       "type": "Prefab",
       "bundle": "ui"
     },

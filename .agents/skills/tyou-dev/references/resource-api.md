@@ -75,7 +75,7 @@ await tyou.res.loadAssetAsync({
 
 - UI 窗口内加载的 `SpriteFrame`、`SpriteAtlas`、远程 `SpriteFrame`：放入 `UIBase.addAutoReleaseAsset()`，窗口释放时统一 `decRef`。
 - 列表 item 或其它 `UIWidget` 内加载的 `SpriteFrame`、`SpriteAtlas`、远程 `SpriteFrame`：放入当前 widget 的自动释放集合；item 进入池、换 index 或 widget release 时释放，不等到父窗口关闭。
-- 列表 item 或其它 `UIWidget` 内加载 Spine 时优先用 `this.loadSpineAsync()` / `this.loadSpineEffectAsync()`；这些 helper 会把 `sp.SkeletonData` 放入当前 owner 的动态资源集合，recycle/release 时先清空 `Skeleton.skeletonData` 再 `decRef`。不要在可复用 item 里直接调用 `tyou.res.loadSpineAsync()`，它依赖节点上的 `SpineHolder`，节点进池不销毁时不会在 recycle 点释放。
+- 列表 item 或其它 `UIWidget` 内加载 Spine 时优先用 `this.loadSpineAsync()` / `this.loadSpineEffectAsync()`；这些 helper 传逻辑名走资源索引，并会把 `sp.SkeletonData` 放入当前 owner 的动态资源集合，recycle/release 时先清空 `Skeleton.skeletonData` 再 `decRef`。不要在可复用 item 里直接调用 `tyou.res.loadSpineAsync()`，它依赖节点上的 `SpineHolder`，节点进池不销毁时不会在 recycle 点释放。
 - 场景生命周期内的动态资源：放入 `tyou.scene.addAutoReleaseAsset()` 或当前 `SceneBase.addAutoReleaseAsset()`，场景离开时释放。
 - Prefab 实例：优先用 `tyou.res.loadGameObjectAsync()`，框架会给实例添加 `ResourceHolder`，节点销毁时释放 Prefab 资源。
 - Pool Prefab：节点池加载 Prefab 后由池持有，`NodePool.destroy()` 负责释放 Prefab；租借出的节点用 `pool.release(node)` 或 `tyou.pool.releaseNode(node)` 归还，不在业务侧对 Prefab 调 `decRef`。
@@ -99,6 +99,13 @@ await tyou.res.loadAssetAsync({
 3. 按 `resourceTypeMap` 收录资源类型。
 4. 图片资源默认只收录 `l_` 前缀。
 5. 输出到 `assets/asset-raw/asset-catalog/asset-index.json`。
+
+Spine 资源索引规则：
+
+- `.skel` 按 `resourceTypeMap` 直接索引为 `sp.SkeletonData`。
+- 普通 `.json` 默认仍索引为 `JsonAsset`。
+- Spine JSON 只有同时满足以下条件时才索引为 `sp.SkeletonData`：JSON 顶层有 `skeleton` 对象，并存在 `bones` 或 `slots` 数组；同目录有同名 `.atlas` 或 `.txt` atlas 侧车文件；同目录有至少一个同名图片侧车文件。
+- 该判定是保守规则，目的是避免普通业务 JSON 被误判。若 Spine JSON 没有同名 atlas/图片侧车，优先调整资源命名或使用 `.skel`，不要把所有 `.json` 都改成 Spine 类型。
 
 加载资源找不到或出现 `[ResourceModule] Asset index missing` 时，第一优先级是确认是否执行过 `assetool` 自动索引生成；不要手动编辑 `asset-index.json` 作为常规修复。
 

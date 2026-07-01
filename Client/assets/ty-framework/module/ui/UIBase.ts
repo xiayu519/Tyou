@@ -492,7 +492,7 @@ export class UIBase {
         const ownerEpoch = this.captureOwnerEpoch();
         const requestId = ++this._spineRequestSeq;
         this._spineRequestIds.set(spine, requestId);
-        const skeletonData = await tyou.res.loadAssetAsync({path, type: sp.SkeletonData}) as sp.SkeletonData | null;
+        const skeletonData = await tyou.res.loadAssetAsync(path) as sp.SkeletonData | null;
         if (!skeletonData) {
             return null;
         }

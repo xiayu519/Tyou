@@ -316,10 +316,11 @@ function processFile(filePath, relativePath, bundleName, allowedExtensions, type
     const fileMarks = checkSpecialMarks(fileName, specialMarksConfig);
     const allMarks = new Set([...parentMarks, ...fileMarks]);
 
+    const assetType = resolveAssetType(filePath, ext, typeMap, imageExtensions);
     const assetInfo = {
         name: logicalName,
         path: assetPath,
-        type: typeMap[ext],
+        type: assetType,
         bundle: bundleName,
     };
 
@@ -334,6 +335,53 @@ function processFile(filePath, relativePath, bundleName, allowedExtensions, type
             specialMarksMap[mark].add(logicalName);
         }
     }
+}
+
+function resolveAssetType(filePath, ext, typeMap, imageExtensions) {
+    if (ext === 'json' && isSpineJsonFile(filePath, imageExtensions)) {
+        return 'sp.SkeletonData';
+    }
+    return typeMap[ext];
+}
+
+function isSpineJsonFile(filePath, imageExtensions) {
+    if (!hasSpineSidecars(filePath, imageExtensions)) {
+        return false;
+    }
+
+    let json;
+    try {
+        json = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (e) {
+        return false;
+    }
+
+    return hasSpineJsonShape(json);
+}
+
+function hasSpineJsonShape(json) {
+    if (!json || typeof json !== 'object' || Array.isArray(json)) {
+        return false;
+    }
+    if (!json.skeleton || typeof json.skeleton !== 'object' || Array.isArray(json.skeleton)) {
+        return false;
+    }
+    return Array.isArray(json.bones) || Array.isArray(json.slots);
+}
+
+function hasSpineSidecars(filePath, imageExtensions) {
+    const dir = path.dirname(filePath);
+    const baseName = path.basename(filePath, path.extname(filePath)).toLowerCase();
+    let names;
+    try {
+        names = new Set(fs.readdirSync(dir).map(name => name.toLowerCase()));
+    } catch (e) {
+        return false;
+    }
+
+    const hasAtlas = ['atlas', 'txt'].some(ext => names.has(`${baseName}.${ext}`));
+    const hasImage = imageExtensions.some(ext => names.has(`${baseName}.${ext}`));
+    return hasAtlas && hasImage;
 }
 
 /**
