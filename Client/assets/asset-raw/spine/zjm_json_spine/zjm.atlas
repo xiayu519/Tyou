@@ -1,0 +1,34 @@
+
+zjm.png
+size: 1678, 1363
+format: Alpha
+filter: Linear, Linear
+repeat: none
+Ring_018
+  rotate: false
+  xy: 1444, 399
+  size: 232, 240
+  orig: 256, 256
+  offset: 12, 0
+  index: -1
+主界面
+  rotate: true
+  xy: 2, 641
+  size: 720, 1660
+  orig: 720, 1660
+  offset: 0, 0
+  index: -1
+图层 4063
+  rotate: false
+  xy: 723, 41
+  size: 719, 598
+  orig: 721, 606
+  offset: 1, 1
+  index: -1
+图层 4063 拷贝
+  rotate: false
+  xy: 2, 2
+  size: 719, 637
+  orig: 721, 645
+  offset: 1, 7
+  index: -1

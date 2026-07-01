@@ -5,6 +5,7 @@
     "config",
     "raw",
     "scene",
+    "spine",
     "ui"
   ],
   "assets": [
@@ -31,6 +32,12 @@
       "path": "login",
       "type": "Scene",
       "bundle": "scene"
+    },
+    {
+      "name": "zjm",
+      "path": "zjm_json_spine/zjm",
+      "type": "sp.SkeletonData",
+      "bundle": "spine"
     },
     {
       "name": "MessageBoxUI",

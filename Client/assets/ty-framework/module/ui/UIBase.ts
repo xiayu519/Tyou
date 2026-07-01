@@ -138,6 +138,26 @@ export class UIBase {
         return skeletonData;
     }
 
+    async loadRemoteBundleSpineAsync(target: sp.Skeleton | Node, path: string, bundle?: string, version?: string): Promise<sp.SkeletonData | null> {
+        return this.assignRemoteBundleSpineAsync(target, path, bundle, version);
+    }
+
+    async loadRemoteBundleSpineEffectAsync(
+        target: sp.Skeleton | Node,
+        path: string,
+        bundle?: string,
+        version?: string,
+        isLoop: boolean = false,
+        animationName: string = "animation"
+    ): Promise<sp.SkeletonData | null> {
+        const spine = this.getSpineTarget(target);
+        const skeletonData = await this.assignRemoteBundleSpineAsync(spine, path, bundle, version);
+        if (skeletonData && spine && spine.isValid && spine.node?.isValid) {
+            spine.setAnimation(0, animationName, isLoop);
+        }
+        return skeletonData;
+    }
+
     /** 添加自动释放的资源 */
     public addAutoReleaseAsset(asset: Asset | null | undefined): boolean {
         if (!isValid(asset)) {
@@ -484,6 +504,34 @@ export class UIBase {
     }
 
     private async assignSpineAsync(target: sp.Skeleton | Node | null | undefined, path: string): Promise<sp.SkeletonData | null> {
+        return this.assignSpineWithLoaderAsync(
+            target,
+            path,
+            () => tyou.res.loadAssetAsync(path) as Promise<sp.SkeletonData | null>,
+            "[UIBase] loadSpineAsync"
+        );
+    }
+
+    private async assignRemoteBundleSpineAsync(
+        target: sp.Skeleton | Node | null | undefined,
+        path: string,
+        bundle?: string,
+        version?: string
+    ): Promise<sp.SkeletonData | null> {
+        return this.assignSpineWithLoaderAsync(
+            target,
+            path,
+            () => tyou.res.loadRemoteBundleSpineDataAsync({path, bundle, version}),
+            "[UIBase] loadRemoteBundleSpineAsync"
+        );
+    }
+
+    private async assignSpineWithLoaderAsync(
+        target: sp.Skeleton | Node | null | undefined,
+        path: string,
+        loadSkeletonData: () => Promise<sp.SkeletonData | null>,
+        logTag: string
+    ): Promise<sp.SkeletonData | null> {
         const spine = this.getSpineTarget(target);
         if (!spine || !path) {
             return null;
@@ -492,7 +540,7 @@ export class UIBase {
         const ownerEpoch = this.captureOwnerEpoch();
         const requestId = ++this._spineRequestSeq;
         this._spineRequestIds.set(spine, requestId);
-        const skeletonData = await tyou.res.loadAssetAsync(path) as sp.SkeletonData | null;
+        const skeletonData = await loadSkeletonData();
         if (!skeletonData) {
             return null;
         }
@@ -524,7 +572,7 @@ export class UIBase {
                 spine.skeletonData = null;
             }
             tyou.res.decRef(skeletonData);
-            console.error("[UIBase] loadSpineAsync", path, error);
+            console.error(logTag, path, error);
             return null;
         }
     }

@@ -31,6 +31,13 @@ export interface SetSpriteAsyncParams {
     isValidOwner?: () => boolean;
 }
 
+export interface LoadRemoteBundleSpineDataAsyncParams {
+    path: string;
+    bundle?: string;
+    version?: string;
+    onProgress?: (finish: number, total: number, item: AssetManager.RequestItem) => void;
+}
+
 export class ResourceModule extends Module {
     private _typeRegistry: AssetTypeRegistry;
     private _resolver: AssetPathResolver;
@@ -154,6 +161,35 @@ export class ResourceModule extends Module {
 
     loadRemoteAsync(params: { url: string; ext?: string }): Promise<Asset | null> {
         return this._loader.loadRemoteAsync(params);
+    }
+
+    async loadRemoteBundleSpineDataAsync(params: LoadRemoteBundleSpineDataAsyncParams): Promise<sp.SkeletonData | null> {
+        if (!params?.path) {
+            return null;
+        }
+
+        const resolved = this.resolveSpineBundleAsset(params.path, params.bundle);
+        if (!resolved.bundle) {
+            console.error("[ResourceModule] loadRemoteBundleSpineDataAsync bundle is empty", params.path);
+            return null;
+        }
+
+        const loadedBundle = await this.loadBundleAsync({
+            bundle: resolved.bundle,
+            version: params.version,
+        });
+        if (!loadedBundle) {
+            console.error("[ResourceModule] loadRemoteBundleSpineDataAsync load bundle fail", resolved.bundle, params.path);
+            return null;
+        }
+
+        return await this.loadAssetAsync({
+            path: resolved.path,
+            bundle: resolved.bundle,
+            version: params.version,
+            type: sp.SkeletonData,
+            onProgress: params.onProgress,
+        }) as sp.SkeletonData | null;
     }
 
     preload(
@@ -322,6 +358,29 @@ export class ResourceModule extends Module {
         return this._spriteAssignService.setSpriteAsync(params);
     }
 
+    async loadRemoteBundleSpineAsync(
+        target: sp.Skeleton,
+        path: string,
+        bundle?: string,
+        version?: string,
+        isAutoRelease = true
+    ): Promise<sp.SkeletonData | null> {
+        const sd = await this.loadRemoteBundleSpineDataAsync({path, bundle, version});
+        return this.assignSpineData(target, sd, path, isAutoRelease, false, false, false, "loadRemoteBundleSpineAsync");
+    }
+
+    async loadRemoteBundleSpineEffectAsync(
+        target: sp.Skeleton,
+        path: string,
+        bundle?: string,
+        version?: string,
+        isAutoRelease = true,
+        isLoop = false
+    ): Promise<sp.SkeletonData | null> {
+        const sd = await this.loadRemoteBundleSpineDataAsync({path, bundle, version});
+        return this.assignSpineData(target, sd, path, isAutoRelease, true, true, isLoop, "loadRemoteBundleSpineEffectAsync");
+    }
+
     async loadSpineAsync(target: sp.Skeleton, path: string, isAutoRelease = true) {
         const sd = await this.loadAssetAsync(path) as unknown as sp.SkeletonData | null;
         if (!sd) return;
@@ -376,5 +435,51 @@ export class ResourceModule extends Module {
 
     public decRef(asset: Asset): void {
         this._releaseScheduler.decRef(asset);
+    }
+
+    private resolveSpineBundleAsset(path: string, bundle?: string): { path: string; bundle?: string } {
+        const info = AssetIndexManager.instance.getAssetInfo(path) || AssetIndexManager.instance.getAssetByPath(path);
+        if (info && bundle && info.bundle && info.bundle !== bundle) {
+            console.warn("[ResourceModule] Spine asset bundle mismatch", path, info.bundle, bundle);
+        }
+
+        return {
+            path: info?.path || path,
+            bundle: bundle || info?.bundle,
+        };
+    }
+
+    private assignSpineData(
+        target: sp.Skeleton,
+        sd: sp.SkeletonData | null,
+        path: string,
+        isAutoRelease: boolean,
+        isAutoPlay: boolean,
+        isDestroyOnComplete: boolean,
+        isLoop: boolean,
+        logTag: string
+    ): sp.SkeletonData | null {
+        if (!sd) return null;
+
+        if (!target || !target.isValid || !target.node?.isValid) {
+            this.decRef(sd);
+            return null;
+        }
+
+        try {
+            target.skeletonData = sd;
+            if (isAutoRelease) {
+                const holder = target.getComponent(SpineHolder) || target.addComponent(SpineHolder);
+                holder.init(target, sd, isAutoPlay, isDestroyOnComplete, isLoop);
+            }
+            return sd;
+        } catch (error) {
+            if (target && target.isValid) {
+                target.skeletonData = null;
+            }
+            this.decRef(sd);
+            console.error(logTag, path, error);
+            return null;
+        }
     }
 }

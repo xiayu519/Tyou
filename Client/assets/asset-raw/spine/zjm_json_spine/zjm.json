@@ -1,0 +1,92 @@
+{
+"skeleton": {
+	"hash": "tb8wnr62Zj4",
+	"spine": "3.8-from-4.0-from-4.1.17",
+	"x": -359.48,
+	"y": -830,
+	"width": 722.79,
+	"height": 1659.74,
+	"images": "./images/",
+	"audio": "E:/游戏项目/蛋壳特工队/spine/主界面"
+},
+"bones": [
+	{ "name": "root" },
+	{ "name": "bone", "parent": "root" },
+	{ "name": "bone2", "parent": "bone", "x": 6.64 },
+	{ "name": "bone3", "parent": "bone" },
+	{ "name": "bone4", "parent": "root", "scaleX": 3, "scaleY": 3 },
+	{ "name": "bone5", "parent": "root", "y": 60 }
+],
+"slots": [
+	{ "name": "root", "bone": "root", "attachment": "root" },
+	{ "name": "主界面", "bone": "bone3", "attachment": "主界面" },
+	{ "name": "Ring_018", "bone": "bone4", "attachment": "Ring_018", "blend": "additive" },
+	{ "name": "图层 4063", "bone": "bone2", "attachment": "图层 4063" },
+	{ "name": "图层 4063 拷贝", "bone": "bone2", "attachment": "图层 4063 拷贝" },
+	{ "name": "组 48", "bone": "bone5" }
+],
+"skins": [
+	{
+		"name": "default",
+		"attachments": {
+			"Ring_018": {
+				"Ring_018": { "width": 256, "height": 256 }
+			},
+			"root": {
+				"root": {
+					"type": "clipping",
+					"end": "root",
+					"vertexCount": 4,
+					"vertices": [ -359.48, 829.74, -359.12, -828.99, 363.33, -830.06, 359.69, 829.53 ],
+					"color": "ce3a3aff"
+				}
+			},
+			"主界面": {
+				"主界面": { "width": 720, "height": 1660 }
+			},
+			"图层 4063": {
+				"图层 4063": { "x": -3.83, "y": -522.35, "width": 721, "height": 606 }
+			},
+			"图层 4063 拷贝": {
+				"图层 4063 拷贝": { "x": -3.83, "y": 506.68, "width": 721, "height": 645 }
+			}
+		}
+	}
+],
+"animations": {
+	"animation": {
+		"slots": {
+			"Ring_018": {
+				"color": [
+					{ "color": "ff04cead" },
+					{ "time": 2, "color": "0cff6792" },
+					{ "time": 4.2333, "color": "03e7ff4e" },
+					{ "time": 6.6667, "color": "ff04cead" }
+				]
+			},
+			"主界面": {
+				"color": [
+					{ "color": "ffffffff" },
+					{ "time": 1.6333, "color": "beeeffff" },
+					{ "time": 4.5, "color": "ffe3e3ff" },
+					{ "time": 6.6667, "color": "ffffffff" }
+				]
+			}
+		},
+		"bones": {
+			"bone4": {
+				"rotate": [
+					{},
+					{ "time": 1, "angle": 108 },
+					{ "time": 2, "angle": 216 },
+					{ "time": 3, "angle": 324 },
+					{ "time": 4, "angle": 432 },
+					{ "time": 5, "angle": 540 },
+					{ "time": 6, "angle": 648 },
+					{ "time": 6.6667, "angle": 720 }
+				]
+			}
+		}
+	}
+}
+}
