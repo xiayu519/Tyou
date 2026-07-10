@@ -1,4 +1,4 @@
-﻿---
+---
 name: cocos-asset-json
 description: Tyou/Cocos Creator 3.8.7 源资产解析 skill。用于检查、汇总和校验 Cocos `.prefab`、`.scene`、`.meta`、`asset-index.json`、SpriteAtlas `.plist/.plist.meta` 的结构、uuid、`__id__` 引用、Prefab instance/override、自定义脚本组件字段和资源索引。触发词：Cocos 资产解析、prefab json、scene json、meta uuid、asset-index、SpriteAtlas、plist、uuid 引用、__id__ 校验、PrefabInstance、targetOverrides。明确不用于 Luban `.bin` 解析；配表问题走 `luban-dev` 和源 Excel/Defines。
 ---

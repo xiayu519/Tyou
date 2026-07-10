@@ -6,7 +6,7 @@
 
 ## Problems
 
-暂无。
+- [codex-skill-utf8-bom-discovery.md](problems/codex-skill-utf8-bom-discovery.md): `SKILL.md` 带 UTF-8 BOM 会使 Codex CLI 漏载仓库 skill。
 
 ## Decisions
 
@@ -14,7 +14,7 @@
 
 ## Feedback
 
-暂无。
+- [verify-codex-behavior-before-claim.md](feedback/verify-codex-behavior-before-claim.md): 工具行为结论必须由实现输出或隔离实验确认。
 
 ## References
 

@@ -1,4 +1,4 @@
-﻿---
+---
 name: luban-dev
 description: Tyou Luban 配表开发专用指导。涉及新增/修改/删除配置表、Excel/Defines、Luban schema、导表、生成二进制配置、配置访问封装、字段变更安全、配置数据校验时必须使用。触发词：Luban、配表、配置表、Excel、Defines、genBin、导表、Tb、Config、配置数据、字段、枚举、Bean。
 ---

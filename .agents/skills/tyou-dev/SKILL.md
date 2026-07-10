@@ -1,4 +1,4 @@
-﻿---
+---
 name: tyou-dev
 description: Tyou Cocos Creator 3.8.7 + TypeScript 客户端开发总入口。仅在任务涉及 Tyou/Cocos 客户端代码、tyou.*、UIWindow/UIBase/UIName/UIImportAll、资源索引/AssetIndexManager/addRef/decRef、Prefab/Scene/meta/asset-index/SpriteAtlas、Luban 配表、psd2ccc/uitscreate/assetool、Cocos 2D shader/.effect/Material、ty-framework、事件、战斗/ECS/小游戏运行时、Codex/OpenSpec/memory/wiki 工作流时激活；泛泛 TypeScript、文案、命令或非 Tyou 问题不因弱关联触发。
 ---
