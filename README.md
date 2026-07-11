@@ -664,7 +664,7 @@ tyou.ui.select({ title: "提示", content: "是否确定退出？" });
 
 ```json
 {
-  "imagePrefixFilter": "l_",
+  "imagePrefixFilter": ["l_"],
   "directoryBundles": ["config"],
   "excludeBundles": ["resources", "asset-catalog"],
   "outputBundleName": "asset-catalog",
@@ -696,7 +696,9 @@ tyou.ui.select({ title: "提示", content: "是否确定退出？" });
 
 #### 图片前缀过滤
 
-图片资源（png/jpg/jpeg/bmp/webp/gif）只有文件名以 `imagePrefixFilter`（默认 `l_`）开头时才会被收录到索引中。这样可以避免大量美术碎图污染索引。
+图片资源（png/jpg/jpeg/webp/bmp/tga/tif/tiff）只有文件名以 `imagePrefixFilter`（默认 `l_`）开头时才会被收录到索引中。这样可以避免大量美术碎图污染索引。
+
+`l_` 表示独立图片需要供运行时按逻辑名直接加载，不是所有图片的默认前缀。Prefab 固定展示的图片应直接静态绑定 `SpriteFrame`，不添加 `l_`；同一 Sprite 按数据切换多图、配置驱动、可选 Bundle 或确实需要延迟加载时才使用。序列帧来自 SpriteAtlas 时优先索引 Atlas，通过 Atlas 名和帧名访问，不要给每张底图增加 `l_`。
 
 > 文件名以 `P_` 或 `p_` 开头的资源会自动标记为 `preload`，可在启动时预加载。
 
@@ -912,6 +914,8 @@ await tyou.pool.getOrCreateNodePool({
 // 销毁池
 tyou.pool.destroyNodePool("bullet_prefab");
 ```
+
+业务池化 Prefab 按稳定节点结构、组件和生命周期拆分；如果差异仅是图片或序列帧，优先复用一个 Prefab 并动态替换视觉资源。`releaseNode()` 只负责归还节点，业务仍需在归还前停止动画/Tween/定时器、解绑本次监听、清理异步状态，并释放本次租借独立持有的动态资源。多个池节点高频共用的资源可以由 Pool 或上层模块持有，在 Pool/模块销毁时统一释放。
 
 ### Class 池
 

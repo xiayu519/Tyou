@@ -79,6 +79,7 @@ await tyou.res.loadAssetAsync({
 - 场景生命周期内的动态资源：放入 `tyou.scene.addAutoReleaseAsset()` 或当前 `SceneBase.addAutoReleaseAsset()`，场景离开时释放。
 - Prefab 实例：优先用 `tyou.res.loadGameObjectAsync()`，框架会给实例添加 `ResourceHolder`，节点销毁时释放 Prefab 资源。
 - Pool Prefab：节点池加载 Prefab 后由池持有，`NodePool.destroy()` 负责释放 Prefab；租借出的节点用 `pool.release(node)` 或 `tyou.pool.releaseNode(node)` 归还，不在业务侧对 Prefab 调 `decRef`。
+- Pool 动态视觉资源：普通 `NodePool` 只持有 Prefab，不会自动释放每次租借动态加载的 `SpriteFrame`、SpriteAtlas、序列帧或 `sp.SkeletonData`。逐节点资源由业务组件在归还前释放；池内高频共享资源可以由 Pool 的业务 owner 或上层模块持有，并在 Pool/模块销毁时统一释放。具体回收清单见 `pool-api.md`。
 - 非复用节点上的 Spine 自动释放：可用 `tyou.res.loadSpineAsync()` / `tyou.res.loadSpineEffectAsync()` 的默认 `isAutoRelease = true`，由 `SpineHolder` 在节点销毁或特效播放结束时释放；可复用 `UIWidget` item 不走这条。
 - 表格、音频等模块内部资源：模块自己持有缓存时，必须在移出缓存或模块销毁时成对 `decRef`。
 - 只用于一次性解析的资源：解析完成后立即 `decRef`，例如配表 `BufferAsset` 读取到内存后释放源资源引用。
@@ -99,6 +100,25 @@ await tyou.res.loadAssetAsync({
 3. 按 `resourceTypeMap` 收录资源类型。
 4. 图片资源默认只收录 `l_` 前缀。
 5. 输出到 `assets/asset-raw/asset-catalog/asset-index.json`。
+
+### 图片 `l_` 前缀使用边界
+
+`l_` 表示独立图片需要进入资源索引，供运行时通过逻辑名直接动态加载；它不是普通图片的默认命名前缀。
+
+使用规则：
+
+- 图片只作为 Prefab 的固定外观时，直接在 Prefab 中静态绑定 `SpriteFrame`，不添加 `l_`，也不额外写动态加载代码。
+- 同一个 `Sprite` 需要按数据切换多张独立图片时，可以给这些图片添加 `l_`，并通过 `UIBase/UIWidget.setSpriteAsync()` 或对应资源 API 加载。
+- 配置驱动选择、可选 Bundle 或确实需要延迟加载的独立图片，即使不是多图轮换，也可以使用 `l_`；使用前必须明确资源 owner 和释放点。
+- 不要因为图片“可能以后会动态使用”就预先添加 `l_`，也不要给 Prefab 已静态引用的每张图片重复增加逻辑索引。
+- 图片是否使用 `l_` 的判断标准是“业务是否需要按逻辑名直接加载”，不是图片大小、用途名称或是否位于 UI 目录。
+
+SpriteAtlas 与序列帧规则：
+
+- 序列帧来自 SpriteAtlas 时，优先索引和加载 Atlas，通过 Atlas 名与帧名取得 `SpriteFrame`，不要仅为逐帧访问给每张底图添加 `l_`。
+- SpriteAtlas 的底图由 Atlas 管理；除非同一图片还需要脱离 Atlas 单独按逻辑名加载，否则底图不使用 `l_`。
+- 动态加载的 Atlas 或从 Atlas 取得并额外持有的 `SpriteFrame` 必须进入明确 owner；UI/Widget 使用自动释放集合，普通池化业务按节点或 Pool 生命周期配对释放。
+- 高频播放的池化序列帧可以由 Pool/模块预加载并共享，不要求每次租借和归还都重复加载卸载，但 Pool/模块销毁时必须释放。
 
 Spine 资源索引规则：
 
