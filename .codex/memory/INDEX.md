@@ -14,6 +14,8 @@
 
 ## Feedback
 
+- [cocos-iterable-spread-is-code-standard.md](feedback/cocos-iterable-spread-is-code-standard.md): 禁止非数组 iterable 展开是跨平台日常代码规范，Web 兼容只是制定原因之一。
+- [editor-analysis-tools-must-be-opt-in.md](feedback/editor-analysis-tools-must-be-opt-in.md): 扫描、索引或监听项目资源的 Creator 分析工具必须显式启停，关闭后零持续影响。
 - [verify-codex-behavior-before-claim.md](feedback/verify-codex-behavior-before-claim.md): 工具行为结论必须由实现输出或隔离实验确认。
 
 ## References
