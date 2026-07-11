@@ -1,0 +1,142 @@
+{
+  "package_version": 2,
+  "name": "asset-dependency-viewer",
+  "version": "1.0.0",
+  "author": "Tyou",
+  "editor": ">=3.8.7",
+  "description": "查看项目资源和脚本的直接引用与被引用关系",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "npm run build && node tests/dependency-graph.test.mjs && node tests/overview-filter.test.mjs && node tests/scope-utils.test.mjs && node tests/global-script-analyzer.test.mjs && node tests/asset-db-source.test.mjs && node tests/refresh-failure.test.mjs && node tests/main-integration.test.mjs"
+  },
+  "devDependencies": {
+    "@cocos/creator-types": "^3.8.7",
+    "@types/node": "^18.17.1",
+    "typescript": "^5.8.2"
+  },
+  "contributions": {
+    "messages": {
+      "open-overview": {
+        "methods": ["openOverview"]
+      },
+      "request-snapshot": {
+        "methods": ["requestSnapshot"]
+      },
+      "refresh": {
+        "methods": ["refresh"]
+      },
+      "enable": {
+        "methods": ["enable"]
+      },
+      "disable": {
+        "methods": ["disable"]
+      },
+      "is-enabled": {
+        "methods": ["isEnabled"]
+      },
+      "request-scope": {
+        "methods": ["requestScope"]
+      },
+      "set-scope": {
+        "methods": ["setScope"]
+      },
+      "open-scope": {
+        "methods": ["openScope"]
+      },
+      "use-current-selection": {
+        "methods": ["useCurrentSelection"]
+      },
+      "show-detail": {
+        "methods": ["showDetail"]
+      },
+      "request-detail": {
+        "methods": ["requestDetail"]
+      },
+      "reveal-asset": {
+        "methods": ["revealAsset"]
+      },
+      "snapshot-updated": {
+        "methods": ["overview.setSnapshot"]
+      },
+      "detail-updated": {
+        "methods": ["detail.setDetail"]
+      },
+      "scope-updated": {
+        "methods": ["overview.setScope"]
+      },
+      "asset-db:ready": {
+        "methods": ["assetDbReady"]
+      },
+      "asset-db:asset-add": {
+        "methods": ["assetDbChanged"]
+      },
+      "asset-db:asset-change": {
+        "methods": ["assetDbChanged"]
+      },
+      "asset-db:asset-delete": {
+        "methods": ["assetDbChanged"]
+      }
+    },
+    "menu": [
+      {
+        "path": "Tools",
+        "label": "资源引用查看器"
+      },
+      {
+        "path": "Tools/资源引用查看器",
+        "label": "打开面板",
+        "message": "open-overview"
+      },
+      {
+        "path": "Tools/资源引用查看器",
+        "label": "开启功能",
+        "message": "enable"
+      },
+      {
+        "path": "Tools/资源引用查看器",
+        "label": "关闭功能",
+        "message": "disable"
+      }
+    ],
+    "assets": {
+      "menu": {
+        "methods": "./dist/assets-menu.js",
+        "assetMenu": "onAssetMenu"
+      }
+    }
+  },
+  "panels": {
+    "overview": {
+      "title": "资源引用",
+      "type": "dockable",
+      "main": "./dist/panels/overview.js",
+      "size": {
+        "min-width": 360,
+        "min-height": 260,
+        "width": 720,
+        "height": 720
+      },
+      "flags": {
+        "resizable": true,
+        "save": true
+      }
+    },
+    "detail": {
+      "title": "资源引用详情",
+      "type": "simple",
+      "main": "./dist/panels/detail.js",
+      "size": {
+        "min-width": 720,
+        "min-height": 420,
+        "width": 1040,
+        "height": 720
+      },
+      "flags": {
+        "resizable": true,
+        "save": false
+      }
+    }
+  }
+}
