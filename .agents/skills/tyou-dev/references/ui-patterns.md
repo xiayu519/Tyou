@@ -70,6 +70,14 @@
 
 不要手写一套新的互斥规则，优先复用扩展。
 
+## Prefab 结构与组件选型红线
+
+- 固定属于 UI 的节点、布局、渲染和交互组件必须在源 Prefab 中配置，不在 UI 脚本中用 `new Node()`、`addComponent()` 补建。结构有变化时修改 Prefab，再走前缀组件检查和 `uitscreate`。
+- 动态 UI 组合应加载或实例化独立制作并通过校验的 Prefab，例如 `loadWidgetAsync()`、ListView item 或对象池节点；动态 Prefab 自身仍必须包含固定结构和必需组件，不能加载后再修补。
+- 普通 UI 不使用 `Graphics` 实现背景、边框、色块、图标、常规进度、遮罩或静态装饰，优先使用 `Sprite`（Simple/Sliced/Filled）、`Label`、`Mask`、`Layout`、`UITransform` 等常用组件。
+- 只有常用组件无法合理满足的程序化动态几何才允许 `Graphics`。对应 OpenSpec change 必须明确用途、作用范围、重绘触发与最大频率、清理点和目标平台性能验证；“方便”或“少做切图”不能作为理由。
+- 特殊程序化节点/组件同样需要明确需求、生命周期和验证边界；未说明这些内容时按不允许处理。
+
 ## UI 脚本创建红线
 
 UI 预制体对应的 UI 脚本原则上不手写创建。必须优先使用 `uitscreate`，因为只有这条路径会自动维护 `UIName.ts` 和 `UIImportAll.ts`。

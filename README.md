@@ -304,6 +304,8 @@ m_listX
 | 渲染器组 | Sprite、Label、RichText、EditBox、Graphics、Mask | 每个节点只能有一个渲染器（继承自 UIRenderer） |
 | 交互组件组 | Toggle、Slider、ProgressBar | 互相排斥的交互组件 |
 
+> 上表中的 `Graphics` 仅用于说明 Cocos 渲染器互斥关系，不表示普通 UI 推荐使用它。Tyou UI 的固定结构和必需组件应写入源 Prefab，不用运行时 `new Node()` / `addComponent()` 补建；普通背景、边框、色块、常规进度、遮罩和静态装饰优先使用 `Sprite` 等常用组件。只有明确的程序化动态几何需求，才可按 OpenSpec 记录范围、重绘频率、清理点和性能验证后特殊使用 `Graphics`。
+
 #### 两阶段执行机制
 
 由于 Cocos Creator 引擎中移除组件后需要等待一帧刷新才能添加同组互斥组件，检查器采用两阶段执行：

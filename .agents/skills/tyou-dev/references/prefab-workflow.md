@@ -10,6 +10,30 @@
 
 本项目创建 UI Prefab 有三种方式，按优先级选择。
 
+## UI Prefab 结构归属红线
+
+UI Prefab 固有内容必须在源 Prefab 中声明，包括固定节点层级、布局、渲染组件、交互组件、遮罩和始终存在的子结构。业务运行时代码禁止使用 `new Node()`、`addComponent()` 或等价方式替代、补建或修补这些静态内容；需要调整固定结构时，回到 Prefab、PSD/MCP/编辑器或受控 JSON 编辑链路修改，并重新执行组件检查、代码生成和资源校验。
+
+以下动态组合属于允许范围：
+
+- 通过 `instantiate()`、`tyou.res.loadGameObjectAsync()`、`UIBase.loadWidgetAsync()`、ListView 或对象池动态加载、实例化已经独立制作并通过校验的 Prefab。
+- 根据业务状态挂接或移除完整的子 Prefab，并由对应 Widget、ResourceHolder、Pool 或上层 owner 管理生命周期。
+- 特殊需求确实无法合理建模为源 Prefab 或动态子 Prefab 时，程序化临时节点/组件必须先在对应 OpenSpec change 中写明用途、范围、生命周期、释放点和验证方式。
+
+动态加载不是运行时修补的许可。独立 Prefab 必须自带其固定节点和必需 UI 组件，禁止加载后再用 `addComponent()` 补齐本应序列化在 Prefab 中的组件。
+
+## UI 渲染组件选择
+
+普通 UI 默认禁止使用 `Graphics`。背景、边框、纯色色块、图标、常规进度、遮罩和静态装饰优先使用：
+
+- `Sprite` 的 Simple、Sliced 或 Filled 模式；
+- `Label`、`RichText`、`Mask`、`Layout`、`UITransform` 等项目常用组件；
+- 通用白图、九宫格、SpriteAtlas 或其他符合资源规范的静态资源。
+
+只有明确需要程序化动态几何（例如随数据变化且无法用 Sprite 等组件合理表达的任意路径或曲线）时，才允许特殊使用 `Graphics`。对应 change 必须记录绘制用途、节点/页面范围、重绘触发与最大频率、清理/关闭点和目标平台性能验证；逐帧持续重绘不作为默认方案。“方便”或“少做切图”不是例外理由。
+
+本规则默认约束新增或本次修改范围内的 UI；历史 UI 如需批量迁移，另开 change 评估资源和表现影响。
+
 ## 业务 Prefab 的拆分与复用
 
 业务对象池的 Prefab 按稳定的节点结构、组件组合、行为和生命周期拆分，不按图片或序列帧差异拆分。
