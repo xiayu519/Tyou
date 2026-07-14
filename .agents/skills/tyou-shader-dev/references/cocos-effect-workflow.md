@@ -24,7 +24,7 @@ rg -n "Material|EffectAsset|setProperty|customMaterial|sharedMaterial|sp\.Skelet
 
 ## 编辑规则
 
-- `.effect` 和 `.material` 是源资产，允许在 OpenSpec 监督下编辑。
+- `.effect` 和 `.material` 是源资产，可在明确任务范围内编辑；跨资源修改使用 Planned，并保留可回滚的最小 diff。
 - `.meta` 只在新增/移动/重命名资源时同步处理；不要手改 `Client/library` 导入缓存。
 - 绑定到 Prefab/Scene 时同时按 `prefab-workflow.md` 或 `scene-workflow.md` 检查引用。
 - 运行时换材质时明确材质实例归属，避免多个节点共享同一个可变材质导致串色。

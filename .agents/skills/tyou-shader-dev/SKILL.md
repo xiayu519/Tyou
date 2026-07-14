@@ -27,7 +27,7 @@ description: Tyou Cocos Creator 3.8.7 小游戏 2D shader/effect 开发 skill。
 1. 明确目标载体：UI/Sprite、Spine、序列帧图或普通 2D 节点。
 2. 先查项目是否已有 `.effect`、`.material`、自定义材质和引用；需要具体链路时读已检查样本，再从模板起步，不臆造项目现有约定。
 3. 选择最小效果：优先单 pass、少采样、少分支、少变体。
-4. 修改资源前走 Tyou OpenSpec；涉及 `.effect/.material/.meta/prefab/scene` 时按对应资源/Prefab/Scene 规则验证。
+4. 修改资源前读取目标路径 AGENTS 和对应资源参考；跨 `.effect/.material/.meta/prefab/scene` 时使用 Planned，并按各自规则验证。
 5. 验证 Cocos 编译、材质绑定、真机/小游戏表现和降级策略。
 
 ## 强边界

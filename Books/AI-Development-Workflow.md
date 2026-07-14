@@ -1,115 +1,91 @@
-﻿# Tyou Codex 开发工作流
+# Tyou Codex 开发工作流
 
-本文档描述 Tyou 在 Codex CLI 下的项目工作流。
+本文档描述 Tyou 当前的单人 Codex 工作流。固定假定 `gpt-5.6-sol`，默认 reasoning 为 `high`，官方 Plan mode 为 `xhigh`。Tyou 的 Deep 是风险标签，不会自动切换 reasoning。核心是：官方 Codex 原生能力 + 轻量 SDD 对齐 + 批准语义边界实施 + 真实验证。
 
-## 文件
+## 权威入口
 
-- `AGENTS.md`：会话入口指令。
-- `.agents/skills/tyou-dev/SKILL.md`：Codex skill 路由和核心原则。
-- `wiki-sync.yaml`：Wiki/文档知识库同步配置，定义源码路径、文档集合、映射、写入开关、备份和脱敏规则。
-- `.agents/skills/tyou-dev/references/*.md`：Tyou 主题参考，按需读取。
-- `.codex/memory/INDEX.md`：结构化 memory 索引，按 `problems/`、`decisions/`、`feedback/`、`references/` 分类。
-- `openspec/`：L2+ 变更监督。
+- `AGENTS.md`：常驻规则、SDD 门槛、红线和验证要求。
+- `**/AGENTS.override.md`：目标目录覆盖规则。
+- `.codex/config.toml`：仓库默认模型与 reasoning。
+- `.agents/skills/sdd-explore/`：只读需求/方案/颗粒度/范围对齐。
+- `.agents/skills/*/SKILL.md`：领域触发、路由和边界。
+- `.agents/skills/**/references/*.md`：渐进加载的领域细节。
+- `.codex/memory/INDEX.md`：版本化 Tyou Project Knowledge，不是官方 Codex Memories。
+- `.codex/work/`：仅用于跨会话、等待人工验证或暂停的临时单文件状态。
+- `wiki-sync.yaml`：文档集合与同步配置。
 
-## 等级
+仓库不再保留 OpenSpec changes、archive、specs 或 CLI 配置。仍有长期价值的规则已经收敛到 AGENTS 与 skills/references；Project Knowledge 只保存未来新增且无法由这些稳定规则替代的项目知识。
 
-| 等级 | 场景 | 处理 |
-| --- | --- | --- |
-| L1 | typo、注释、日志、单行无框架语义改名 | 直接处理 |
-| L2 轻量 | 单一文件或单一小模块内修改；调用已知 API；不改变公共契约、运行时行为、资源/UI/Luban/Prefab/工作流参考；验证直接明确 | 读 1 个相关参考，走最小 change，不默认写 run-report |
-| L2 重量 | 单一模块内但会改变公共 API 语义、错误处理、资源引用计数、UI 生命周期、异步运行时、工作流文档、OpenSpec specs、memory 或可复发风险处理 | 读 1-2 个相关参考，保持当前 L2 保护 |
-| L3 | 新功能、跨文件、UI/资源/事件/配表逻辑 | 读 2-4 个相关参考，必须走 change |
-| L4 | 多模块协作、框架约束、Codex 工作流、重构决策 | 先探索和提案，再实施 |
+## 为什么保留轻量 SDD
 
-## OpenSpec
+5.6 可以减少机械 spec 展开，但不能知道开发者未表达的偏好、颗粒度和语义边界。工作流保留 spec 的决策价值：先澄清、比较方案、声明允许改变与必须保护的 contracts、获得批准；删除重复 proposal/design/tasks 和全任务 CLI 往返。
 
-除 L1 外，任何会修改代码、资源、Prefab、配置、工作流文档或框架行为的任务，先确认 OpenSpec 可用并进入 change。
+原则是：保留 Spec 的功能，不恢复 Spec 的仪式。
 
-PowerShell 拦截 `openspec.ps1` 时，用：
+## 官方 Codex 特性
 
-```powershell
-cmd /c openspec.cmd ...
-```
+Codex 在会话启动时按 CWD 构建一次 AGENTS 指令链；写目标文件前检查路径沿途尚未生效的 AGENTS/override。Skill 初始只暴露 metadata，匹配后才加载 SKILL.md 和最少 reference。
 
-L2 分流规则：
+官方行为与核验日期见 `.agents/skills/tyou-dev/references/codex-native-workflow.md`。修改 AGENTS、skills 或模型路由前使用 `openai-docs` 重新核验。
 
-- 轻量 L2 只减少文档负担，不减少 OpenSpec 检查和 tasks 验收。
-- 轻量 L2 不新增长期 spec；如果当前 schema 要求 artifact，就写最小 schema 兼容内容。
-- 重量 L2 保持当前 L2 保护。
-- 不确定时按重量 L2；实施中发现风险扩大时升级重量 L2 或 L3。
+## SDD 单一规则源
 
-## 代码优先
+Direct、Planned、Deep 是 Tyou 风险标签，不是官方 Plan mode。详细门槛、Change Contract 字段、确认规则和 Re-alignment 条件只在 `.agents/skills/sdd-explore/references/alignment-contract.md` 维护。
 
-参考与源码冲突时：
-
-1. 用 `rg` 定位源码；不可用时用 VS Code `grep_search` 或 PowerShell `Select-String`。
-2. 以源码和工具实际行为为准。
-3. 同步修正文档。
-4. 符合归档条件的可复发问题、决策、用户反馈或参考资料位置，直接写入 `.codex/memory/` 分类条目，并更新 `INDEX.md`。
+常驻摘要只有三条：语义明确且边界不变可 Direct；需要设计选择时先用 `sdd-explore`；公共契约、框架、schema/生成规则、工作流语义/路由/强制约束和高回滚成本按 Deep。只修正文案、链接或同步确定事实且不改变规则语义时仍可 Direct。文件数量不是门禁，获批任务可以一次完成。
 
 ## Skills
 
 | Skill | 用途 |
 | --- | --- |
-| `tyou-dev` | Tyou 框架开发总入口和主题路由 |
-| `cocos-asset-json` | Cocos Prefab/Scene/meta/asset-index/SpriteAtlas 源资产只读解析 |
-| `tyou-shader-dev` | Cocos 2D/UI/Sprite/Spine/序列帧 shader/effect 本土化开发 |
-| `openspec-explore` / `openspec-propose` / `openspec-apply-change` / `openspec-archive-change` | OpenSpec 四阶段 |
-| `luban-dev` | Luban 配表、导表、配置变更安全 |
-| `wiki-query` | 只读 Wiki/文档知识库检索 |
-| `wiki-sync` | Wiki/文档差异扫描和受控同步 |
+| `sdd-explore` | 只读需求澄清、方案对比、Change Contract 和 Re-alignment |
+| `skill-creator` | 创建或修改 `SKILL.md` / `agents/openai.yaml`，并执行官方 skill 校验 |
+| `tyou-dev` | Tyou/Cocos 客户端开发总入口 |
+| `creator-extension-dev` | Creator extension 源码、contributions、build/test |
+| `cocos-asset-json` | Prefab/Scene/meta/asset-index/SpriteAtlas 解析 |
+| `tyou-shader-dev` | Cocos 2D/UI/Sprite/Spine/序列帧 shader |
+| `luban-dev` / `localization-dev` | Luban 源数据、导表和本地化链路 |
+| `wiki-query` / `wiki-sync` | 文档只读查询与受控同步 |
 
 ## 工具化入口
 
-- Wiki 查询：`powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-query/scripts/wiki-query.ps1 -Query <关键词>`
+- 工作流检查：`powershell -ExecutionPolicy Bypass -File .agents/skills/tyou-dev/scripts/check-codex-workflow.ps1`
+- 路径边界检查：`powershell -ExecutionPolicy Bypass -File .agents/skills/tyou-dev/scripts/check-change-boundary.ps1 -Files <files> -GeneratedFiles <files> -AllowedRoots <roots>`
+- 按文件验证：`powershell -ExecutionPolicy Bypass -File .agents/skills/tyou-dev/scripts/validate-task.ps1 -Files <files> -GeneratedFiles <files> -AllowedRoots <roots>`
+- 5.6 smoke 回归（默认）：`powershell -ExecutionPolicy Bypass -File .agents/skills/tyou-dev/evals/run-codex-routing-evals.ps1 -Reasoning high`
+- 5.6 full 回归：`powershell -ExecutionPolicy Bypass -File .agents/skills/tyou-dev/evals/run-codex-routing-evals.ps1 -Suite full -Reasoning high`
+- Cocos iterable spread：`node .agents/skills/tyou-dev/scripts/check-cocos-iterable-spread.mjs <files>`
 - Wiki 扫描：`powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-sync/scripts/wiki-sync.ps1 scan`
-- Luban 扫描：`powershell -ExecutionPolicy Bypass -File .agents/skills/luban-dev/scripts/scan-luban.ps1`
-- Luban helper：`python .agents/skills/luban-dev/scripts/luban_helper.py table list`
-- Cocos 源资产解析：`python .agents/skills/cocos-asset-json/scripts/cocos_asset_json.py inspect --file <prefab-or-scene> --assets-root Client/assets`
-- Skill evals：`.agents/skills/tyou-dev/evals/evals.json`
-- Codex 可观测性检查：`powershell -ExecutionPolicy Bypass -File .agents/skills/tyou-dev/scripts/codex-observability-check.ps1 -Change <change-name>`
-- Cocos iterable spread 检查：`node .agents/skills/tyou-dev/scripts/check-cocos-iterable-spread.mjs <本次修改文件...>`；另支持 `--changed` 和 `--all`
 
-Wiki 和 Luban 写操作默认关闭：`wiki-sync.yaml` 的 `write_enabled` 默认为 `false`，`luban_helper.py` 写 Excel 必须传 `--write`，且两者都必须遵守 OpenSpec 门禁。
+`check-change-boundary.ps1` 只检查调用方明确列出的本任务文件是否位于声明的路径边界，并将生成文件单独列示；它不扫描或归因用户其他脏工作区，也不按文件数量授权。公共契约、用户行为和架构变化仍需由 Change Contract 与 review 判断。
 
-## 可观测性
+Routing eval 使用真实 `gpt-5.6-sol` 新进程检查模式、确认状态、精确 skill 集合和关键验证入口；`optional_skills` 必须显式声明。它不实际修改文件或运行目标实现，因此不是执行正确性的替代 harness。
 
-L3/L4 OpenSpec change 需要维护 `openspec/changes/<change-name>/run-report.md`，开头必须有 `## Executive Summary`，用于快速记录目标、状态、验证结果和剩余风险；正文只记录 review 需要的验证结论、关键决策、sensor 结果、剩余风险和是否需要 memory/wiki-sync，不写长过程流水。
+## 验证原则
 
-`codex-observability-check.ps1` 只做本地确定性检查，例如 OpenSpec 状态、artifact 是否存在、tasks 勾选进度、`run-report.md` 结构和受保护路径 git 改动。它提供 review 证据，不证明语义正确，也不替代 TypeScript 编译、业务验证、Prefab/Luban 安全流程或开发者确认。
+1. 真实验证与风险对应：目标测试/构建、静态检查、资源校验、导表或可重复人工步骤。
+2. 路径检查只能证明实际文件位于声明的目录边界，不能证明语义没有漂移；功能测试也不能替代 Change Contract review。
+3. Creator 扩展使用目标 package 的 `npm run build` 或 `npm test`。
+4. AGENTS、skill description、SDD 门槛或 eval 判定逻辑变化时运行 smoke eval；完整路由矩阵发布或明确要求时才运行 full eval。普通业务任务不支付模型回归成本。
+5. 最后运行 `git diff --check`，报告批准的语义边界、实际文件/diff、未验证项和剩余风险。
 
-Codex 汇报工作流状态时，直接基于 `run-report.md`、sensor 输出、OpenSpec 状态和相关 memory/references 说明。
+## Project Knowledge、官方 Memories 与临时状态
 
-## Memory
+`.codex/memory/` 是随仓库提交的 Tyou Project Knowledge，只在相关时读取索引和 1-3 条正文。可复发问题、长期决策、明确反馈，或包含 Tyou 特有取舍且无法由稳定 topic reference 替代的外部参考才进入该目录；稳定官方链接清单不重复镜像。
 
-L2+ 任务开始时先读 `.codex/memory/INDEX.md`，只打开与当前任务相关的 1-3 条记录。符合写入条件的可复用信息直接按类型归档，并遵守 `.agents/skills/tyou-dev/references/memory-workflow.md`：
+它不是官方 Codex Memories。官方 Memories 位于 Codex home，由产品设置和 `/memories` 管理，不手工提交到本仓库；必须稳定生效的项目规则仍写入 AGENTS、skills 或 references。
 
-- `problems/`：可复发坑和非显而易见根因。
-- `decisions/`：已确认的工作流或架构决策。
-- `feedback/`：用户对协作方式的纠偏或偏好。
-- `references/`：参考资料位置和用途。
+Change Contract 默认保留在对话和 Codex plan。确需跨会话时写 `.codex/work/<task>.md`，完成后删除；不恢复多文件 spec artifact。
 
-每条正文必须包含 `type`、`description`、`status`、`last_verified`、`source` frontmatter。写入后必须更新 `INDEX.md`，索引每条只占一行，目标不超过 80 行、12 KB。按日期滚动日志不进入 memory。
+## 项目红线摘要
 
-memory 是历史上下文，不是事实源；active memory 按当前上下文使用。涉及工具行为、路径、函数、flag、参考资料或日期时，使用前必须先按源码、OpenSpec、参考或当前工具输出复核。源码可查事实、最近改动、临时任务状态、完整日志和未验证猜测不写入 memory。
+- `Client/assets/ty-framework/` 默认只读，修改必须 Deep 并明确确认。
+- UI 固有节点和必需组件写入源 Prefab，普通 UI 默认不用 `Graphics`。
+- 资源走索引与 `tyou.res`，`addRef/decRef` 配对。
+- 不改 Creator `library/`、`temp/`、`build/` 缓存。
+- Luban 修改源 Excel/Defines，通过现有脚本导表，不手改生成 TS 或 `.bin`。
+- 运行时 TypeScript 禁止展开非明确数组 iterable，并对明确文件运行 checker。
 
-## 强约束
+## 收尾
 
-- `Client/assets/ty-framework/` 默认不改；确需修改必须先确认。
-- UI 脚本创建优先走 `uitscreate`，不绕开 `UIName/UIImportAll`。
-- UI 图片加载、按钮点击、事件监听优先用 `UIBase` 内置能力。
-- UI Prefab 固有节点、布局、渲染和交互组件必须在源 Prefab 中声明，禁止用 `new Node()`、`addComponent()` 等运行时代码替代或修补；动态 UI 组合应加载或实例化已经独立制作并校验的 Prefab，且不得加载后再补其必需组件。
-- 普通 UI 默认禁止 `Graphics`，背景、边框、色块、图标、常规进度、遮罩和静态装饰优先使用 `Sprite`（Simple/Sliced/Filled）、`Label`、`Mask`、`Layout`、`UITransform` 等常用组件。特殊程序化动态几何必须在 OpenSpec change 中记录用途、范围、重绘频率、生命周期/清理点和目标平台性能验证。
-- 资源走自动索引；禁止同名资源；找不到资源先检查索引生成。
-- `addRef/decRef` 必须配对。
-- Prefab 源资产允许按 `.agents/skills/tyou-dev/references/prefab-workflow.md` 结构化编辑 JSON；创建优先级：PSD 一键生成 > AI + 精简 MCP Prefab 流程 > 手动拼 > 结构化 JSON 编辑。
-- 业务对象池 Prefab 按稳定节点结构、组件、行为和生命周期拆分；仅图片或序列帧不同优先复用一个 Prefab，池化动态资源按节点/Widget/Pool owner 在 recycle、release 或 Pool 销毁点释放。
-- `l_` 只用于需要进入资源索引并供运行时按逻辑名直接加载的独立图片；Prefab 静态图片不加 `l_`，SpriteAtlas 序列帧优先索引 Atlas。
-- Scene 源资产允许按 `.agents/skills/tyou-dev/references/scene-workflow.md` 结构化编辑 JSON；Prefab 和 Scene 参考分开读取，不混成一套流程。
-- Prefab/Scene 授权仅限源资产和必要 `.meta`，不扩展到 `Client/library`、`Client/temp`、`Client/build` 等生成或缓存目录。
-- Prefab/Scene/meta/asset-index/SpriteAtlas 结构检查优先使用 `cocos-asset-json` 只读 helper；Luban `.bin` 不进入该解析范围。
-- Cocos shader/effect 任务优先走 `tyou-shader-dev`；首版范围仅覆盖 2D、UI/Sprite、Spine、序列帧图和小游戏性能约束，不默认覆盖 3D/PBR/URP/Compute；泛化的玩法或战斗 `effect` 不因词面相同自动触发 shader 工作流。
-- 战斗设计优先组合，先评估现有 `tyou.ecs`。
-- 高频战斗逻辑必须考虑小游戏 JavaScript 运行成本。
-- 无论运行平台和构建目标，`Client/assets/` 运行时代码都禁止对 `Set`、`Map` 迭代器、一般 `Iterable`、`any`、`unknown` 等非明确数组类型使用 `[...value]`；统一使用 `Array.from(...)` 或显式循环。只有数组、readonly 数组或 tuple 允许数组展开。
-- Web 构建差异只是上述代码规范的风险依据之一。普通任务执行静态检查即可；只有任务本身涉及 Web 构建差异、发布回归或转换链路时，才额外验证最终 Web 包。
+核对获批语义边界与实际 diff、目标验证、AGENTS/skills/references、README/Books、Project Knowledge 和 Wiki 配置。若使用 `.codex/work/<task>.md`，完成后删除。

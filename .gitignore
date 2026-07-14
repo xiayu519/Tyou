@@ -16,6 +16,7 @@ node_modules/
 #//////////////////////////
 # Codex generated reports
 #//////////////////////////
+.codex/work/*.md
 .wiki-sync-backups/
 wiki-sync-report.md
 WIKI_SYNC_TODO.md

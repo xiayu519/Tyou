@@ -29,7 +29,7 @@ def die(message: str) -> None:
 
 def require_write(args: argparse.Namespace) -> None:
     if not getattr(args, "write", False):
-        die("write operation refused; pass --write after confirming the OpenSpec task and references")
+        die("write operation refused; pass --write after checking source tables, references, and validation scope")
 
 
 def data_dir(args: argparse.Namespace) -> Path:

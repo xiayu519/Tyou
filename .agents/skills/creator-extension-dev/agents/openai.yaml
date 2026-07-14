@@ -1,0 +1,7 @@
+interface:
+  display_name: "Creator Extension Dev"
+  short_description: "Tyou Creator extension development"
+  default_prompt: "Use $creator-extension-dev to modify a Tyou Cocos Creator editor extension safely."
+
+policy:
+  allow_implicit_invocation: true

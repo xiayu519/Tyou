@@ -19,7 +19,7 @@ python .agents/skills/cocos-asset-json/scripts/cocos_asset_json.py asset-index -
 python .agents/skills/cocos-asset-json/scripts/cocos_asset_json.py atlas --plist Client/assets/asset-raw/ui-raw/atlas/foo/foo.plist --meta Client/assets/asset-raw/ui-raw/atlas/foo/foo.plist.meta
 ```
 
-脚本只读，输出 JSON。需要编辑资产时，先读对应 Tyou 参考并走 OpenSpec：Prefab 用 `.agents/skills/tyou-dev/references/prefab-workflow.md`，Scene 用 `.agents/skills/tyou-dev/references/scene-workflow.md`，资源索引用 `.agents/skills/tyou-dev/references/resource-api.md`。
+脚本只读，输出 JSON。需要编辑资产时，先读对应 Tyou 参考并按影响范围使用 Direct 或 Planned：Prefab 用 `.agents/skills/tyou-dev/references/prefab-workflow.md`，Scene 用 `.agents/skills/tyou-dev/references/scene-workflow.md`，资源索引用 `.agents/skills/tyou-dev/references/resource-api.md`。编辑后必须重新运行结构与引用校验。
 
 ## 何时读 reference
 

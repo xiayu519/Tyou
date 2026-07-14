@@ -21,7 +21,7 @@ function Get-RepoRoot {
 function Get-WikiIncludes {
     param([string] $Path)
     if (-not (Test-Path -LiteralPath $Path)) {
-        return @("README.md", "Books/**/*.md", ".agents/skills/**/references/**/*.md", "openspec/specs/**/*.md", ".agents/skills/**/SKILL.md", "AGENTS.md")
+        return @("README.md", "Books/**/*.md", ".agents/skills/**/references/**/*.md", ".codex/memory/**/*.md", ".agents/skills/**/SKILL.md", "AGENTS.md", "**/AGENTS.override.md")
     }
     $patterns = @()
     $inInclude = $false
@@ -32,7 +32,7 @@ function Get-WikiIncludes {
         if ($inInclude -and $trim -match "^- `"?([^`"]+)`"?") { $patterns += $Matches[1] }
     }
     if ($patterns.Count -eq 0) {
-        $patterns = @("README.md", "Books/**/*.md", ".agents/skills/**/references/**/*.md", "openspec/specs/**/*.md", ".agents/skills/**/SKILL.md", "AGENTS.md")
+        $patterns = @("README.md", "Books/**/*.md", ".agents/skills/**/references/**/*.md", ".codex/memory/**/*.md", ".agents/skills/**/SKILL.md", "AGENTS.md", "**/AGENTS.override.md")
     }
     return $patterns
 }

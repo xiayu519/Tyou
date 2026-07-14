@@ -1,0 +1,7 @@
+interface:
+  display_name: "SDD Explore"
+  short_description: "Align semantic change boundaries before coding"
+  default_prompt: "Use $sdd-explore to clarify the request and approve a semantic Change Contract before implementation."
+
+policy:
+  allow_implicit_invocation: true

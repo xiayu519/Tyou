@@ -14,7 +14,7 @@ source_paths:
   - path: ".agents/skills/tyou-dev/references"
     label: "Tyou Topic References"
   - path: ".codex/memory"
-    label: "Codex Memory"
+    label: "Tyou Project Knowledge"
 
 wiki_root: "."
 wiki_include:
@@ -22,7 +22,6 @@ wiki_include:
   - "Books/**/*.md"
   - ".agents/skills/**/references/**/*.md"
   - ".codex/memory/**/*.md"
-  - "openspec/specs/**/*.md"
   - ".agents/skills/**/SKILL.md"
   - "AGENTS.md"
   - "**/AGENTS.override.md"

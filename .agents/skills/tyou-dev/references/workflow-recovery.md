@@ -1,59 +1,54 @@
-﻿# 工作流容错与文档同步
+# 工作流容错与文档同步
 
-`tyou-dev/references/` 主题参考是为了省 token 的精炼项目知识，不是最终真相。源码和实际工具行为永远优先。
+`tyou-dev/references/` 是为渐进加载准备的精炼项目知识，不是最终真相。源码、当前工具输出和已核验的官方文档优先。
 
 ## 触发条件
 
-遇到以下任一情况，必须进入容错流程：
+遇到以下任一情况，立即进入容错流程：
 
-- `tyou-dev/references/` 或其他 md 描述与源码 API 不一致。
-- 按 md 执行后代码编译或运行失败。
-- 开发者指出 Codex 工作流规则不符合当前项目。
-- 自动生成工具行为与文档描述不同。
+- reference 或其他文档与源码 API 不一致。
+- 按文档执行后编译、测试、构建或运行失败。
+- 开发者指出 Codex 工作流规则不符合当前项目或官方能力。
+- 自动生成工具、Creator 扩展或 Codex 的实际行为与描述不同。
 
 ## 处理顺序
 
 1. 停止继续基于错误规则扩散修改。
-2. 优先用 `rg` 定位源码或工具实现；若 `rg` 不可用，改用 VS Code `grep_search` 或 PowerShell `Select-String`。
-3. 读取最小相关源码，确认真实行为。
-4. 以源码和工具实际行为为准修正方案。
-5. 修改对应主题参考或 md，让后续会话读取正确内容。
-6. 在最终回复说明：冲突点、源码依据、已修正文档。
+2. 用 `rg` 定位源码或工具实现；不可用时使用 VS Code `grep_search` 或 PowerShell `Select-String`。
+3. 读取最少相关源码和配置，运行可重复的只读检查确认真实行为。
+4. 涉及 Codex AGENTS、skills、模型或 CLI 行为时，使用 `openai-docs` 核验官方文档。
+5. 以权威来源修正当前方案，并在本任务范围内同步对应文档。
+6. 最终回答说明冲突、证据、已修正文件和仍未验证项。
 
 ## 修改范围
 
-优先修正这些文件：
+按职责修正：
 
-- `AGENTS.md`：只修正每次会话必须知道的短规则。
-- `**/AGENTS.override.md`：只修正对应目录工作时必须覆盖的短规则。
-- `.agents/skills/tyou-dev/SKILL.md`：只修正 Codex skill 路由和核心原则。
-- `.agents/skills/wiki-query/SKILL.md` 与 `.agents/skills/wiki-sync/SKILL.md`：修正 Wiki/文档知识库检索和同步入口。
-- `wiki-sync.yaml`：修正 Wiki/文档知识库的扫描路径、映射、写入开关、备份和脱敏策略。
-- `.agents/skills/tyou-dev/references/*.md`：修正具体主题参考正文。
-- `.codex/memory/INDEX.md` 与分类条目：修正可复用经验、决策、反馈和参考位置。
-- `Books/AI-Development-Workflow.md`：修正人读的流程说明。
-- `README.md`：修正面向项目用户的概要说明。
-- `openspec/specs/`：修正当前 Codex 工作流的行为规范。
+- `AGENTS.md`：每次会话必须知道的常驻规则。
+- `**/AGENTS.override.md`：目标目录的覆盖规则。
+- `.codex/config.toml`：仓库默认模型与 reasoning。
+- `.agents/skills/*/SKILL.md`：精确触发、路由与核心边界。
+- `.agents/skills/**/references/*.md`：领域细节与验证流程。
+- `wiki-sync.yaml`：文档集合、映射、写入开关、备份和脱敏策略。
+- `.codex/memory/INDEX.md` 与分类条目：版本化 Tyou Project Knowledge，不是官方 Codex Memories。
+- `Books/AI-Development-Workflow.md`：人读工作流。
+- `README.md`：面向项目用户的概要。
 
-不要为了修正文档去改 `ty-framework` 框架代码。
+不要为了修正文档去改业务代码或 `ty-framework`。
 
 ## Codex 工作流一致性
 
-Codex 工作流本身发生变更时，必须在同一个 OpenSpec change 中检查这些位置是否一致：
+修改 Codex 工作流时使用 Deep 和原生 plan，并检查：
 
-- 修改 `tyou-dev/references/` 中影响任务分级、OpenSpec 门禁、路由、记忆、自检或开发约束的参考时，同时检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md` 与 `openspec/specs/`。
-- 修改 Codex 的触发词、skill 路由、OpenSpec 入口或结束自检时，同时检查 `.agents/skills/*` 与相关主题参考。
-- 详细主题正文维护在 `.agents/skills/tyou-dev/references/`；`.agents/skills/*/SKILL.md` 只写触发和路由。
+1. 根与目标目录 AGENTS 是否一致。
+2. skill description、SKILL.md 路由和 `agents/openai.yaml` 是否一致。
+3. 所有 SDD 摘要是否仍指向 `sdd-explore/references/alignment-contract.md`，且没有复制详细规则。
+4. topic references、memory、README/Books 和 `wiki-sync.yaml` 是否仍引用旧流程。
+5. `.agents/skills/tyou-dev/scripts/check-codex-workflow.ps1` 与 change boundary checker 测试是否通过。
+6. 模型、AGENTS、skill description 或 SDD 门槛变化时，运行固定 5.6 的行为 eval。
+
+详细正文留在 references；SKILL.md 保持路由化；可证明约束尽量进入脚本或测试。
 
 ## 记录问题
 
-如果信息未来可能复用，记录到 `.codex/memory/` 分类条目并更新 `INDEX.md`。
-
-分类：
-
-- `problems/`：问题现象、根因、正确规则、已处理。
-- `decisions/`：决策、原因、使用方式。
-- `feedback/`：用户反馈、原因、如何应用。
-- `references/`：参考资料位置、用途、何时查。
-
-当前项目使用结构化 memory，按日期滚动日志不进入 memory。
+只有信息未来会减少误判或重复沟通时，才按 `memory-workflow.md` 写入 `.codex/memory/` Project Knowledge 并更新 `INDEX.md`。临时状态若确需跨会话，使用 `.codex/work/<task>.md`，任务完成后删除。

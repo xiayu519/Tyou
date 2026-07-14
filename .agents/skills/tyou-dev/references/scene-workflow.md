@@ -2,7 +2,7 @@
 
 本文件只记录 Scene 工作流；Prefab 独立见 `prefab-workflow.md`。
 
-修改 Cocos `.scene`、`.scene.meta` 前必须确认格式和引用关系。开发者已在 `2026-06-09` 明确授权 AI 对项目源 Scene 执行增删改查：允许在 OpenSpec 监督下直接结构化编辑 `Client/assets/**/*.scene` 和必要的配套 `.scene.meta`。
+修改 Cocos `.scene`、`.scene.meta` 前必须确认格式和引用关系。开发者已在 `2026-06-09` 明确授权 AI 对项目源 Scene 执行增删改查：可在明确任务范围内结构化编辑 `Client/assets/**/*.scene` 和必要的配套 `.scene.meta`。精确局部修改可用 Direct；跨脚本、资源或启动链时使用 Planned。
 
 直接编辑不是跳过 Cocos 语义。涉及启动场景、Canvas、场景注册、Prefab 实例、资源索引或运行时节点契约时，必须先确认引用关系，再小步修改并验证。
 

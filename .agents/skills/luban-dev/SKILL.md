@@ -42,7 +42,7 @@ Tyou 版 Luban helper：
 python .agents/skills/luban-dev/scripts/luban_helper.py table list
 ```
 
-工具默认只读；任何写 Excel 的命令必须显式传入 `--write`，并且必须已经进入 OpenSpec change。
+工具默认只读；任何写 Excel 的命令必须显式传入 `--write`。写入前先确认源表、字段定义、引用关系和导表验证；删除、重命名、改类型或主键必须按 Deep 说明影响并得到确认。
 
 常用只读命令：
 
@@ -67,10 +67,11 @@ python .agents/skills/luban-dev/scripts/luban_helper.py ref TableFollower
 
 写操作只面向 `Design/config/#*.xlsx` 自动导入表；不直接修改生成代码、`.bin` 或导表脚本。
 
-## OpenSpec
+## 执行方式
 
-- L1 typo 可以直接处理。
-- 任何新增/删除/改字段、改数据、改导表流程、改生成代码位置，都属于 L2+，必须进入 OpenSpec change。
+- 精确数据修正、验证明确且不改变结构：Direct。
+- 新表、跨表数据、字段新增或业务访问联动：Planned。
+- 删除/重命名字段、修改类型/主键、调整导表流程或生成位置：Deep；先查引用、说明兼容与回滚，并得到开发者确认。
 
 ## 操作红线
 
@@ -141,4 +142,4 @@ Design/tools/genBin.bat
 4. 修改源表或 schema。
 5. 运行现有导表脚本。
 6. 验证生成结果和业务访问代码。
-7. 更新 OpenSpec tasks；可复发坑写入 `.codex/memory/`。
+7. 记录实际导表与验证结果；可复发坑才写入 `.codex/memory/` Project Knowledge。

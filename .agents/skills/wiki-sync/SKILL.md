@@ -1,44 +1,22 @@
 ---
 name: wiki-sync
-description: Tyou 项目 Wiki/文档知识库同步 skill。用于 README、Books、skill references、openspec/specs、AGENTS.md、AGENTS.override.md、memory、skills 与源码/工具行为之间的差异扫描、报告和受控修正。触发词：wiki、Wiki、知识库、同步文档、文档过期、参考不一致、扫描文档差异、更新 Books、README 和代码不一致、wiki-sync。
+description: Tyou 项目文档知识库同步 skill。用于 README、Books、skill references、AGENTS.md、AGENTS.override.md、`.codex/memory` Project Knowledge、skills 与源码/工具行为之间的差异扫描、报告和受控修正。用户明确要求“同步文档、修正文档过期、扫描文档差异、更新 Books/README、处理文档与代码不一致”时使用；不用于仅查询文档位置、存在性或内容的问题。
 ---
 
-# Tyou Wiki 同步
+# Tyou 文档同步
 
-本 skill 是 Tyou 当前唯一的 Wiki/文档知识库同步入口。扫描范围由项目根目录 `wiki-sync.yaml` 定义。
+扫描范围、映射、写入开关、备份和脱敏规则由根目录 `wiki-sync.yaml` 定义。先报告源码/工具证据与文档差异，再在用户授权的任务范围内修正文档；不自动修改业务代码。
 
-## 配置
-
-同步配置位于项目根目录 `wiki-sync.yaml`。
-
-关键字段：
-
-- `source_paths`：需要和文档对齐的源码/工具/参考目录。
-- `wiki_include`：当前本地 Wiki/文档集合的包含规则。
-- `mappings`：源码目录到文档路径的映射。
-- `ignore`：源码和文档扫描忽略规则。
-- `write_enabled`：默认 `false`，写入必须显式开启或命令传入 `-Write`。
-- `conflict_strategy`：冲突处理策略，默认 `ask`。
-- `backup.directory`：写入前备份目录，默认 `.wiki-sync-backups`。
-- `sensitive_patterns`：写入文档前必须脱敏的敏感信息模式。
-
-## 脚本
-
-只读扫描：
+## 命令
 
 ```powershell
+# 只读覆盖扫描
 powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-sync/scripts/wiki-sync.ps1 scan
-```
 
-只读差异：
-
-```powershell
+# 只读差异扫描
 powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-sync/scripts/wiki-sync.ps1 diff
-```
 
-报告输出属于写操作；需要 `write_enabled: true` 或传入 `-Write`：
-
-```powershell
+# 生成报告属于写操作
 powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-sync/scripts/wiki-sync.ps1 report -Output wiki-sync-report.md -Write
 ```
 
@@ -46,43 +24,33 @@ powershell -ExecutionPolicy Bypass -File .agents/skills/wiki-sync/scripts/wiki-s
 
 ### scan
 
-只读扫描覆盖关系和明显缺口。
-
-- 输入：模块、功能、目录、最近改动范围或文档主题。
-- 输出：涉及源码、README/Books、skill references、OpenSpec specs、skills、memory 的覆盖表。
+检查源码、README/Books、skill references、AGENTS、skills 和 Project Knowledge 的覆盖关系与明显缺口。
 
 ### diff
 
-只读比较源码/工具行为与文档描述。
-
-- 先查源码或工具实现。
-- 再查对应文档。
-- 标记新增、删除、过时、冲突、缺少验收。
+先查源码或工具实现，再查对应文档，标记新增、删除、过时、冲突和缺少验证。
 
 ### sync
 
-执行文档修正。
+在当前任务已授权修改文档时实施受控修正：
 
-- L1 文档 typo 可以直接改。
-- 任何影响 Codex 工作流、参考、OpenSpec specs、开发约束的同步属于 L2+，必须使用 OpenSpec change。
-- 修改工作流时同步检查 `AGENTS.md`、`**/AGENTS.override.md`、`.agents/skills/*`、`.codex/memory/`、`wiki-sync.yaml`、`README.md`、`Books/AI-Development-Workflow.md`、`openspec/specs/`；只有官方 Codex 命令审批策略变化时才检查 `.codex/rules/*.rules`。
-- 方向 A（项目到 Wiki）不自动覆盖文档；必须先生成报告，再按 OpenSpec 修改文档。
-- 方向 B（Wiki 到项目）只生成待办，不自动改业务代码。
+1. 以源码和工具实际行为为准。
+2. 工作流变更同时检查 `AGENTS.md`、`**/AGENTS.override.md`、`.codex/config.toml`、`.agents/skills/*`、`.codex/memory/` Project Knowledge、`wiki-sync.yaml`、`README.md` 和 `Books/AI-Development-Workflow.md`；只有官方 Codex 命令审批策略变化时才检查 `.codex/rules/*.rules`。
+3. 项目到文档方向先确认差异，不无条件覆盖；文档到项目方向只生成待办，不自动改业务代码。
+4. 报告或备份写入必须满足 `write_enabled` 或显式 `-Write`。
 
 ## 安全约束
 
-- 不自动改业务代码；发现代码和文档冲突时，以源码为准，先报告再修文档。
-- 不把非本项目参考或规则写入 Tyou 文档；只写入已确认适合 Tyou 的机制。
-- 不写敏感信息、绝对私有路径或临时日志进 README/Books。
-- 写入报告或待办前必须确认 `write_enabled` / `-Write`，并使用 `.wiki-sync-backups` 作为备份目录。
-- 可复发坑写入结构化 `.codex/memory/`。
+- 不写敏感信息、绝对私有路径或临时日志到 README/Books。
+- 不把外部通用参考直接写成 Tyou 规则；只记录已验证适用于本项目的结论。
+- 可复发问题、长期决策、明确反馈，或包含 Tyou 特有取舍且无法由稳定 topic reference 替代的外部参考，才进入 `.codex/memory/` Project Knowledge；稳定官方链接清单不重复镜像，官方 Codex Memories 不由本 skill 手工维护。
 
-## 输出格式
+## 输出
 
 ```text
-Wiki 同步报告
+文档同步报告
 - 范围：
-- 源码/工具依据：
+- 源码/工具证据：
 - 已查文档：
 - 差异：
 - 已修改：

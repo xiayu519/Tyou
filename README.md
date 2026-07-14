@@ -4,7 +4,7 @@
 
 如果对你有帮助，欢迎点个 ⭐ Star！
 
-📺 [框架 PSD→UI 工作流介绍](https://www.bilibili.com/video/BV1nhDeBoEcq/) &nbsp;|&nbsp; 问题反馈 QQ：`499793702`
+📺 [框架 PSD→UI 工作流介绍](https://www.bilibili.com/video/BV1nhDeBoEcq/)
 
 ## 项目定位
 
@@ -12,7 +12,7 @@ Tyou 是面向 Cocos Creator 3.8.7 的 TypeScript 客户端框架，围绕 Cocos
 
 运行时通过全局 `tyou.*` 暴露模块，编辑器侧提供 PSD 还原、UI 脚本生成、资源索引生成和 Luban 配表接入，适合需要快速搭建小游戏/手游客户端框架并重视 UI 生产效率的项目。
 
-本仓库的 AI 辅助改动使用 Codex/OpenSpec 工作流；README 只保留项目使用说明，具体流程入口见 `Books/AI-Development-Workflow.md`。
+本仓库的 AI 辅助改动使用 Codex 原生 AGENTS/skills/plan、轻量 SDD Change Contract 与真实验证工作流；README 只保留项目使用说明，具体流程入口见 `Books/AI-Development-Workflow.md`。
 
 ## 特性概览
 
@@ -82,7 +82,7 @@ Unitask       // 全局异步工具（globalThis.Unitask）
 
 ---
 
-## PSD → UI 全流程产线 
+## PSD → UI 全流程产线
 
 为了防止美术和策划再因为psd工作流增加多余工作量而扯皮，框架提供了一套完整的仅供程序使用的减轻拼UI工作量的 **从 PSD 设计稿到可运行 UI 代码** 的自动化流水线，中间只需人工介入“调键点/改前缀”一步：
 
@@ -304,7 +304,7 @@ m_listX
 | 渲染器组 | Sprite、Label、RichText、EditBox、Graphics、Mask | 每个节点只能有一个渲染器（继承自 UIRenderer） |
 | 交互组件组 | Toggle、Slider、ProgressBar | 互相排斥的交互组件 |
 
-> 上表中的 `Graphics` 仅用于说明 Cocos 渲染器互斥关系，不表示普通 UI 推荐使用它。Tyou UI 的固定结构和必需组件应写入源 Prefab，不用运行时 `new Node()` / `addComponent()` 补建；普通背景、边框、色块、常规进度、遮罩和静态装饰优先使用 `Sprite` 等常用组件。只有明确的程序化动态几何需求，才可按 OpenSpec 记录范围、重绘频率、清理点和性能验证后特殊使用 `Graphics`。
+> 上表中的 `Graphics` 仅用于说明 Cocos 渲染器互斥关系，不表示普通 UI 推荐使用它。Tyou UI 的固定结构和必需组件应写入源 Prefab，不用运行时 `new Node()` / `addComponent()` 补建；普通背景、边框、色块、常规进度、遮罩和静态装饰优先使用 `Sprite` 等常用组件。只有明确的程序化动态几何需求，才可在实施前说明范围、重绘频率、清理点和性能验证后特殊使用 `Graphics`。
 
 #### 两阶段执行机制
 

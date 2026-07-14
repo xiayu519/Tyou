@@ -1,14 +1,13 @@
 # Client/assets/ty-framework/AGENTS.override.md
 
-**当前目录是 Tyou 框架代码，原则上禁止直接修改。**
+**当前目录是 Tyou 框架本体，默认只读。**
 
-进入这个目录意味着改动会触及框架本体。任何新增、删除、修改操作必须先：
+任何新增、删除或修改都按 Deep 方式处理。写文件前必须：
 
-1. 向开发者说明：为什么必须改框架而不是业务层；
-2. 列出影响的模块、调用链、`Tyou.ts` 生命周期注册；
-3. 评估失败/回滚成本；
-4. 得到开发者明确确认后再动手。
+1. 说明为什么不能在 `Client/assets/scripts/` 业务层解决；
+2. 列出受影响模块、调用链和 `Tyou.ts` 生命周期注册；
+3. 评估公共 API、存档/网络兼容、失败和回滚成本；
+4. 给出目标测试或构建验证；
+5. 获得开发者明确确认。
 
-未确认前只允许只读阅读，不允许写文件。
-
-业务功能默认放在 `Client/assets/scripts/` 下，不要扩展 `Client/assets/ty-framework/module/<name>/`。
+未确认前只允许只读探索。业务功能默认放在 `Client/assets/scripts/`，不要为单一业务扩展 `Client/assets/ty-framework/module/<name>/`。

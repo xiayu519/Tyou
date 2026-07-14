@@ -278,7 +278,7 @@ switch ($Command) {
             throw "sync refused: write_enabled is false and -Write was not passed"
         }
         if ($Dir -eq "A") {
-            throw "sync --dir A is intentionally not automated yet; use report output and apply docs through OpenSpec"
+            throw "sync --dir A is intentionally not automated; inspect the report and update documentation within the authorized task scope"
         }
         if ($Dir -eq "B" -or $Dir -eq "both") {
             $todo = if ($Output) { $Output } else { "WIKI_SYNC_TODO.md" }

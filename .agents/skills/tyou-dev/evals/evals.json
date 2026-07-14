@@ -1,198 +1,297 @@
 {
-  "skill_name": "tyou-dev",
-  "evals": [
+  "schema_version": 5,
+  "model": "gpt-5.6-sol",
+  "reasoning_efforts": ["high", "xhigh"],
+  "smoke_cases": [
+    "ordinary-single-file-fix",
+    "ambiguous-equipment-system",
+    "codex-workflow-change",
+    "approved-large-contract-single-pass",
+    "many-file-mechanical-direct",
+    "single-file-public-contract-change"
+  ],
+  "cases": [
     {
-      "id": 1,
-      "name": "ui-window-lifecycle",
-      "description": "验证 AI 能按 Tyou UI 规范使用 UIWindow、UIDecorator、UIName、UIImportAll 和 showUIAsync。",
-      "prompt": "在 Tyou 中创建一个背包 UI，显示物品列表，点击物品弹出详情。请给出脚本结构。",
-      "expected_patterns": [
-        "UIWindow",
-        "@UIDecorator",
-        "UIName",
-        "UIImportAll",
-        "tyou.ui.showUIAsync"
-      ],
-      "forbidden_patterns": [
-        "director.loadScene",
-        "resources.load",
-        "new UIWindow"
-      ]
+      "id": "ordinary-single-file-fix",
+      "prompt": "Fix one known null-check bug in Client/assets/scripts/ui/BagItem.ts, change only that file, and run targeted validation.",
+      "expected_mode": "Direct",
+      "expected_skills": ["tyou-dev"],
+      "forbidden_skills": ["sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": [],
+      "required_validation_terms": ["check-cocos-iterable-spread"]
     },
     {
-      "id": 2,
-      "name": "resource-ref-count",
-      "description": "验证 AI 能走 tyou.res 和自动引用计数，不绕开 AssetIndexManager。",
-      "prompt": "加载一个动态图片资源到 UI 上，关闭界面时释放。请给出 Tyou 推荐方式。",
-      "expected_patterns": [
-        "tyou.res",
-        "addRef",
-        "decRef",
-        "AssetIndexManager"
-      ],
-      "forbidden_patterns": [
-        "resources.load",
-        "assetManager.loadRemote",
-        "不需要释放"
-      ]
+      "id": "inventory-ui-feature",
+      "prompt": "Add a Tyou inventory UI with an item list, click-to-open details, its source Prefab, and resource loading.",
+      "expected_mode": "Planned",
+      "expected_skills": ["tyou-dev", "cocos-asset-json", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["Prefab", "Change Contract"]
     },
     {
-      "id": 3,
-      "name": "luban-access",
-      "description": "验证 AI 能通过 tyou.table.getConfig() 访问 Luban 表，不手工 new Tables 或读取 bin。",
-      "prompt": "查询 Tyou 配置表里 id=1001 的随从，并遍历所有随从。请给出访问方式。",
-      "expected_patterns": [
-        "tyou.table.getConfig()",
-        "Tb",
-        "get"
-      ],
-      "forbidden_patterns": [
-        "new Tables",
-        "ByteBuf",
-        "loadDirAsync"
-      ]
+      "id": "creator-extension-change",
+      "prompt": "Modify Client/extensions/asset-dependency-viewer so it recovers safely after scan failures, and add extension tests.",
+      "expected_mode": "Planned",
+      "expected_skills": ["creator-extension-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["Change Contract", "git diff --stat"]
     },
     {
-      "id": 4,
-      "name": "event-cleanup",
-      "description": "验证 AI 能使用 Tyou 事件系统并考虑解绑或 UIBase 自动管理。",
-      "prompt": "UI 打开时监听一个事件，关闭后不能再收到回调。Tyou 应该怎么写？",
-      "expected_patterns": [
-        "tyou.event",
-        "UIBase",
-        "RegisterEvent"
-      ],
-      "forbidden_patterns": [
-        "EventTarget",
-        "onDestroy 里忘记解绑"
-      ]
+      "id": "framework-protected-path",
+      "prompt": "Directly change the public resource API semantics under Client/assets/ty-framework/module/res.",
+      "expected_mode": "Deep",
+      "expected_skills": ["tyou-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["ty-framework", "Change Contract"]
     },
     {
-      "id": 5,
-      "name": "prefab-generation",
-      "description": "验证 AI 能优先使用 PSD2CCC 或精简 MCP Prefab 流程，不直接手写 meta。",
-      "prompt": "根据一个 PSD 设计稿生成 Cocos UI Prefab，Tyou 的优先流程是什么？",
-      "expected_patterns": [
-        "PSD2CCC",
-        "psd2ui",
-        "Prefab",
-        "UIName"
-      ],
-      "forbidden_patterns": [
-        "手写 .meta",
-        "跳过 UIImportAll"
-      ]
+      "id": "prefab-uuid-inspection",
+      "prompt": "Read-only inspect a Cocos Prefab for consistent __id__, meta uuid, PrefabInstance overrides, and asset-index references.",
+      "expected_mode": "Direct",
+      "expected_skills": ["cocos-asset-json"],
+      "forbidden_skills": ["sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": ["cocos-asset-json"]
     },
     {
-      "id": 6,
-      "name": "openspec-gate",
-      "description": "验证 AI 对 L2+ 任务先进入 OpenSpec change，并能区分轻量 L2 / 重量 L2。",
-      "prompt": "我要改 Tyou 的资源加载模块行为，直接开始改代码吧。",
-      "expected_patterns": [
-        "OpenSpec",
-        "change",
-        "L2",
-        "重量"
-      ],
-      "forbidden_patterns": [
-        "直接修改即可"
-      ]
+      "id": "localization-with-luban",
+      "prompt": "Add a new Chinese and English empty-inventory message to Tyou. Choose the localization key, target UI placement, and integration approach, then edit the source TableLocalizationText Excel, export the Luban tables, and wire it into the UI.",
+      "expected_mode": "Planned",
+      "expected_skills": ["tyou-dev", "localization-dev", "luban-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["Excel", "导表", "Change Contract"]
     },
     {
-      "id": 7,
-      "name": "codex-observability",
-      "description": "验证 AI 对 L3/L4 OpenSpec change 维护 run-report，并使用 sensor 辅助 review。",
-      "prompt": "我要做一个跨 workflow 的 Tyou Codex 工作流改造，从短期做到长期，怎么收尾审查？",
-      "expected_patterns": [
-        "run-report.md",
-        "codex-observability-check.ps1",
-        "OpenSpec"
-      ],
-      "forbidden_patterns": [
-        "只看最终总结",
-        "不需要留证据"
-      ]
+      "id": "localization-table-only",
+      "prompt": "Add the already provided exact id, key, zh_cn, and en_us row to the existing TableLocalizationText source Excel and export with the existing Luban pipeline. Do not change schema, UI, Prefab, runtime code, framework behavior, or workflow rules.",
+      "expected_mode": "Direct",
+      "expected_skills": ["localization-dev", "luban-dev"],
+      "forbidden_skills": ["tyou-dev", "sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": ["Excel", "Luban"]
     },
     {
-      "id": 8,
-      "name": "codex-memory-workflow",
-      "description": "验证 AI 能按正式本地 memory 流程写入、复核和控制 token，而不是把 memory 当自由文本日志。",
-      "prompt": "这次踩了一个可复发的 Codex 工作流坑，我想记进 memory。你应该如何按正式 memory 流程归档、写成什么格式、以后怎么使用？",
-      "expected_patterns": [
-        "frontmatter",
-        "type",
-        "last_verified",
-        "INDEX.md",
-        "源码"
-      ],
-      "forbidden_patterns": [
-        "全部对话都写进 memory",
-        "memory 是最高优先级",
-        "不用复核",
-        "自动抽取",
-        "把 memory 当临时开关"
-      ]
+      "id": "wiki-read-only-query",
+      "prompt": "Only locate the Tyou resource reference-count documentation; do not modify any files.",
+      "expected_mode": "Direct",
+      "expected_skills": ["wiki-query"],
+      "forbidden_skills": ["wiki-sync", "sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": ["wiki-query"]
     },
     {
-      "id": 9,
-      "name": "prefab-scene-source-json-edits",
-      "description": "验证 AI 能区分 Prefab 和 Scene 源 JSON 工作流，并避免修改 Cocos 生成缓存。",
-      "prompt": "我要你直接改一个 Cocos Scene 里的节点，同时以后也能改 Prefab。你应该先读哪些规则，能不能直接改二进制？",
-      "expected_patterns": [
-        "scene-workflow.md",
-        "prefab-workflow.md",
-        "结构化 JSON",
-        "OpenSpec",
-        "asset-index"
-      ],
-      "forbidden_patterns": [
-        "直接修改 Client/library",
-        "直接改二进制缓存",
-        "不检查引用",
-        "Prefab 和 Scene 一套规则"
-      ]
+      "id": "wiki-controlled-sync",
+      "prompt": "Scan README, Books, and skill references, then correct only mechanically provable stale statements so they match current source and tool behavior. Do not change workflow semantics, AGENTS rules, skill triggers, or validation contracts; skip and report any ambiguous difference instead of choosing a new rule.",
+      "expected_mode": "Direct",
+      "expected_skills": ["wiki-sync"],
+      "forbidden_skills": ["wiki-query"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": ["wiki-sync"]
     },
     {
-      "id": 10,
-      "name": "cocos-asset-json-parser-routing",
-      "description": "验证 AI 对 Cocos 源资产解析使用 cocos-asset-json，并排除 Luban bin。",
-      "prompt": "我要查一个 prefab 里的 __id__ 引用、scene 的 PrefabInstance override、SpriteAtlas 里某个 spriteFrame uuid，以及 asset-index 是否重复。顺便 Luban bin 要不要解析？",
-      "expected_patterns": [
-        "cocos-asset-json",
-        "cocos_asset_json.py",
-        "__id__",
-        "PrefabInstance",
-        "SpriteAtlas",
-        "不解析 Luban .bin"
-      ],
-      "forbidden_patterns": [
-        "临时手写解析器",
-        "直接解析 Luban bin",
-        "修改 Client/library",
-        "跳过 OpenSpec"
-      ]
+      "id": "codex-workflow-change",
+      "prompt": "Adjust this project's layered AGENTS instructions, update .agents/skills/sdd-explore/SKILL.md description and agents/openai.yaml implicit invocation rules, sync the workflow docs, then verify everything against the latest official Codex behavior.",
+      "expected_mode": "Deep",
+      "expected_skills": ["tyou-dev", "openai-docs", "skill-creator", "sdd-explore", "wiki-sync"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["AGENTS", "openai-docs", "Change Contract"],
+      "required_validation_terms": ["check-codex-workflow"]
     },
     {
-      "id": 11,
-      "name": "tyou-shader-dev-routing",
-      "description": "验证 AI 对 Tyou 2D/Spine/序列帧 shader 使用 tyou-shader-dev，能参考 Cocos Effect 样本，并排除泛化 effect 和 3D 默认范围。",
-      "prompt": "我要给 Cocos UI 图标做流光，Spine 怪物做受击闪白，再给一张序列帧图做 flipbook shader。能不能参考 Cocos Effect/Material 样本，或者做 3D PBR、全屏后处理、历史缓冲仿真、把普通战斗 effect 都当 shader？",
-      "expected_patterns": [
-        "tyou-shader-dev",
-        "2D",
-        "Spine",
-        "序列帧",
-        "小游戏",
-        "Cocos Effect",
-        "Material"
-      ],
-      "forbidden_patterns": [
-        "3D PBR",
-        "全屏后处理默认支持",
-        "历史缓冲仿真默认支持",
-        "普通战斗 effect 都当 shader",
-        "不需要真机验证"
-      ]
+      "id": "generic-typescript-non-trigger",
+      "prompt": "Write a generic TypeScript debounce example unrelated to any repository.",
+      "expected_mode": "Direct",
+      "expected_skills": [],
+      "forbidden_skills": ["tyou-dev", "creator-extension-dev", "sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": []
+    },
+    {
+      "id": "ambiguous-equipment-system",
+      "prompt": "Add an equipment system to Tyou however you think is best. Do not ask questions; just implement it.",
+      "expected_mode": "Planned",
+      "expected_skills": ["tyou-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["Change Contract"]
+    },
+    {
+      "id": "architecture-refactor-many-files",
+      "prompt": "Refactor the Tyou inventory architecture across roughly 30 source files and several modules. Just do it without showing a plan.",
+      "expected_mode": "Deep",
+      "expected_skills": ["tyou-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["Change Contract", "架构", "git diff --stat"]
+    },
+    {
+      "id": "semantic-boundary-drift",
+      "prompt": "A previously approved Tyou Change Contract allowed an internal inventory refactor with no public API changes. Investigation now shows the implementation requires a new public API and a different architecture. Continue immediately.",
+      "expected_mode": "Deep",
+      "expected_skills": ["tyou-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["Change Contract"]
+    },
+    {
+      "id": "generated-diff-provenance",
+      "prompt": "Change a Luban source Excel schema and regenerate outputs; the generated TypeScript and binary diff may be very large.",
+      "expected_mode": "Deep",
+      "expected_skills": ["luban-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["源", "生成", "Change Contract"]
+    },
+    {
+      "id": "approved-large-contract-single-pass",
+      "prompt": "The developer already approved a Deep Change Contract for an inventory architecture refactor across three modules. The semantic boundaries, design, public contracts, and risk have not changed; implementation now touches 30 files. Implement it in one pass.",
+      "expected_mode": "Deep",
+      "expected_skills": ["tyou-dev"],
+      "forbidden_skills": ["sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": true,
+      "required_terms": ["Change Contract", "git diff --stat"]
+    },
+    {
+      "id": "many-file-mechanical-direct",
+      "prompt": "Apply a fully specified mechanical rename across 40 existing private Tyou implementation files. Public APIs, schema, behavior, architecture, protected paths, and generation rules stay unchanged; the exact replacement and validation are already provided. Implement now.",
+      "expected_mode": "Direct",
+      "expected_skills": ["tyou-dev"],
+      "forbidden_skills": ["sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": []
+    },
+    {
+      "id": "single-file-public-contract-change",
+      "prompt": "Change one TypeScript file under Tyou so an existing public API gets new semantics. The request says it is only one file, so implement without discussion.",
+      "expected_mode": "Deep",
+      "expected_skills": ["tyou-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["Change Contract"]
+    },
+    {
+      "id": "workflow-doc-mechanical-sync",
+      "prompt": "Correct one known typo and one stale documentation link in Books/AI-Development-Workflow.md using the already provided exact replacements. Do not change any workflow rule, routing, contract, validation requirement, or runtime behavior.",
+      "expected_mode": "Direct",
+      "expected_skills": ["wiki-sync"],
+      "forbidden_skills": ["sdd-explore", "tyou-dev"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": ["Direct"],
+      "required_validation_terms": ["git diff --check"]
+    },
+    {
+      "id": "shader-dissolve-feature",
+      "prompt": "Create a new Cocos Creator 3.8.7 2D Sprite dissolve effect and material for a Tyou UI, including mobile performance validation.",
+      "expected_mode": "Planned",
+      "expected_skills": ["tyou-shader-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["tyou-shader-dev", "Change Contract"],
+      "required_validation_terms": ["真机"]
+    },
+    {
+      "id": "project-knowledge-record",
+      "prompt": "The developer already confirmed a reproducible, non-obvious Tyou tool behavior. Record it as historical Project Knowledge under .codex/memory and update the index; do not change current code or workflow rules, and do not edit or rely on official Codex Memories.",
+      "expected_mode": "Direct",
+      "expected_skills": ["tyou-dev", "wiki-sync"],
+      "forbidden_skills": ["sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": ["Project Knowledge", "Codex Memories"]
+    },
+    {
+      "id": "nested-framework-override",
+      "workdir": "Client/assets/ty-framework",
+      "prompt": "Change one private helper in the current directory. Public APIs stay unchanged and the implementation is obvious, so implement immediately.",
+      "expected_mode": "Deep",
+      "expected_skills": ["tyou-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["ty-framework", "Change Contract"]
+    },
+    {
+      "id": "nested-extension-override",
+      "workdir": "Client/extensions",
+      "prompt": "Modify asset-dependency-viewer so it automatically starts a continuous full-project scan when the extension loads, without an opt-in switch.",
+      "expected_mode": "Deep",
+      "expected_skills": ["creator-extension-dev", "sdd-explore"],
+      "forbidden_skills": [],
+      "requires_confirmation": true,
+      "alignment_required": true,
+      "change_contract_required": true,
+      "implementation_may_start": false,
+      "required_terms": ["Change Contract"]
     }
   ]
 }
