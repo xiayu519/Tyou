@@ -240,7 +240,14 @@ export class ManagedAssetLoader {
 
         const progress = (finish: number, total: number, item: any) => {
             if (!this._pendingLoads.has(key)) return;
-            pending.progresses.forEach(cb => cb(finish, total, item));
+            const callbacks = pending.progresses.slice();
+            callbacks.forEach(cb => {
+                try {
+                    cb(finish, total, item);
+                } catch (error) {
+                    console.error("资源加载进度回调执行失败", key, error);
+                }
+            });
         };
 
         start(progress)
@@ -301,8 +308,13 @@ export class ManagedAssetLoader {
         retainForCaller?.(value);
         return new Promise((resolve) => {
             setTimeout(() => {
-                onComplete?.(value);
-                resolve(value);
+                try {
+                    onComplete?.(value);
+                } catch (error) {
+                    console.error("资源加载完成回调执行失败", error);
+                } finally {
+                    resolve(value);
+                }
             }, 0);
         });
     }
@@ -333,12 +345,8 @@ export class ManagedAssetLoader {
 
             this._pendingLoads.delete(key);
             this._cancelledKeys.add(key);
-            pending.consumers.forEach(consumer => {
-                consumer.onComplete?.(null);
-                consumer.resolve(null);
-            });
-            pending.consumers.length = 0;
             pending.progresses.length = 0;
+            this.resolvePendingConsumers(pending, null);
         }
     }
 
@@ -381,14 +389,27 @@ export class ManagedAssetLoader {
         result: T | null,
         retainForAdditionalConsumer?: (value: T) => void
     ): void {
-        pending.consumers.forEach((consumer, index) => {
-            if (result && index > 0) {
-                retainForAdditionalConsumer?.(result);
-            }
-            consumer.onComplete?.(result);
-            consumer.resolve(result);
-        });
+        const consumers = pending.consumers.slice();
         pending.consumers.length = 0;
+
+        consumers.forEach((consumer, index) => {
+            let consumerResult = result;
+            if (result && index > 0) {
+                try {
+                    retainForAdditionalConsumer?.(result);
+                } catch (error) {
+                    consumerResult = null;
+                    console.error("资源加载引用保留失败", error);
+                }
+            }
+            try {
+                consumer.onComplete?.(consumerResult);
+            } catch (error) {
+                console.error("资源加载完成回调执行失败", error);
+            } finally {
+                consumer.resolve(consumerResult);
+            }
+        });
     }
 
     private retainAssetForCaller(asset: Asset | null): void {

@@ -12,18 +12,26 @@ export class RandomManager {
         return this._instance;
     }
 
-    private seedrandom!: any;
+    private _seedState: number | null = null;
+
     private getRandom(): number {
-        if (this.seedrandom)
-            return this.seedrandom.quick();
+        if (this._seedState !== null) {
+            // Mulberry32：不依赖全局 Math 扩展，保持同一 seed 下序列稳定。
+            let value = this._seedState = (this._seedState + 0x6D2B79F5) >>> 0;
+            value = Math.imul(value ^ (value >>> 15), value | 1);
+            value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+            return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+        }
 
         return Math.random();
     }
 
     /** 设置随机种子 */
-    setSeed(seed: number) {
-        //@ts-ignore
-        this.seedrandom = new Math.seedrandom(seed);
+    setSeed(seed: number): void {
+        if (!Number.isFinite(seed)) {
+            throw new Error("随机种子必须是有限数字");
+        }
+        this._seedState = Math.trunc(seed) >>> 0;
     }
 
     /**
@@ -66,7 +74,7 @@ export class RandomManager {
         min = Math.ceil(min);
         max = Math.floor(max);
         switch (type) {
-            case 1: // [min,max) 得到一个两数之间的随机整数,这个值不小于min（如果min不是整数的话，得到一个向上取整的 min），并且小于（但不等于）max  
+            case 1: // [min,max) 得到一个两数之间的随机整数,这个值不小于min（如果min不是整数的话，得到一个向上取整的 min），并且小于（但不等于）max
                 return Math.floor(this.getRandom() * (max - min)) + min;
             case 2: // [min,max] 得到一个两数之间的随机整数，包括两个数在内,这个值比min大（如果min不是整数，那就不小于比min大的整数），但小于（但不等于）max
                 return Math.floor(this.getRandom() * (max - min + 1)) + min;

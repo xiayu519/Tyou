@@ -253,10 +253,10 @@ export class Vec3Util {
 
     /**
      * 一次贝塞尔即为线性插值函数
-     * @param t 
-     * @param posStart 
-     * @param posEnd 
-     * @returns 
+     * @param t
+     * @param posStart
+     * @param posEnd
+     * @returns
      */
     static bezierOne(t: number, posStart: Vec3, posEnd: Vec3): Vec3 {
         if (t > 1) {
@@ -274,11 +274,11 @@ export class Vec3Util {
 
     /**
      * 二次贝塞尔曲线
-     * @param t 
-     * @param posStart 
-     * @param posCon 
-     * @param posEnd 
-     * @returns 
+     * @param t
+     * @param posStart
+     * @param posCon
+     * @param posEnd
+     * @returns
      */
     static bezierTwo(t: number, posStart: Vec3, posCon: Vec3, posEnd: Vec3): Vec3 {
         if (t > 1) {
@@ -306,12 +306,12 @@ export class Vec3Util {
 
     /**
      * 三次贝塞尔
-     * @param t 
-     * @param posStart 
-     * @param posCon1 
-     * @param posCon2 
-     * @param posEnd 
-     * @returns 
+     * @param t
+     * @param posStart
+     * @param posCon1
+     * @param posCon2
+     * @param posEnd
+     * @returns
      */
     static bezierThree(t: number, posStart: Vec3, posCon1: Vec3, posCon2: Vec3, posEnd: Vec3): Vec3 {
         if (t > 1) {
@@ -328,7 +328,7 @@ export class Vec3Util {
         var ttt = tt * t;
 
         var pStart: Vec3 = posStart.clone();
-        var pos = posStart.clone();
+        var pos = new Vec3();
 
         var pCon1: Vec3 = posCon1.clone();
         var pCon2: Vec3 = posCon2.clone();
@@ -381,6 +381,7 @@ export class Vec3Util {
      */
     static angle(dir1: Vec3, dir2: Vec3): number {
         var dotValue = this.dot(dir1.clone().normalize(), dir2.clone().normalize());
+        dotValue = Math.max(-1, Math.min(1, dotValue));
         return Math.acos(dotValue) / Math.PI * 180 * Math.sign(dotValue);
     }
 

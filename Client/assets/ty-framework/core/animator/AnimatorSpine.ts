@@ -5,7 +5,7 @@ import { AnimatorStateLogic } from "./core/AnimatorStateLogic";
 
 const { ccclass, property, requireComponent, disallowMultiple } = _decorator;
 
-/** 
+/**
  * Spine状态机组件（主状态机），trackIndex为0
  */
 @ccclass
@@ -99,9 +99,10 @@ export default class AnimatorSpine extends AnimatorBase {
      * @param scale 缩放倍率
      */
     protected scaleTime(scale: number) {
-        if (scale > 0)
-            this._spine.timeScale = tyou.game.getTimeScale();
-            // this._spine.timeScale = scale;
+        if (!Number.isFinite(scale)) {
+            return;
+        }
+        this._spine.timeScale = scale * tyou.game.getTimeScale();
     }
 
     /**
@@ -135,6 +136,6 @@ export default class AnimatorSpine extends AnimatorBase {
      * 清空动画完成的监听
      */
     public clearCompleteListener() {
-        this._completeListenerMap.clear;
+        this._completeListenerMap.clear();
     }
 }

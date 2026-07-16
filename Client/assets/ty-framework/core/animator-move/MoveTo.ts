@@ -20,6 +20,8 @@ export class MoveTo extends Component {
     onStart: Function | null = null;
     /** 移动完成回调 */
     onComplete: Function | null = null;
+    /** 移动取消回调 */
+    onCancel: Function | null = null;
     /** 距离变化时 */
     onChange: Function | null = null;
 
@@ -30,6 +32,8 @@ export class MoveTo extends Component {
     private _totalTime: number = 0;
     private _currentTime: number = 0;
     private _isDynamicTarget: boolean = false;
+    private _hasStartPosition: boolean = false;
+    private _settled: boolean = false;
     private _easingFunc: (t: number) => number = EasingFunctions.linear;
 
     start() {
@@ -40,21 +44,22 @@ export class MoveTo extends Component {
 
         if (this.speed <= 0) {
             console.error("移动速度必须要大于零");
-            this.exit();
+            this.cancel();
             return;
         }
 
         // 设置缓动函数
         this._easingFunc = EasingFunctions.getEasingFunction(this.easing);
 
-        // 计算目标位置
-        this._updateTargetPosition();
-
         // 记录起始位置
-        if (this.ns === Node.NodeSpace.WORLD) {
-            this._startPosition.set(this.node.worldPosition);
-        } else {
-            this._startPosition.set(this.node.position);
+        this._captureStartPosition();
+
+        // 标记是否为动态目标（目标是一个Node，可能会移动）
+        this._isDynamicTarget = this.target instanceof Node;
+
+        // 计算目标位置
+        if (!this._updateTargetPosition()) {
+            return;
         }
 
         // 计算总距离
@@ -69,9 +74,6 @@ export class MoveTo extends Component {
         this._totalTime = this._totalDistance / this.speed;
         this._currentTime = 0;
 
-        // 标记是否为动态目标（目标是一个Node，可能会移动）
-        this._isDynamicTarget = this.target instanceof Node;
-
         // 触发开始事件
         this.onStart?.call(this);
         this.onChange?.call(this);
@@ -82,7 +84,9 @@ export class MoveTo extends Component {
 
         // 如果是动态目标，每帧更新目标位置
         if (this._isDynamicTarget) {
-            this._updateTargetPosition();
+            if (!this._updateTargetPosition()) {
+                return;
+            }
         }
 
         this._currentTime += dt;
@@ -122,16 +126,22 @@ export class MoveTo extends Component {
     }
 
     /** 更新目标位置 */
-    private _updateTargetPosition(): void {
+    private _updateTargetPosition(): boolean {
         if (!this.target) {
             console.error("MoveTo target is null!");
-            this.exit();
-            return;
+            this.cancel();
+            return false;
         }
+
+        this._captureStartPosition();
 
         // 计算目标位置
         let end: Vec3;
         if (this.target instanceof Node) {
+            if (!this.target.isValid) {
+                this.cancel();
+                return false;
+            }
             if (this.ns === Node.NodeSpace.WORLD) {
                 end = this.target.worldPosition.clone();
             } else {
@@ -151,15 +161,6 @@ export class MoveTo extends Component {
         } else {
             end = (this.target as Vec3).clone();
         }
-        
-        // 如果是第一次计算，记录起始位置
-        if (this._startPosition.equals(Vec3.ZERO)) {
-            if (this.ns === Node.NodeSpace.WORLD) {
-                this._startPosition.set(this.node.worldPosition);
-            } else {
-                this._startPosition.set(this.node.position);
-            }
-        }
 
         // 更新目标位置
         this._targetPosition.set(end);
@@ -173,17 +174,56 @@ export class MoveTo extends Component {
 
             if (remainingDistance <= 0) {
                 this.exit();
-                return;
+                return false;
             }
 
             // 重新计算剩余时间
             const remainingTime = remainingDistance / this.speed;
             this._totalTime = this._currentTime + remainingTime;
         }
+        return true;
+    }
+
+    private _captureStartPosition(): void {
+        if (this._hasStartPosition) {
+            return;
+        }
+        if (this.ns === Node.NodeSpace.WORLD) {
+            this._startPosition.set(this.node.worldPosition);
+        } else {
+            this._startPosition.set(this.node.position);
+        }
+        this._hasStartPosition = true;
     }
 
     public exit() {
-        this.onComplete?.call(this);
-        this.destroy();
+        this._settle(true, true);
+    }
+
+    public cancel(): void {
+        this._settle(false, true);
+    }
+
+    protected onDestroy(): void {
+        this._settle(false, false);
+    }
+
+    private _settle(completed: boolean, destroySelf: boolean): void {
+        if (this._settled) {
+            return;
+        }
+        this._settled = true;
+        const callback = completed ? this.onComplete : this.onCancel;
+        this.onComplete = null;
+        this.onCancel = null;
+        try {
+            callback?.call(this);
+        } catch (error) {
+            console.error(completed ? "MoveTo complete callback failed" : "MoveTo cancel callback failed", error);
+        } finally {
+            if (destroySelf && this.isValid) {
+                this.destroy();
+            }
+        }
     }
 }

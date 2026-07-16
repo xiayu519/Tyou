@@ -17,6 +17,8 @@ export class OpacityTo extends Component {
 
     /** 动画完成回调 */
     onComplete: Function | null = null;
+    /** 动画取消回调 */
+    onCancel: Function | null = null;
 
     private _startOpacity: number = 0;
     private _totalDistance: number = 0;
@@ -24,12 +26,13 @@ export class OpacityTo extends Component {
     private _totalTime: number = 0;
     private _easingFunc: (t: number) => number = EasingFunctions.linear;
     private _uiOpacity: UIOpacity | null = null;
+    private _settled: boolean = false;
 
     start() {
         this._uiOpacity = this.node.getComponent(UIOpacity);
         if (!this._uiOpacity) {
             console.error('OpacityTo requires UIOpacity component!');
-            this.exit();
+            this.cancel();
             return;
         }
 
@@ -73,7 +76,33 @@ export class OpacityTo extends Component {
     }
 
     public exit() {
-        this.onComplete?.call(this);
-        this.destroy();
+        this._settle(true, true);
+    }
+
+    public cancel(): void {
+        this._settle(false, true);
+    }
+
+    protected onDestroy(): void {
+        this._settle(false, false);
+    }
+
+    private _settle(completed: boolean, destroySelf: boolean): void {
+        if (this._settled) {
+            return;
+        }
+        this._settled = true;
+        const callback = completed ? this.onComplete : this.onCancel;
+        this.onComplete = null;
+        this.onCancel = null;
+        try {
+            callback?.call(this);
+        } catch (error) {
+            console.error(completed ? "OpacityTo complete callback failed" : "OpacityTo cancel callback failed", error);
+        } finally {
+            if (destroySelf && this.isValid) {
+                this.destroy();
+            }
+        }
     }
 }

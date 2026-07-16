@@ -7,46 +7,53 @@ import {EasingType} from "../EasingType";
 
 export class GameUtil {
     static async moveTo(from: Node, to: Vec3 | Node, speed: number, easing: EasingType = EasingType.LINEAR, ns = Node.NodeSpace.LOCAL) {
-        let isFinished = false;
-        if (from.getComponent(MoveTo)) {
-            from.getComponent(MoveTo).exit();
+        const existing = from.getComponent(MoveTo);
+        if (existing) {
+            existing.cancel();
             await Unitask.waitNextFrame();
+        }
+        if (!from.isValid) {
+            return;
         }
         const moveTo = from.addComponent(MoveTo)!;
         moveTo.speed = speed;
         moveTo.target = to;
         moveTo.easing = easing;
         moveTo.ns = ns;
-        moveTo.onComplete = () => {
-            isFinished = true;
-        };
-        await Unitask.waitUntil(() => isFinished);
+        await new Promise<void>((resolve) => {
+            moveTo.onComplete = resolve;
+            moveTo.onCancel = resolve;
+        });
     }
 
     static async scaleTo(from: Node, to: number, speed: number, easing: EasingType = EasingType.LINEAR) {
-        let isFinished = false;
+        if (!from.isValid) {
+            return;
+        }
         const scaleTo = from.addComponent(ScaleTo)!;
         scaleTo.speed = speed;
         scaleTo.target = to;
         scaleTo.easing = easing;
-        scaleTo.onComplete = () => {
-            isFinished = true;
-        };
-        await Unitask.waitUntil(() => isFinished);
+        await new Promise<void>((resolve) => {
+            scaleTo.onComplete = resolve;
+            scaleTo.onCancel = resolve;
+        });
     }
 
     static async opacityTo(node: Node, from: number, to: number, speed: number, easing: EasingType = EasingType.LINEAR) {
+        if (!node.isValid) {
+            return;
+        }
         let uiOpacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
         uiOpacity.opacity = from;
-        let isFinished = false;
         const opacityTo = node.addComponent(OpacityTo)!;
         opacityTo.speed = speed;
         opacityTo.easing = easing;
         opacityTo.target = to;
-        opacityTo.onComplete = () => {
-            isFinished = true;
-        };
-        await Unitask.waitUntil(() => isFinished);
+        await new Promise<void>((resolve) => {
+            opacityTo.onComplete = resolve;
+            opacityTo.onCancel = resolve;
+        });
     }
 
     static getLocalPositionFromN2N(form: Node, to: Node) {

@@ -1,5 +1,5 @@
 ﻿// ScaleTo.ts
-import { _decorator, Component, Node } from 'cc';
+import { _decorator, Component } from 'cc';
 import {EasingFunctions, EasingType} from "../EasingType";
 
 const { ccclass, property } = _decorator;
@@ -20,11 +20,14 @@ export class ScaleTo extends Component {
 
     /** 缩放完成回调 */
     onComplete: Function | null = null;
+    /** 缩放取消回调 */
+    onCancel: Function | null = null;
 
     private _startScale: number = 0;
     private _totalDistance: number = 0;
     private _currentTime: number = 0;
     private _totalTime: number = 0;
+    private _settled: boolean = false;
     private _easingFunc: (t: number) => number = EasingFunctions.linear;
 
     start() {
@@ -62,7 +65,33 @@ export class ScaleTo extends Component {
     }
 
     public exit() {
-        this.onComplete?.call(this);
-        this.destroy();
+        this._settle(true, true);
+    }
+
+    public cancel(): void {
+        this._settle(false, true);
+    }
+
+    protected onDestroy(): void {
+        this._settle(false, false);
+    }
+
+    private _settle(completed: boolean, destroySelf: boolean): void {
+        if (this._settled) {
+            return;
+        }
+        this._settled = true;
+        const callback = completed ? this.onComplete : this.onCancel;
+        this.onComplete = null;
+        this.onCancel = null;
+        try {
+            callback?.call(this);
+        } catch (error) {
+            console.error(completed ? "ScaleTo complete callback failed" : "ScaleTo cancel callback failed", error);
+        } finally {
+            if (destroySelf && this.isValid) {
+                this.destroy();
+            }
+        }
     }
 }

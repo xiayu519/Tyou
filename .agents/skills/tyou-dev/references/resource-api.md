@@ -86,6 +86,8 @@ await tyou.res.loadAssetAsync({
 
 `tyou.res.setSpriteAsync()` 有异步覆盖保护：同一个 `Sprite` 的旧请求晚于新请求完成时，旧请求不会覆盖当前图；如果旧请求已经加载出 `SpriteFrame`，框架会释放这次未被赋值的资源。
 
+`ManagedAssetLoader` 合并同一资源的并发请求时，会隔离每个调用方的 progress/onComplete 回调异常；单个回调抛错只记录错误，不会阻断其他调用方，也不会让对应 Promise 永久等待。缓存命中和取消中的完成回调遵循相同规则。
+
 `UIBase.setSpriteAsync()` / `setRemoteSpriteAsync()` 还会传入 owner epoch。若 `UIWidget` 已经 recycle/release，即使 Sprite 节点仍然有效，旧请求晚到也不会赋值到新 index，已加载资源会走 `tyou.res.decRef`。
 `UIBase.loadSpineAsync()` / `loadSpineEffectAsync()` 同样使用 owner epoch 和目标请求序号；旧 Spine 请求晚到或同一 Skeleton 已有更新请求时，不会覆盖新内容，并会释放晚到的 `sp.SkeletonData`。
 
