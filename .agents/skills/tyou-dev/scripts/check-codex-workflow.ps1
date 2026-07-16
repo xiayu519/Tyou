@@ -114,7 +114,8 @@ $requiredSddPaths = @(
     ".agents/skills/sdd-explore/references/alignment-contract.md",
     ".agents/skills/tyou-dev/scripts/check-change-boundary.ps1",
     ".agents/skills/tyou-dev/scripts/check-project-knowledge.ps1",
-    ".agents/skills/tyou-dev/evals/run-codex-routing-evals.ps1"
+    ".agents/skills/tyou-dev/evals/run-codex-routing-evals.ps1",
+    ".agents/skills/tyou-dev/evals/run-codex-outcome-evals.ps1"
 )
 $missingSddPaths = @($requiredSddPaths | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })
 if ($missingSddPaths.Count -eq 0) {
@@ -125,10 +126,10 @@ if ($missingSddPaths.Count -eq 0) {
 
 $requiredMarkers = [ordered]@{
     "AGENTS.md" = @("alignment-contract.md", "Project Knowledge", "Codex Memories", "sdd-explore", "skill-creator", "topic reference")
-    "Books/AI-Development-Workflow.md" = @("alignment-contract.md", "Project Knowledge", "Codex Memories", "smoke", "full", "topic reference")
+    "Books/AI-Development-Workflow.md" = @("alignment-contract.md", "Project Knowledge", "Codex Memories", "smoke", "full", "outcome", "topic reference")
     ".agents/skills/sdd-explore/SKILL.md" = @("alignment-contract.md", "Single rule source", "Project Knowledge")
     ".agents/skills/tyou-dev/SKILL.md" = @("alignment-contract.md", "Project Knowledge", "skill-creator")
-    ".agents/skills/tyou-dev/references/codex-native-workflow.md" = @(".codex/config.toml", "alignment-contract.md", "Project Knowledge", "Codex Memories")
+    ".agents/skills/tyou-dev/references/codex-native-workflow.md" = @(".codex/config.toml", "alignment-contract.md", "Project Knowledge", "Codex Memories", "prompt-guidance-gpt-5p6")
     ".agents/skills/tyou-dev/references/memory-workflow.md" = @("Project Knowledge", "topic reference")
     ".agents/skills/wiki-sync/SKILL.md" = @("Project Knowledge", "topic reference")
 }
@@ -153,14 +154,14 @@ if (Test-Path -LiteralPath $configPath -PathType Leaf) {
     $configMarkers = @('model = "gpt-5.6-sol"', 'model_reasoning_effort = "high"', 'plan_mode_reasoning_effort = "xhigh"')
     $missing = @($configMarkers | Where-Object { $configText.IndexOf($_, [System.StringComparison]::Ordinal) -lt 0 })
     if ($missing.Count -eq 0) {
-        Add-Result "project-config" "pass" "Model and high/xhigh defaults are declared"
+        Add-Result "project-config" "pass" "Model, high default, and xhigh Plan mode are declared"
     } else {
         Add-Result "project-config" "fail" ("Missing config markers: " + ($missing -join ", "))
     }
 }
 
 $contractPath = Join-Path $Root ".agents/skills/sdd-explore/references/alignment-contract.md"
-$contractMarkers = @("Allowed changes/contracts:", "Known unknowns:", "Re-alignment conditions:")
+$contractMarkers = @("Goal / user-visible outcome:", "Success criteria:", "Stop / re-alignment conditions:")
 if (Test-Path -LiteralPath $contractPath -PathType Leaf) {
     $contractText = Get-Content -LiteralPath $contractPath -Raw -Encoding UTF8
     $missing = @($contractMarkers | Where-Object { $contractText.IndexOf($_, [System.StringComparison]::Ordinal) -lt 0 })
@@ -229,9 +230,14 @@ if (Test-Path -LiteralPath $evalPath -PathType Leaf) {
         $evalConfig = Get-Content -LiteralPath $evalPath -Raw -Encoding UTF8 | ConvertFrom-Json
         $caseIds = @($evalConfig.cases.id)
         $smokeIds = @($evalConfig.smoke_cases)
-        $requiredCases = @("shader-dissolve-feature", "project-knowledge-record", "nested-framework-override", "nested-extension-override", "workflow-doc-mechanical-sync", "localization-table-only")
+        $requiredCases = @("shader-dissolve-feature", "project-knowledge-record", "nested-framework-override", "nested-extension-override", "workflow-doc-mechanical-sync", "localization-table-only", "fully-specified-ui-direct")
+        $requiredOutcomeCases = @("readonly-review-no-write", "direct-exact-fix", "complete-contract-no-reconfirm", "ambiguous-design-asks-material-questions", "approved-deep-implements", "empty-search-finite-fallback", "completion-stops-at-scope")
         $missingCases = @($requiredCases | Where-Object { $_ -notin $caseIds })
+        $outcomeCaseIds = @($evalConfig.outcome_cases.id)
+        $outcomeSmokeIds = @($evalConfig.outcome_smoke_cases)
+        $missingOutcomeCases = @($requiredOutcomeCases | Where-Object { $_ -notin $outcomeCaseIds })
         $invalidSmoke = @($smokeIds | Where-Object { $_ -notin $caseIds })
+        $invalidOutcomeSmoke = @($outcomeSmokeIds | Where-Object { $_ -notin $outcomeCaseIds })
         $invalidSkillCases = New-Object System.Collections.Generic.List[string]
         foreach ($case in @($evalConfig.cases)) {
             $expected = @($case.expected_skills | ForEach-Object { ([string]$_).ToLowerInvariant() })
@@ -247,10 +253,18 @@ if (Test-Path -LiteralPath $evalPath -PathType Leaf) {
                 $invalidSkillCases.Add($case.id)
             }
         }
-        if ([int]$evalConfig.schema_version -ge 5 -and
+        $reasoningEfforts = @($evalConfig.reasoning_efforts)
+        $missingReasoningEfforts = @(@("medium", "high", "xhigh", "max") | Where-Object { $_ -notin $reasoningEfforts })
+        $forbiddenReasoningEfforts = @(@("none", "low") | Where-Object { $_ -in $reasoningEfforts })
+        $reasoningValid = $reasoningEfforts.Count -eq 4 -and
+            $missingReasoningEfforts.Count -eq 0 -and
+            $forbiddenReasoningEfforts.Count -eq 0
+        if ([int]$evalConfig.schema_version -ge 6 -and $reasoningValid -and
             $smokeIds.Count -ge 4 -and $smokeIds.Count -lt $caseIds.Count -and
-            $missingCases.Count -eq 0 -and $invalidSmoke.Count -eq 0 -and $invalidSkillCases.Count -eq 0) {
-            Add-Result "eval-profiles" "pass" "Smoke=$($smokeIds.Count), full=$($caseIds.Count), required coverage cases are present"
+            $outcomeSmokeIds.Count -ge 3 -and $outcomeSmokeIds.Count -le $outcomeCaseIds.Count -and
+            $missingCases.Count -eq 0 -and $missingOutcomeCases.Count -eq 0 -and
+            $invalidSmoke.Count -eq 0 -and $invalidOutcomeSmoke.Count -eq 0 -and $invalidSkillCases.Count -eq 0) {
+            Add-Result "eval-profiles" "pass" "Routing smoke=$($smokeIds.Count)/full=$($caseIds.Count), outcome smoke=$($outcomeSmokeIds.Count)/full=$($outcomeCaseIds.Count)"
         } else {
             Add-Result "eval-profiles" "fail" "Invalid schema, smoke/full profiles, skill sets, or missing coverage cases"
         }

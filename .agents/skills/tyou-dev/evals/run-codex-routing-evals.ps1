@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("high", "xhigh")]
+    [ValidateSet("medium", "high", "xhigh", "max")]
     [string] $Reasoning = "high",
     [ValidateSet("smoke", "full")]
     [string] $Suite = "smoke",

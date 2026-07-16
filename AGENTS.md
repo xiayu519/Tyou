@@ -2,19 +2,19 @@
 
 请使用中文写提案和回答；代码标识、命令、路径、API 名称和日志原文保持原样。
 
-本项目是 Cocos Creator 3.8.7 + TypeScript 的 Tyou 客户端框架。当前工作流只面向单人开发，并假定全程使用 `gpt-5.6-sol`、reasoning 为 `high` 或 `xhigh`；不为低能力模型或多人审批增加常驻流程。
+本项目是 Cocos Creator 3.8.7 + TypeScript 的 Tyou 客户端框架。当前工作流只面向单人开发，并固定使用 `gpt-5.6-sol`；reasoning 仅允许 `medium`、`high`、`xhigh` 或 `max`，默认 `high`，Plan mode 使用 `xhigh`，`max` 只由最难且质量优先的任务显式选择或用于 eval。不为 `none` / `low` 或多人审批增加常驻流程。
 
 ## Codex 原生入口
 
 - Codex 会在会话启动时按当前工作目录构建一次 `AGENTS.md` 指令链。修改目标文件前，主动检查从仓库根到目标目录沿途尚未在当前会话生效的 `AGENTS.md` / `AGENTS.override.md`。
 - 用 skill description 做任务路由；触发后只读取该 skill 的 `SKILL.md` 和当前任务所需的最少 reference。不要预加载全部项目文档。
-- 主题参考位于 `.agents/skills/tyou-dev/references/`；`.codex/memory/` 是版本化 Tyou Project Knowledge，不是官方 Codex Memories。源码和工具实际行为高于 reference 与项目知识；发现过期内容时在同一任务中同步修正。
+- 主题参考位于 `.agents/skills/tyou-dev/references/`；`.codex/memory/` 是版本化 Tyou Project Knowledge，不是官方 Codex Memories。源码和工具实际行为高于 reference 与项目知识。只读评审或诊断发现过期内容时只报告差异，不写文件；实施任务若本次改动直接导致相关 reference 过期，则在同一批准范围内同步修正。
 - Codex 工作流、AGENTS 或 skill 触发规则发生变化时，先用 `openai-docs` 核验官方 Codex 特性，再修改项目规则。
 
 ## SDD Alignment Gate
 
 - Direct、Planned、Deep 是 Tyou 风险标签，不是官方 Codex Plan mode。详细门槛、Change Contract 格式和重新对齐条件唯一以 `.agents/skills/sdd-explore/references/alignment-contract.md` 为准。
-- 目标、行为和实现路径明确且语义边界不变时 Direct；新功能、验收不明确或存在方案选择时先用 `sdd-explore`；框架、公共契约、schema/生成规则、工作流语义/路由/强制约束、受保护边界或高回滚成本按 Deep。
+- 目标、行为和实现路径明确且语义边界不变时 Direct；只有会改变结果的需求、验收或设计不确定性才按 Planned 先用 `sdd-explore`，领域类别本身不构成门禁；框架、公共契约、schema/生成规则、工作流语义/路由/强制约束、受保护边界或高回滚成本按 Deep。
 - Planned/Deep 写文件前必须得到明确批准；当前会话已批准同一契约时不重复确认。文件数量不是路由或重新确认门禁，获批任务可一次完成；是否分段只由风险、可验证性、方案稳定性或开发者要求决定。
 - Change Contract 默认保留在对话和 Codex plan；仅在跨会话、等待人工验证或暂停时使用 `.codex/work/<task>.md`，完成后删除。
 
@@ -45,6 +45,8 @@
 3. Web 构建差异是风险依据之一，不是规则生效条件；仅在任务涉及 Web 构建、发布回归或转换链路时验证最终 Web 包。
 
 ## 验证与收尾
+
+完成表示：请求结果已经交付，必要验证通过或无法验证项已明确说明，且当前批准范围内没有剩余必做工作。满足后停止，不扩展到可选重构。
 
 1. 验证必须对应实际风险：优先运行目标包测试/构建、静态检查、资源解析或生成器验证，不用 Markdown 结构完整代替行为正确。
 2. 验证只覆盖本次明确文件和受影响模块，保留用户既有脏工作区；最后至少运行 `git diff --check`。

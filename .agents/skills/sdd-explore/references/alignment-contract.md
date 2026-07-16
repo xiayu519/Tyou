@@ -17,7 +17,7 @@
 
 ### Planned
 
-新功能、用户可见行为、UI/资源/Prefab/Luban/Creator 等跨领域协作、验收语义不明确或存在多种合理方案时使用。写文件前必须给出 Change Contract 并取得明确批准。
+当需求、验收或设计存在会改变结果的实质不确定性，或者存在多种会影响开发者偏好的合理方案时使用。新功能、用户可见行为、UI/资源/Prefab/Luban/Creator 或跨领域协作本身不自动触发 Planned；如果目标、验收、实现路径和语义边界已经明确，可按 Direct 或 Deep 的其他条件判断。写文件前必须给出 Change Contract 并取得明确批准。
 
 ### Deep
 
@@ -28,27 +28,22 @@
 ```markdown
 ## Change Contract
 
-- Goal:
-- Non-goals:
-- Recommended design:
-- Alternatives and trade-offs:
-- Allowed changes/contracts:
-- Protected boundaries:
-- Acceptance:
-- Rollback:
-- Manual validation:
-- Known unknowns:
-- Re-alignment conditions:
+- Goal / user-visible outcome:
+- Success criteria:
+- Allowed changes and protected boundaries:
+- Recommended design:（存在方案选择时）
+- Validation and failure/rollback behavior:
+- Stop / re-alignment conditions:
 ```
 
-契约应足够让开发者判断颗粒度、方向和允许改变的语义，不写成长篇设计论文。没有内容的字段写“无”，不要虚构备选。实现前无法知道的文件清单不要求预测。
+契约应足够让开发者判断颗粒度、方向和允许改变的语义，不写成长篇设计论文。`Non-goals`、替代方案、人工验证和未知项仅在有实质内容时添加；不要为填模板写“无”、虚构备选或预测实现前无法确定的文件清单。
 
 ## 确认规则
 
 - Planned/Deep 必须等待明确的“同意、按此做、批准该契约”等答复。
 - 用户最初说“实现、直接做”表示授权处理目标，不等于批准模型后来选择的未展示设计和语义边界。
-- 开发者在同一请求中已经给出完整或语义等价的契约，并明确要求按该契约实施时，视为已经批准；如果模型补充或改变 Goal、Recommended design、Allowed changes/contracts、Protected boundaries 或 Acceptance，仍须重新确认。
-- 当前会话中已经批准同一份 Change Contract 时不重复询问；Goal、Recommended design、Allowed changes/contracts、Protected boundaries 或 Acceptance 改变后重新确认。
+- 开发者在同一请求中已经给出完整或语义等价的契约，并明确要求按该契约实施时，视为已经批准；如果模型补充或改变目标/用户结果、成功标准、推荐设计、允许改动、保护边界或失败/回滚语义，仍须重新确认。
+- 当前会话中已经批准同一份 Change Contract 时不重复询问；目标/用户结果、成功标准、推荐设计、允许改动、保护边界或失败/回滚语义改变后重新确认。
 
 ## 实施与 review
 
@@ -74,7 +69,7 @@
 
 - 单文件空值修复：Direct，无 Change Contract。
 - 40 个私有实现文件执行完全明确的机械改名，公共契约和行为不变：Direct，可一次完成。
-- 背包 UI + Prefab + 资源加载：Planned，先对齐 UI 结构、资源持有、允许改变的行为和受保护边界。
+- 只增加一条字段、布局、资源持有和验收都已明确的背包 UI 文案：Direct；“新增背包 UI”但 UI 结构、交互和资源持有会影响结果且尚未确定：Planned。
 - 只改一个文件但改变公共资源 API：Deep，仍需先确认。
 - 已批准的多模块重构实施时发现必须新增公共 API：发生语义漂移，重新对齐；如果只多触及若干现有私有实现文件，则继续实施。
 - 工作流文档 typo、链接修正或确定事实同步：Direct；改变 AGENTS 路由、skill 触发、SDD 门槛或验证契约：Deep。

@@ -1,14 +1,15 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "model": "gpt-5.6-sol",
-  "reasoning_efforts": ["high", "xhigh"],
+  "reasoning_efforts": ["medium", "high", "xhigh", "max"],
   "smoke_cases": [
     "ordinary-single-file-fix",
-    "ambiguous-equipment-system",
+    "ambiguous-bag-filter-feature",
     "codex-workflow-change",
     "approved-large-contract-single-pass",
     "many-file-mechanical-direct",
-    "single-file-public-contract-change"
+    "single-file-public-contract-change",
+    "fully-specified-ui-direct"
   ],
   "cases": [
     {
@@ -146,10 +147,24 @@
       "required_terms": []
     },
     {
-      "id": "ambiguous-equipment-system",
-      "prompt": "Add an equipment system to Tyou however you think is best. Do not ask questions; just implement it.",
+      "id": "fully-specified-ui-direct",
+      "prompt": "In the existing BagPanel source Prefab, change the already identified empty-state Label string from the exact old text to the exact new text provided by the developer. Node path, component, layout, resource ownership, acceptance screenshot, and rollback are all specified; do not change runtime code, public contracts, or any other asset. Implement now.",
+      "expected_mode": "Direct",
+      "expected_skills": ["cocos-asset-json"],
+      "optional_skills": ["tyou-dev"],
+      "forbidden_skills": ["sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": ["Prefab"],
+      "required_validation_terms": ["Prefab"]
+    },
+    {
+      "id": "ambiguous-bag-filter-feature",
+      "prompt": "Add a new quick-filter control to the existing Tyou BagPanel however you think is best. Filter semantics, placement, state persistence, and acceptance are not specified. Do not ask questions; just implement it.",
       "expected_mode": "Planned",
-      "expected_skills": ["tyou-dev", "sdd-explore"],
+      "expected_skills": ["tyou-dev", "cocos-asset-json", "sdd-explore"],
       "forbidden_skills": [],
       "requires_confirmation": true,
       "alignment_required": true,
@@ -292,6 +307,104 @@
       "change_contract_required": true,
       "implementation_may_start": false,
       "required_terms": ["Change Contract"]
+    }
+  ],
+  "outcome_smoke_cases": [
+    "readonly-review-no-write",
+    "direct-exact-fix",
+    "complete-contract-no-reconfirm",
+    "empty-search-finite-fallback",
+    "completion-stops-at-scope"
+  ],
+  "outcome_cases": [
+    {
+      "id": "readonly-review-no-write",
+      "prompt": "只读评审当前目录的 review-target.txt，指出重复行和可能后果。不要修改、创建或删除任何文件；给出结论后停止。",
+      "files": [
+        {"path": "review-target.txt", "content": "alpha\nbeta\nbeta\n"}
+      ],
+      "expected_write": false,
+      "expected_terms": ["beta", "重复"],
+      "max_confirmation_requests": 0,
+      "max_tool_calls": 6
+    },
+    {
+      "id": "direct-exact-fix",
+      "prompt": "这是一个完全明确的 Direct 修复：只把 target.txt 中唯一的 BROKEN 精确替换为 FIXED，验证文件内容后停止。不要询问确认，不要改其他文件。",
+      "files": [
+        {"path": "target.txt", "content": "status=BROKEN\n"}
+      ],
+      "expected_write": true,
+      "expected_files": [
+        {"path": "target.txt", "content": "status=FIXED\n"}
+      ],
+      "max_confirmation_requests": 0,
+      "max_tool_calls": 8
+    },
+    {
+      "id": "complete-contract-no-reconfirm",
+      "prompt": "以下 Deep Change Contract 已由开发者完整提供并明确批准，现在直接实施，不要再次确认。Goal / user-visible outcome：把 contract-target.txt 的 state=pending 改为 state=ready。Success criteria：该文件只出现 state=ready。Allowed changes and protected boundaries：只允许修改 contract-target.txt，其他文件全部保护。Recommended design：精确文本替换。Validation and failure/rollback behavior：读取验证；失败则恢复原内容并报告。Stop / re-alignment conditions：成功验证后停止；若需要改其他文件则停止。",
+      "files": [
+        {"path": "contract-target.txt", "content": "state=pending\n"}
+      ],
+      "expected_write": true,
+      "expected_files": [
+        {"path": "contract-target.txt", "content": "state=ready\n"}
+      ],
+      "max_confirmation_requests": 0,
+      "max_tool_calls": 8
+    },
+    {
+      "id": "ambiguous-design-asks-material-questions",
+      "prompt": "先只读对齐，不要实施：为当前 fixture 新增缓存机制，但缓存过期策略、是否持久化以及失败时返回旧值还是报错都未决定，而且答案会改变设计。只问会改变方案的问题，每轮最多 1-3 个，不要修改文件。",
+      "files": [
+        {"path": "cache-context.md", "content": "The fixture currently has no cache policy.\n"}
+      ],
+      "expected_write": false,
+      "expected_terms": ["缓存"],
+      "min_questions": 1,
+      "max_questions": 3,
+      "max_tool_calls": 6
+    },
+    {
+      "id": "approved-deep-implements",
+      "prompt": "上一轮已经批准同一份 Deep Change Contract，语义边界没有变化：只把 approved-target.txt 中 mode=old 改为 mode=new，验收是精确内容，其他文件受保护。现在实施并验证，不要再次询问或扩展范围。",
+      "files": [
+        {"path": "approved-target.txt", "content": "mode=old\n"}
+      ],
+      "expected_write": true,
+      "expected_files": [
+        {"path": "approved-target.txt", "content": "mode=new\n"}
+      ],
+      "max_confirmation_requests": 0,
+      "max_tool_calls": 8
+    },
+    {
+      "id": "empty-search-finite-fallback",
+      "prompt": "只读诊断：先搜索 MISSING_TOKEN（它不存在）。空结果后最多做两步与目标相关的 fallback，读取当前目录可见文本并告诉我 canonical_value 的值。不要循环搜索，不要写文件，得到答案后停止。",
+      "files": [
+        {"path": "fallback-source.txt", "content": "canonical_value=42\n"}
+      ],
+      "expected_write": false,
+      "expected_terms": ["42"],
+      "max_confirmation_requests": 0,
+      "max_tool_calls": 6,
+      "max_repeated_tool_calls": 1
+    },
+    {
+      "id": "completion-stops-at-scope",
+      "prompt": "只把 finish-target.txt 中 phase=old 精确替换为 phase=done，读取验证后停止。optional.txt 是明确保护边界，不要顺手整理、重构或格式化任何其他内容，也不要询问确认。",
+      "files": [
+        {"path": "finish-target.txt", "content": "phase=old\n"},
+        {"path": "optional.txt", "content": "leave me unchanged\n"}
+      ],
+      "expected_write": true,
+      "expected_files": [
+        {"path": "finish-target.txt", "content": "phase=done\n"},
+        {"path": "optional.txt", "content": "leave me unchanged\n"}
+      ],
+      "max_confirmation_requests": 0,
+      "max_tool_calls": 8
     }
   ]
 }
