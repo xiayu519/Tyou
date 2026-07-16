@@ -7,18 +7,17 @@ export class SpineHolder extends Component {
     private spine!: sp.Skeleton;
     private asset: Asset | null = null;
     private isAutoPlay:boolean;
-    private isDestory:boolean;
+    private isDestroy:boolean;
     private isLoop:boolean;
     private completeListener: (() => void) | null = null;
 
-    public init(spine: sp.Skeleton,asset:Asset,isAutoPlay = true,isDestory = true,isLoop = false): void {
-        if (this.asset && this.asset !== asset) {
-            tyou.res.decRef(this.asset);
-        }
+    public init(spine: sp.Skeleton,asset:Asset,isAutoPlay = true,isDestroy = true,isLoop = false): void {
+        this.clearCompleteListener();
+        this.releaseAsset();
         this.spine = spine;
         this.asset = asset;
         this.isAutoPlay = isAutoPlay;
-        this.isDestory = isDestory;
+        this.isDestroy = isDestroy;
         this.isLoop = isLoop;
         this.completeListener = this.onSpineComplete.bind(this);
         this.spine.setCompleteListener(this.completeListener);
@@ -32,13 +31,17 @@ export class SpineHolder extends Component {
             return;
         }
         this.releaseAsset();
-        if (this.isDestory) {
+        if (this.isDestroy) {
             this.node.destroy();
         }
     }
 
     override onDestroy() {
+        this.clearCompleteListener();
         this.releaseAsset();
+    }
+
+    private clearCompleteListener(): void {
         if (this.spine && this.completeListener) {
             this.spine.setCompleteListener(() => {
             });

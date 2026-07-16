@@ -33,6 +33,13 @@ tyou.audio.setEffectVolume(0.7);
 - 如果 `playBGM(a)` 后立刻 `playBGM(b)`，旧请求 `a` 即使后加载完成，也不能成为当前 BGM。
 - `stopAll()`、`stopByType(AudioType.BGM)` 和停止循环 BGM 的接口会取消 pending BGM 请求。
 
+## 总音量
+
+- `setBGMVolume(volume)` 和 `setEffectVolume(volume)` 保存当前 Audio 模块生命周期内的总音量，并同时更新已在播放的同类型音频。
+- 后续新播放的音频同样应用已设置的总音量；AudioSource 回池时虽然会把自身音量重置为 `1`，再次播放时仍会重新计算有效音量。
+- 最终有效音量为“单次播放音量 × 对应类型总音量”。例如 `playOneShotSafe("hit", 0.6)` 且 Effect 总音量为 `0.5` 时，实际音量为 `0.3`。
+- Audio 模块不负责把总音量写入本地存档；需要跨启动保存时，由业务通过 `tyou.storage` 读取设置后再调用音量接口。
+
 ## 销毁顺序
 
 Audio 销毁依赖 `tyou.res.decRef()`，因此框架销毁时必须先销毁 `tyou.audio`，再销毁 `tyou.res`。同理，依赖 `tyou.timer.removeTimer()` 的模块必须先于 `tyou.timer` 销毁。

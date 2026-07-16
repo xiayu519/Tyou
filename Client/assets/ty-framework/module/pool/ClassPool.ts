@@ -53,7 +53,7 @@ export class ClassPool<T extends object> {
         this._poolName = config.poolName;
         this._constructor = config.constructor;
         this._maxCapacity = config.maxCapacity || 200;
-        this._cleanupInterval = (config.cleanupInterval || 10) * 1000; // 转换为毫秒
+        this._cleanupInterval = (config.cleanupInterval ?? 10) * 1000; // 转换为毫秒
         this._resetFunc = config.resetFunc;
         this._destroyFunc = config.destroyFunc;
         this._preloadCount = config.preloadCount || 0;
@@ -136,21 +136,18 @@ export class ClassPool<T extends object> {
             return;
         }
 
-        // 重置对象
-        this._resetObject(obj);
-
-        // 如果池已满，销毁对象
-        if (this._allObjects.size >= this._maxCapacity) {
-            this._destroyObject(obj);
-            this._allObjects.delete(obj);
-        } else {
-            // 放入可用队列
-            this._availableObjects.push(obj);
-            this._objectReturnTime.set(obj, this._getGameTotalTime());
+        if (!this._activeObjects.has(obj)) {
+            console.warn(`对象重复归还: ${this._poolName}`);
+            return;
         }
 
-        // 从活跃集合移除
+        // 先重置对象；如果业务重置逻辑抛错，保持 active 状态，避免对象落入无归属状态。
+        this._resetObject(obj);
+
+        // 归还不会增加池内对象总数，因此不需要再次判断最大容量。
         this._activeObjects.delete(obj);
+        this._availableObjects.push(obj);
+        this._objectReturnTime.set(obj, this._getGameTotalTime());
     }
 
     /**

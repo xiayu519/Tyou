@@ -200,11 +200,15 @@ export class EventModule extends Module {
 
         // 快照遍历：防止 once 移除或回调中 off 影响遍历
         const snapshot = list.slice();
-        const onceListeners: EventListenerInfo[] = [];
 
         try {
             for (let i = 0; i < snapshot.length; i++) {
                 const info = snapshot[i];
+                // once 必须在回调前从正式列表移除，确保同事件递归 emit 时不会再次触发。
+                // 如果已被更深层的嵌套 emit 消费，则外层快照必须跳过它。
+                if (info.once && !this._removeListenerInfo(type, info)) {
+                    continue;
+                }
                 try {
                     if (info.target) {
                         info.callback.call(info.target, ...args);
@@ -214,15 +218,8 @@ export class EventModule extends Module {
                 } catch (e) {
                     console.error(`[EventModule] Error in event "${type}":`, e);
                 }
-                if (info.once) {
-                    onceListeners.push(info);
-                }
             }
         } finally {
-            for (let i = 0; i < onceListeners.length; i++) {
-                const info = onceListeners[i];
-                this._queueRemoval(type, info.callback, info.target);
-            }
             this._endEmit(type);
         }
     }
@@ -441,6 +438,22 @@ export class EventModule extends Module {
         }
 
         if (list.length === 0) this._listeners.delete(type);
+    }
+
+    private _removeListenerInfo(type: string, listener: EventListenerInfo): boolean {
+        const list = this._listeners.get(type);
+        if (!list) return false;
+
+        const index = list.indexOf(listener);
+        if (index < 0) {
+            return false;
+        }
+        list.splice(index, 1);
+
+        if (list.length === 0) {
+            this._listeners.delete(type);
+        }
+        return true;
     }
 
     private _beginEmit(type: string): void {

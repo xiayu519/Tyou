@@ -48,6 +48,8 @@ export class AudioModule extends Module {
     private _currentBGM: AudioSource | null = null;
     private _audioCache: Map<string, AudioCache> = new Map();
     private _bgmRequestVersion: number = 0;
+    private _bgmVolume: number = 1.0;
+    private _effectVolume: number = 1.0;
     private _isDestroyed: boolean = false;
 
     /**
@@ -251,7 +253,7 @@ export class AudioModule extends Module {
             this._resetAudioSource(audioSource);
             audioSource.clip = audioClip;
             audioSource.loop = !!activeConfig.loop;
-            audioSource.volume = this.normalizeVolume(activeConfig.volume);
+            audioSource.volume = this.getEffectiveVolume(activeConfig);
 
             this._activeAudios.set(audioSource, {
                 config: activeConfig,
@@ -390,10 +392,15 @@ export class AudioModule extends Module {
      */
     public setVolume(type: AudioType, volume: number): void {
         const normalizedVolume = this.normalizeVolume(volume);
+        if (type === AudioType.BGM) {
+            this._bgmVolume = normalizedVolume;
+        } else {
+            this._effectVolume = normalizedVolume;
+        }
+
         this._activeAudios.forEach((record, audioSource) => {
             if (record.config.type === type) {
-                record.config.volume = normalizedVolume;
-                audioSource.volume = normalizedVolume;
+                audioSource.volume = this.getEffectiveVolume(record.config);
             }
         });
     }
@@ -607,6 +614,16 @@ export class AudioModule extends Module {
             return 1.0;
         }
         return Math.max(0, Math.min(1, volume));
+    }
+
+    private getMasterVolume(type: AudioType = AudioType.EFFECT): number {
+        return type === AudioType.BGM ? this._bgmVolume : this._effectVolume;
+    }
+
+    private getEffectiveVolume(config: AudioConfig): number {
+        const baseVolume = this.normalizeVolume(config.volume);
+        const masterVolume = this.getMasterVolume(config.type);
+        return this.normalizeVolume(baseVolume * masterVolume);
     }
 
     private _resetAudioSource(audioSource: AudioSource): void {
