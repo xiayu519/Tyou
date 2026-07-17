@@ -307,6 +307,20 @@
       "change_contract_required": true,
       "implementation_may_start": false,
       "required_terms": ["Change Contract"]
+    },
+    {
+      "id": "game-image-pipeline-pure-codex",
+      "prompt": "Use only Codex imagegen and local repository scripts to create a pixel-art eight-direction character set in .codex/artifacts/game-assets/slime. First generate an approved 2x2 front/right/back/left sheet on a uniform solid chroma-key background that conflicts with the character palette, convert it to RGBA, and prepare 128x128 frames. Then generate the four diagonal directions and compose the exact order front, front-right, right, back-right, back, back-left, left, front-left. Normalize all cardinal and diagonal frames to the same visible subject height and validate size plus direction semantics. If any direction remains invalid, report the eight-direction task as failed and continue targeted repair; never downgrade to four directions unless the user explicitly changes the request. Do not call Meowa or any external image API, and do not modify Prefab, Scene, runtime code, or framework files.",
+      "expected_mode": "Direct",
+      "expected_skills": ["game-asset-pipeline", "imagegen"],
+      "optional_skills": ["tyou-dev"],
+      "forbidden_skills": ["sdd-explore"],
+      "requires_confirmation": false,
+      "alignment_required": false,
+      "change_contract_required": false,
+      "implementation_may_start": true,
+      "required_terms": ["game-asset-pipeline", "imagegen", "八方向"],
+      "required_validation_terms": ["RGBA", "主体高度", "不得降级"]
     }
   ],
   "outcome_smoke_cases": [

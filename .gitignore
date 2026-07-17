@@ -17,9 +17,13 @@ node_modules/
 # Codex generated reports
 #//////////////////////////
 .codex/work/*.md
+.codex/artifacts/
 .wiki-sync-backups/
 wiki-sync-report.md
 WIKI_SYNC_TODO.md
+
+# Repository skill caches
+.agents/skills/game-asset-pipeline/scripts/__pycache__/
 
 #//////////////////////////
 # VSCode
