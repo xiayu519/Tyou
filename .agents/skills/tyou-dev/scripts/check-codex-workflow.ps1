@@ -65,8 +65,8 @@ foreach ($file in $skillFiles) {
         continue
     }
 
-    $nameMatch = [regex]::Match($frontmatter.Groups[1].Value, "(?m)^name:\s*([^\r\n]+)$")
-    $descriptionMatch = [regex]::Match($frontmatter.Groups[1].Value, "(?m)^description:\s*(.+)$")
+    $nameMatch = [regex]::Match($frontmatter.Groups[1].Value, "(?m)^name:[ \t]*([^\r\n]+)\r?$")
+    $descriptionMatch = [regex]::Match($frontmatter.Groups[1].Value, "(?m)^description:[ \t]*(.+?)\r?$")
     if (-not $nameMatch.Success -or -not $descriptionMatch.Success) {
         Add-Result "frontmatter:$relative" "fail" "Frontmatter requires single-line name and description"
         continue
