@@ -12,7 +12,7 @@ Tyou 是面向 Cocos Creator 3.8.7 的 TypeScript 客户端框架，围绕 Cocos
 
 运行时通过全局 `tyou.*` 暴露模块，编辑器侧提供 PSD 还原、UI 脚本生成、资源索引生成和 Luban 配表接入，适合需要快速搭建小游戏/手游客户端框架并重视 UI 生产效率的项目。
 
-本仓库的 AI 辅助改动使用 Codex 原生 AGENTS/skills/plan、轻量 SDD Change Contract 与真实验证工作流；README 只保留项目使用说明，具体流程入口见 (https://xiayu519.github.io/blog/tyou-gpt56-sol-workflow/)。
+本仓库的 AI 辅助改动使用 Codex 原生 AGENTS/skills/plan、轻量 SDD Change Contract 与真实验证工作流；README 只保留项目使用说明，具体流程入口见 [Tyou 的 GPT-5.6 Sol 原生工作流](https://xiayu519.github.io/blog/tyou-gpt56-sol-workflow/)。
 
 ## 特性概览
 
